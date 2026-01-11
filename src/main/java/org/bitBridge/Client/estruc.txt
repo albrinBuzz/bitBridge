@@ -1,0 +1,15 @@
+org.filetalk.filetalk.client
+│
+├── core                <-- El motor del cliente
+│   ├── Client.java     <-- Fachada principal (la que ya tienes)
+│   └── ClientContext.java <-- Nuevo: une los servicios
+│
+├── network             <-- Todo lo relacionado con Sockets/UDP
+│   ├── ConnectionManager.java
+│   └── DiscoveryService.java
+│
+├── services            <-- Lógica de negocio
+│   ├── MessageDispatcher.java <-- Nuevo: el "cerebro" que reparte mensajes
+│   └── TransferService.java   <-- Centraliza File/Directory Managers
+│
+└── model/observers     <-- (Ya los tienes)

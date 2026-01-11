@@ -1,0 +1,30 @@
+org.filetalk.filetalk.server
+├── core
+│   ├── Server.java                ← orquestador (muy delgado)
+│   ├── ServerLifecycle.java
+│   ├── ServerContext.java
+│
+├── client
+│   ├── ClientRegistry.java
+│   ├── ClientSession.java
+│   ├── NicknameService.java
+│
+├── network
+│   ├── TcpServer.java
+│   ├── UdpBroadcastService.java
+│   ├── ConnectionAcceptor.java
+│
+├── transfer
+│   ├── TransferSessionManager.java
+│
+├── stats
+│   ├── ServerStats.java
+│
+├── observer
+│   ├── ServerObserverNotifier.java
+│
+├── console
+│   ├── ConsoleMonitor.java
+│
+└── config
+    └── ServerConfig.java

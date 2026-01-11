@@ -1,0 +1,5 @@
+[03:15:05.859] [INFO ] Server::startServer(L:98) - Servidor P2P escuchando en 0.0.0.0:8080
+[03:15:07.165] [INFO ] MainController::lambda$connectServer$3(L:57) - Intentando conectar a 127.0.0.1:8080
+[03:15:07.169] [INFO ] ClientHandler::run(L:51) - Cliente conectado: /127.0.0.1:57368
+[03:15:07.169] [INFO ] Client::setConexion(L:69) - Conectando a 127.0.0.1:8080 como: fedora
+[03:15:07.171] [INFO ] MainController::lambda$connectServer$4(L:68) - Conexión exitosa
