@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 🌉 BitBridge
 ### **La autopista de datos definitiva para tu red local**
 
