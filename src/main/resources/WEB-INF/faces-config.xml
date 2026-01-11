@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<faces-config version="2.3">
+	  <navigation-rule>
+	    <from-view-id>/perfil</from-view-id>
+	    <navigation-case>
+	        <from-outcome>/perfil</from-outcome>
+	        <to-view-id>/home/perfil.xhtml</to-view-id>
+	    </navigation-case>
+	</navigation-rule>
+
+	<application>
+		<exception-handler-class>com.SkyWay.exception.FacesExceptionHandler</exception-handler-class>
+	</application>
+</faces-config>

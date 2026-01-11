@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:f="jakarta.faces.core"
+      xmlns:h="jakarta.faces.html"
+      xmlns:p="http://primefaces.org/ui"
+      xmlns:fs="http://xmlns.jcp.org/jsf/core"
+      xmlns:ui="http://java.sun.com/jsf/facelets">
+<h:head>
+    <title>Cámara JSF</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+    <style>
+        body {
+            margin: 0;
+            background: #f5f5f7;
+            padding: 15px;
+            font-family: system-ui, sans-serif;
+        }
+
+        .container {
+            max-width: 500px;
+            background: #fff;
+            padding: 15px;
+            margin: auto;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,.2);
+        }
+
+        video {
+            width: 100%;
+            border-radius: 12px;
+            background: #000;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 16px;
+            font-size: 18px;
+            border-radius: 10px;
+            border: none;
+            margin-top: 12px;
+            cursor: pointer;
+        }
+
+        .cam {
+            background: #007bff;
+            color: white;
+        }
+
+        .shot {
+            background: #ff9800;
+            color: white;
+        }
+
+        .stop {
+            background: #e53935;
+            color: white;
+        }
+
+        #preview {
+            margin-top: 15px;
+            width: 100%;
+            border-radius: 12px;
+            display: none;
+        }
+    </style>
+
+
+
+
+    <script>
+        let stream = null;
+
+        async function startCamera() {
+            let video = document.getElementById("video");
+
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: "environment" }, // cámara trasera
+                    audio: false
+                });
+
+                video.srcObject = stream;
+                video.play();
+
+            } catch (e) {
+                alert("No se puede acceder a la cámara: " + e);
+            }
+        }
+
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(t => t.stop());
+                stream = null;
+            }
+        }
+
+        ffunction capturePhoto() {
+    let video = document.getElementById("video");
+    let canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext("2d").drawImage(video, 0, 0);
+
+    // Guardar Base64 en hidden
+    document.getElementById("form:hiddenPhoto").value = canvas.toDataURL("image/png");
+
+    // Mostrar preview
+    let img = document.getElementById("preview");
+    img.src = document.getElementById("form:hiddenPhoto").value;
+    img.style.display = "block";
+
+    // Disparar el botón AJAX oculto
+    document.getElementById("form:sendPhotoBtn").click();
+}
+
+    </script>
+</h:head>
+
+<h:body>
+
+    <div class="card">
+        <h:form>
+            <h:panelGrid columns="3" cellpadding="5">
+                <p:outputPanel id="photoCamPnl">
+                    <p:photoCam widgetVar="pc" listener="#{photoCamView.oncapture}" update="photo"/>
+                    <select onchange="reload()" class="photoCamDevices">
+                        <option value="">Select device</option>
+                        <option value="user">"user" device</option>
+                        <option value="environment">"environment" device</option>
+                    </select>
+                </p:outputPanel>
+                <p:commandButton type="button" value="Capture" onclick="PF('pc').capture()"/>
+                <p:outputPanel id="photo">
+                    <p:graphicImage name="demo/images/photocam/#{photoCamView.filename}.jpeg"
+                                    rendered="#{not empty photoCamView.filename}"/>
+                </p:outputPanel>
+            </h:panelGrid>
+        </h:form>
+    </div>
+
+
+
+    <div class="container">
+        <h2 style="text-align:center;">Cámara del Dispositivo (JSF)</h2>
+
+        <h:form id="form">
+
+            <video id="video" autoplay="autoplay" playsinline="playsinline"></video>
+
+            <!-- Botones de cámara -->
+            <button type="button" class="btn cam" onclick="startCamera()">📷 Activar Cámara</button>
+            <button type="button" class="btn shot" onclick="capturePhoto()">📸 Tomar Foto</button>
+            <button type="button" class="btn stop" onclick="stopCamera()">✋ Detener</button>
+
+            <!-- Campo oculto donde se guarda la foto -->
+            <h:inputHidden id="hiddenPhoto" value="#{cameraBean.base64Photo}" />
+
+            <!-- Botón AJAX oculto para enviar la foto al Bean -->
+            <h:commandButton id="sendPhotoBtn" style="display:none" action="#{cameraBean.receivePhoto}">
+                <f:ajax execute="hiddenPhoto" render="messages" />
+            </h:commandButton>
+
+            <!-- Preview -->
+            <img id="preview" />
+
+            <h:messages id="messages"/>
+        </h:form>
+
+
+    </div>
+    <script>
+
+        //<![CDATA[
+
+        function reload() {
+            var cam = PF('pc');
+            var deviceSelector = document.querySelector("select.photoCamDevices");
+            var device = deviceSelector.value;
+            cam.device = device;
+            cam.reload();
+        }
+
+        function populateDeviceMenu() {
+            var photoCam = PF('pc');
+            var deviceSelector = document.querySelector("select");
+            var availableDevices = photoCam.getAvailableDevices();
+            if (availableDevices) {
+                availableDevices.then(devices => devices.forEach(device => {
+                        var option = document.createElement("option");
+                        option.text = device.label;
+                        option.value = device.deviceId;
+                        deviceSelector.appendChild(option);
+                    })
+                );
+            } else {
+                console.log("no devices available");
+            }
+        }
+
+        populateDeviceMenu();
+
+        //]]>
+
+    </script>
+</h:body>
+</html>

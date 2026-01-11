@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:h="jakarta.faces.html"
+      xmlns:f="jakarta.faces.core"
+      xmlns:p="http://primefaces.org/ui"
+      xmlns:fn="http://java.sun.com/jsp/jstl/functions"
+      xmlns:ui="http://java.sun.com/jsf/facelets">
+
+<h:head>
+    <title>Gestión de Archivos</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+    <link rel="stylesheet" href="https://unpkg.com/primeflex@3.3.1/primeflex.min.css"/>
+
+    <style>
+    body {
+    font-family: system-ui, sans-serif;
+    margin: 0;
+    padding: 10px;
+    background: #f2f5f7;
+    }
+
+    .card {
+    background: white;
+    padding: 18px;
+    margin: 0 auto 12px auto;
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+    }
+
+    .card-title {
+    font-size: 1.4em;
+    text-align: center;
+    margin-bottom: 15px;
+    }
+
+    .btn {
+    width: 100%;
+    padding: 16px;
+    margin-top: 10px;
+    font-size: 18px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: 0.2s;
+    }
+
+    .btn-primary {
+    background: #007bff;
+    color: white;
+    }
+
+    .btn-success {
+    background: #28a745;
+    color: white;
+    }
+
+    #progressBarContainer {
+    margin-top: 15px;
+    width: 100%;
+    background: #d6d6d6;
+    border-radius: 10px;
+    overflow: hidden;
+    display: none;
+    }
+
+    #progressBar {
+    height: 14px;
+    width: 0%;
+    background: #28a745;
+    transition: width 0.25s ease-in-out;
+    }
+
+    #log {
+    margin-top: 15px;
+    background: #111;
+    color: #0f0;
+    padding: 12px;
+    border-radius: 8px;
+    height: 200px;
+    overflow-y: scroll;
+    font-size: 14px;
+    white-space: pre-line;
+    font-family: monospace;
+    }
+
+    body {
+    font-family: "Segoe UI", Arial, sans-serif;
+    background: #f5f7fa;
+    margin: 0;
+    }
+
+    .card {
+    width: 480px;
+    margin: 80px auto;
+    padding: 30px;
+    border-radius: 12px;
+    background: white;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    }
+
+    h2 {
+    text-align: center;
+    margin-bottom: 20px;
+    color: #333;
+    }
+
+    /* Hacer que los formularios estén en la misma fila */
+    .upload-container {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap; /* Esto asegura que se ajusten en pantallas pequeñas */
+    }
+
+    .upload-card {
+    width: 48%; /* Dos formularios al 48% de ancho */
+    margin-bottom: 20px;
+    }
+
+    /* Estilo responsive para pantallas pequeñas */
+    @media (max-width: 768px) {
+    .upload-card {
+    width: 100%; /* En pantallas pequeñas, cada formulario ocupa el 100% */
+    }
+    }
+
+        /* Efecto de elevación e iluminación al pasar el mouse */
+.hover-zoom {
+    transition: transform .2s, box-shadow .2s;
+}
+.hover-zoom:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+
+/* Sombra suave para las imágenes en la tabla */
+.shadow-1 {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+    </style>
+
+
+<script>
+        // Habilitar la opción de seleccionar una carpeta
+        function enableDirectory() {
+            const input = document.getElementById("folderInput");
+            input.setAttribute("webkitdirectory", "true");
+            input.setAttribute("directory", "true");
+            input.setAttribute("multiple", "true");
+        }
+
+        document.addEventListener("DOMContentLoaded", enableDirectory);
+
+        // Función para hacer log con mensajes detallados
+        function log(msg, isError = false) {
+            const logArea = document.getElementById("log");
+            const logMessage = document.createElement("div");
+
+            logMessage.textContent = msg;
+            if (isError) {
+                logMessage.style.color = "red"; // Mensajes de error en rojo
+            } else {
+                logMessage.style.color = "green"; // Mensajes de éxito en verde
+            }
+
+            logArea.appendChild(logMessage);
+            logArea.scrollTop = logArea.scrollHeight;
+        }
+
+        // Función para abrir el selector de carpeta
+        function selectFolder() {
+            document.getElementById("folderInput").click();
+
+
+              const input = document.getElementById("folderInput");
+            const files = input.files;
+
+
+
+            // Extraemos el nombre de la carpeta desde el primer archivo
+            const firstFilePath = files[0].webkitRelativePath;
+            const folderName = firstFilePath.split("/")[0];  // El texto antes del primer "/"
+
+            console.log("Carpeta seleccionada:", folderName);
+
+            // Aquí puedes actualizar algún elemento en la UI con el nombre
+            document.getElementById("folderNameDisplay").textContent = `Carpeta: ${folderName}`;
+
+
+        }
+
+        // Función para subir la carpeta
+        async function uploadFolder() {
+            const input = document.getElementById("folderInput");
+            const files = input.files;
+            if (!files || files.length === 0) {
+                alert("Debe seleccionar una carpeta.");
+                log("Error: No se seleccionó ninguna carpeta.", true);
+                return;
+            }
+
+            const selectedFolderName = document.getElementById("selectedFolderName");
+            const folderFilesList = document.getElementById("folderFilesList");
+
+             if (!files.length) {
+                selectedFolderName.textContent = "";
+                folderFilesList.innerHTML = "";
+                return;
+            }
+
+               const firstFilePath = files[0].webkitRelativePath;
+            const folderName = firstFilePath.split("/")[0] || "Carpeta seleccionada";
+
+            selectedFolderName.textContent = `Carpeta seleccionada: ${folderName}`;
+
+
+
+            // Mostrar el contenedor del progreso de la subida
+            const progressContainer = document.getElementById("progressBarContainer");
+            const progressBar = document.getElementById("progressBar");
+
+            progressContainer.style.display = "block";
+            progressBar.style.width = "0%";
+
+            // Log inicial
+             log("Carpeta: " + folderName);
+            log("Archivos encontrados: " + files.length);
+            log("Iniciando la subida...\n");
+
+            let total = files.length;
+            let uploaded = 0;
+            let startTime = Date.now();
+
+            // Subida de cada archivo
+            for (const file of files) {
+                const formData = new FormData();
+                formData.append("file", file);
+                formData.append("path", file.webkitRelativePath);
+
+                try {
+
+
+                    const response = await fetch("#{request.contextPath}/api/upload-folder", {
+                        method: "POST",
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        log(`Error al subir ${file.name}. Código de estado: ${response.status}`, true);
+                    } else {
+                        uploaded++;
+                        progressBar.style.width = Math.round((uploaded / total) * 100) + "%";
+                        log(`✔ Subido: ${file.webkitRelativePath}`);
+                    }
+                } catch (error) {
+
+                }
+            }
+
+            let endTime = Date.now();
+            let totalTime = ((endTime - startTime) / 1000).toFixed(2);
+
+            log(`\n✔ Carpeta completa subida en ${totalTime} segundos.`);
+            log(`Subidos ${uploaded} de ${total} archivos.`);
+        }
+    </script>
+
+</h:head>
+
+<h:body>
+
+    <!-- ======================================================= -->
+    <!--  FORM 3: DESCARGA DE ARCHIVOS                           -->
+    <!-- ======================================================= -->
+
+
+
+        <!-- BARRA DE NAVEGACIÓN -->
+
+    <h:form id="formBreadcrumb">
+        <!-- BARRA DE NAVEGACIÓN -->
+        <p:panel styleClass="p-mb-3">
+            <div class="p-d-flex p-ai-center p-jc-between">
+
+                <!-- BOTONES ATRÁS / ADELANTE -->
+                <div>
+                    <p:commandButton icon="pi pi-arrow-left"
+                                     title="Atrás"
+                                     action="#{downloadBean.goBack}"
+                                     update="formDownload"
+                                     disabled="#{!downloadBean.canGoBack}"
+                                     styleClass="p-button-text p-mr-2"/>
+
+                    <p:commandButton icon="pi pi-arrow-right"
+                                     title="Adelante"
+                                     action="#{downloadBean.goForward}"
+                                     update="formDownload"
+                                     disabled="#{!downloadBean.canGoForward}"
+                                     styleClass="p-button-text"/>
+                </div>
+
+                <!-- Mostrar el breadcrumb en la vista (debugging) -->
+
+
+                <!-- Mostrar breadcrumb con outputPanel -->
+                <p:outputPanel id="breadcrumbPanel">
+                    <h:outputText value="Ruta: " style="font-weight:bold" />
+
+                    <ui:repeat value="#{downloadBean.breadcrumb}" var="f" varStatus="status">
+                        <h:panelGroup>
+
+                            <h:panelGroup>
+
+                                <!-- ICONO -->
+                                <i class="pi #{f.isDirectory() ? 'pi-folder' : 'pi-file'}"
+                                   style="margin-right:4px;color:#6c757d"></i>
+
+                                <!-- ELEMENTOS INTERMEDIOS -->
+                                <h:commandLink value="#{f.name}"
+                                               action="#{downloadBean.goTo(f)}"
+                                               rendered="#{not status.last}"
+                                               style="text-decoration:none;color:#007ad9;font-weight:500" />
+
+                                <!-- ELEMENTO ACTUAL -->
+                                <h:outputText value="#{f.name}"
+                                              rendered="#{status.last}"
+                                              style="font-weight:bold;color:#2c3e50" />
+
+                                <!-- SEPARADOR -->
+                                <h:outputText value=" › "
+                                              rendered="#{not status.last}"
+                                              style="margin:0 6px;color:#999" />
+
+                            </h:panelGroup>
+
+
+                        </h:panelGroup>
+                    </ui:repeat>
+                </p:outputPanel>
+
+
+                <!-- BREADCRUMB -->
+                <p:breadCrumb id="breadcrumb">
+                    <p:menuitem value="Inicio"
+                                icon="pi pi-home"
+                                action="#{downloadBean.goRoot}"
+                                update="formDownload"/>
+
+                    <ui:repeat value="#{downloadBean.breadcrumb}" var="bc" varStatus="status">
+                        <p:menuitem value="#{bc.name}"
+                                    action="#{downloadBean.navigateTo(bc)}"
+                                    update="formDownload"/>
+                    </ui:repeat>
+                </p:breadCrumb>
+
+            </div>
+        </p:panel>
+    </h:form>
+
+
+    <h:form id="formDownload">
+
+        <p:panel header="📁 Archivos en Servidor" styleClass="panel-container">
+            <p:dataTable id="tablaArchivos"
+                         var="f"
+                         value="#{downloadBean.serverFiles}"
+                         responsiveLayout="scroll"
+                         paginator="true"
+                         rows="10"
+                         widgetVar="tabla"
+                         rowsPerPageTemplate="5,10,20"
+                         rowIndexVar="index"
+                         emptyMessage="No se encontraron archivos">
+
+                <!-- COLUMNA PREVISUALIZACIÓN (Solo si es una imagen) -->
+                <p:column headerText="Previsualización" style="text-align:center; width:120px;">
+
+                    <!-- IMÁGENES: Con efecto de lupa al hacer clic (Lightbox manual) -->
+                    <h:panelGroup rendered="#{downloadBean.isImageFile(f)}">
+                        <p:commandLink onclick="PF('imgDialog_#{index}').show()">
+                            <p:graphicImage value="#{mediaStreamer.image}"
+                                            styleClass="shadow-1 hover-zoom"
+                                            style="max-width: 60px; height: auto; border-radius: 8px; cursor: pointer;">
+                                <f:param name="imageUrl" value="#{f.absolutePath}" />
+                            </p:graphicImage>
+                        </p:commandLink>
+
+                        <!-- Modal para ver la imagen en grande -->
+                        <p:dialog widgetVar="imgDialog_#{index}" header="#{f.name}" modal="true" responsive="true" closeOnEscape="true">
+                            <p:graphicImage value="#{mediaStreamer.image}" style="max-width: 100%; max-height: 80vh;">
+                                <f:param name="imageUrl" value="#{f.absolutePath}" />
+                            </p:graphicImage>
+                        </p:dialog>
+                    </h:panelGroup>
+
+                    <!-- VÍDEOS: Icono de reproducción + Modal de cine -->
+                    <h:panelGroup rendered="#{downloadBean.isVideoFile(f)}">
+                        <p:commandButton icon="pi pi-play"
+                                         value="Ver"
+                                         type="button"
+                                         onclick="PF('videoDialog_#{index}').show()"
+                                         styleClass="ui-button-outlined ui-button-secondary rounded-button" />
+
+                        <p:dialog widgetVar="videoDialog_#{index}"
+                                  header="Reproduciendo: #{f.name}"
+                                  modal="true"
+                                  width="700"
+                                  responsive="true"
+                                  closeOnEscape="true"
+                                  onHide="var v = this.content.find('video')[0]; if(v) v.pause();">
+
+                            <p:video value="#{mediaStreamer.video}"
+                                     controls="true"
+                                     width="100%"
+                                     player="mp4">
+                                <f:param name="videoUrl" value="#{f.absolutePath}" />
+                                Tu navegador no soporta video.
+                            </p:video>
+                        </p:dialog>
+                    </h:panelGroup>
+
+                    <h:panelGroup rendered="#{mediaStreamer.isTextFile(f)}">
+                        <p:commandButton icon="pi pi-file-edit"
+                                         value="Leer"
+                                         action="#{mediaStreamer.previewTextFile(f)}"
+                                         update="textPreviewDialog"
+                                         oncomplete="PF('textDialog').show()"
+                                         styleClass="ui-button-flat" />
+
+                        <p:dialog widgetVar="textDialog" id="textPreviewDialog"
+                                  header="Contenido del archivo"
+                                  modal="true" width="600" responsive="true">
+
+                            <p:scrollPanel style="width:100%; height:400px" mode="native">
+                            <pre style="margin: 0; font-family: monospace; white-space: pre-wrap;">
+                                <h:outputText value="#{mediaStreamer.textContent}" />
+                            </pre>
+                            </p:scrollPanel>
+
+                            <f:facet name="footer">
+                                <p:commandButton value="Cerrar" onclick="PF('textDialog').hide()" type="button" />
+                            </f:facet>
+                        </p:dialog>
+                    </h:panelGroup>
+
+                    <!-- ARCHIVOS GENÉRICOS -->
+                    <h:panelGroup rendered="#{!downloadBean.isImageFile(f) and !downloadBean.isVideoFile(f)}">
+                        <i class="pi pi-file" style="font-size: 2rem; color: #999;"></i>
+                    </h:panelGroup>
+                </p:column>
+
+
+                <!-- COLUMNA NOMBRE -->
+                <p:column headerText="Nombre"
+                          sortBy="#{f.name}"
+                          filterBy="#{f.name}"
+                          filterMatchMode="contains">
+
+                    <i class="pi #{f.isDirectory() ? 'pi-folder' : 'pi-file'}"
+                       style="margin-right:8px"></i>
+                    #{f.name}
+                </p:column>
+
+                <!-- COLUMNA TIPO -->
+                <p:column headerText="Tipo"
+                          sortBy="#{f.isDirectory()}"
+                          filterBy="#{f.isDirectory()}"
+                          filterMatchMode="exact">
+
+                    <!-- Filtro desplegable -->
+                    <f:facet name="filter">
+                        <p:selectOneMenu onchange="PF('tabla').filter()">
+                            <f:selectItem itemLabel="Todos" itemValue="#{null}" />
+                            <f:selectItem itemLabel="Archivos" itemValue="false" />
+                            <f:selectItem itemLabel="Directorios" itemValue="true" />
+                        </p:selectOneMenu>
+                    </f:facet>
+
+                    <p:tag value="#{f.isDirectory() ? 'Directorio' : 'Archivo'}"
+                           severity="#{f.isDirectory() ? 'info' : 'success'}" />
+                </p:column>
+
+                <!-- COLUMNA ACCIONES -->
+                <p:column headerText="Acciones" style="width:200px; text-align:center">
+
+                    <!-- Descargar -->
+                    <p:commandButton icon="pi pi-download"
+                                     title="Descargar"
+                                     ajax="false"
+                                     rendered="#{not f.isDirectory()}"
+                                     styleClass="p-button-rounded p-button-success p-mr-2">
+                        <p:fileDownload value="#{downloadBean.downloadFile(f)}"/>
+                    </p:commandButton>
+
+                    <!-- Abrir directorio -->
+                    <p:commandButton icon="pi pi-folder-open"
+                                     title="Abrir Directorio"
+                                     rendered="#{f.isDirectory()}"
+                                     action="#{downloadBean.openDirectory(f)}"
+                                     update="formDownload"
+                                     styleClass="p-button-rounded p-button-info"/>
+                    <p:spacer width="20"
+                              height="20"/>
+                    <p:commandButton icon="pi pi-download"
+                                     title="Descargar Directorio"
+                                     rendered="#{f.isDirectory()}"
+                                     styleClass="p-button-rounded p-button-success p-mr-2">
+                        <p:fileDownload value="#{downloadBean.downloadZip(f)}"/>
+                    </p:commandButton>
+                </p:column>
+
+            </p:dataTable>
+        </p:panel>
+    </h:form>
+
+
+    <h:form id="formUpload">
+
+        <p:panel header="⬆️ Subida de archivos"
+                 style="max-width:1100px; margin:30px auto"
+                 styleClass="ui-fluid">
+            <p:tabView effect="fade" effectDuration="200">
+            <!-- ACCIONES -->
+            <div class="p-d-flex p-jc-between p-ai-start p-flex-wrap p-mb-3">
+                <p:tab title="📄 Archivos">
+                <!-- SUBIR ARCHIVOS -->
+                <div style="width:48%">
+                    <h:outputText value="Archivo individual"
+                                  style="font-weight:bold;display:block;margin-bottom:8px"/>
+
+                    <p:fileUpload id="upload"
+                                  listener="#{uploadBean.handleFileUpload}"
+                                  mode="advanced"
+                                  multiple="true"
+
+                                  chooseLabel="Seleccionar archivos"
+                                  uploadLabel="Subir"
+                                  cancelLabel="Cancelar"
+                                  update="growl"
+                                  style="width:100%"/>
+
+                    <p:growl id="growl" showDetail="true" />
+                </div>
+
+                </p:tab>
+
+                <p:tab title="📁 Carpeta">
+                <!-- SUBIR CARPETA -->
+                <div style="width:48%">
+                    <h:outputText value="Carpeta completa"
+                                  style="font-weight:bold;display:block;margin-bottom:8px"/>
+
+                    <input id="folderInput" type="file" style="display:none"/>
+
+                    <p:commandButton value="📁 Seleccionar carpeta"
+                                     type="button"
+                                     onclick="selectFolder()"
+                                     style="width:100%;margin-bottom:8px"/>
+
+                    <p:commandButton value="⬆️ Subir carpeta"
+                                     type="button"
+                                     onclick="uploadFolder()"
+                                     style="width:100%"
+                                     styleClass="p-button-success"/>
+
+
+                    <!-- Mostrar nombre de la carpeta seleccionada -->
+                    <div id="selectedFolderName" style="font-style: italic; color: #ccc;"></div>
+
+                    <!-- Mostrar lista de archivos con scroll -->
+                    <div id="folderFilesList"
+                         style="background:#111; color:#eee; padding:8px; height:180px; overflow-y:auto; font-family: monospace; font-size: 13px; border-radius: 4px;"></div>
+
+                    <!-- PROGRESO -->
+                    <div id="progressBarContainer" style="margin-top:10px">
+                        <div id="progressBar"></div>
+                    </div>
+
+                    <!-- LOG -->
+                    <div id="log"
+                         style="margin-top:10px;height:160px;font-size:13px"></div>
+                </div>
+                </p:tab>
+
+
+            </div>
+            </p:tabView>
+
+
+
+        </p:panel>
+
+    </h:form>
+
+
+
+
+
+
+
+
+</h:body>
+</html>

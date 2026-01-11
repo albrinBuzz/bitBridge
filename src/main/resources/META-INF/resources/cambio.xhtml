@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:h="http://java.sun.com/jsf/html">
+<head>
+    <meta charset="UTF-8"></meta>
+    <title>Cambio de Asientos en Avión</title>
+
+    <!-- Estilos mejorados -->
+    <style>
+        /* Estilos generales */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f1f1f1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            height: 100vh;
+            margin: 0;
+            color: #333;
+        }
+
+        h1, h2 {
+            text-align: center;
+            margin-bottom: 20px;
+            font-weight: 700;
+            color: #333;
+        }
+
+        h3 {
+            text-align: center;
+            margin-top: 20px;
+            font-weight: 600;
+        }
+
+        /* Panel con la tabla de asientos */
+        .seats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            max-width: 500px;
+            margin: 0 auto;
+            justify-items: center;
+        }
+
+        .seat {
+            width: 60px;
+            height: 60px;
+            background-color: #ddd;
+            color: #555;
+            text-align: center;
+            line-height: 60px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            user-select: none;
+        }
+
+        .seat:hover {
+            transform: scale(1.1);
+        }
+
+        .selected {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .occupied {
+            background-color: #f44336;
+            cursor: not-allowed;
+            color: white;
+        }
+
+        .available {
+            background-color: #ddd;
+        }
+
+        .btn {
+            padding: 10px 25px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            transition: background-color 0.3s ease;
+            margin-top: 20px;
+        }
+
+        .btn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        .btn:hover {
+            background-color: #45a049;
+        }
+
+        /* Layout y espaciado */
+        .selected-info {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .selected-info p {
+            font-size: 18px;
+        }
+
+    </style>
+</head>
+<body>
+    <h1>Cambio de Asientos</h1>
+    <h2>Selecciona un asiento que deseas cambiar y luego elige el asiento de destino.</h2>
+
+    <!-- Formulario JSF para los asientos -->
+    <h:form>
+        <div class="seats-grid">
+            <!-- Fila 1 -->
+            <h:commandButton value="1A" action="#{asientoBean.seleccionarAsiento('1A')}"
+                             styleClass="#{asientoBean.isAsientoSeleccionado('1A') ? 'seat selected' : asientoBean.isAsientoOcupado('1A') ? 'seat occupied' : 'seat available'}"
+                             disabled="#{asientoBean.isAsientoOcupado('1A')}" />
+            <h:commandButton value="1B" action="#{asientoBean.seleccionarAsiento('1B')}"
+                             styleClass="#{asientoBean.isAsientoSeleccionado('1B') ? 'seat selected' : asientoBean.isAsientoOcupado('1B') ? 'seat occupied' : 'seat available'}"
+                             disabled="#{asientoBean.isAsientoOcupado('1B')}" />
+            <h:commandButton value="1C" action="#{asientoBean.seleccionarAsiento('1C')}"
+                             styleClass="#{asientoBean.isAsientoSeleccionado('1C') ? 'seat selected' : asientoBean.isAsientoOcupado('1C') ? 'seat occupied' : 'seat available'}"
+                             disabled="#{asientoBean.isAsientoOcupado('1C')}" />
+            <h:commandButton value="1D" action="#{asientoBean.seleccionarAsiento('1D')}"
+                             styleClass="#{asientoBean.isAsientoSeleccionado('1D') ? 'seat selected' : asientoBean.isAsientoOcupado('1D') ? 'seat occupied' : 'seat available'}"
+                             disabled="#{asientoBean.isAsientoOcupado('1D')}" />
+
+            <!-- Fila 2 -->
+            <h:commandButton value="2A" action="#{asientoBean.seleccionarAsiento('2A')}"
+                             styleClass="#{asientoBean.isAsientoSeleccionado('2A') ? 'seat selected' : asientoBean.isAsientoOcupado('2A') ? 'seat occupied' : 'seat available'}"
+                             disabled="#{asientoBean.isAsientoOcupado('2A')}" />
+            <h:commandButton value="2B" action="#{asientoBean.seleccionarAsiento('2B')}"
+                             styleClass="#{asientoBean.isAsientoSeleccionado('2B') ? 'seat selected' : asientoBean.isAsientoOcupado('2B') ? 'seat occupied' : 'seat available'}"
+                             disabled="#{asientoBean.isAsientoOcupado('2B')}" />
+            <h:commandButton value="2C" action="#{asientoBean.seleccionarAsiento('2C')}"
+                             styleClass="#{asientoBean.isAsientoSeleccionado('2C') ? 'seat selected' : asientoBean.isAsientoOcupado('2C') ? 'seat occupied' : 'seat available'}"
+                             disabled="#{asientoBean.isAsientoOcupado('2C')}" />
+            <h:commandButton value="2D" action="#{asientoBean.seleccionarAsiento('2D')}"
+                             styleClass="#{asientoBean.isAsientoSeleccionado('2D') ? 'seat selected' : asientoBean.isAsientoOcupado('2D') ? 'seat occupied' : 'seat available'}"
+                             disabled="#{asientoBean.isAsientoOcupado('2D')}" />
+
+            <!-- Filas adicionales si se necesitan -->
+        </div>
+
+        <!-- Mostrar los asientos seleccionados -->
+        <div class="selected-info">
+            <p>Asiento actual: #{asientoBean.asientoSeleccionado}</p>
+            <p>Destino: #{asientoBean.asientoDestino}</p>
+        </div>
+
+        <!-- Botón de Confirmar Cambio -->
+        <h:commandButton value="Confirmar Cambio" action="#{asientoBean.confirmarCambio()}"
+                         class="btn" disabled="#{asientoBean.isCambioConfirmado()}" />
+    </h:form>
+</body>
+</html>

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:f="jakarta.faces.core"
+      xmlns:h="jakarta.faces.html"
+      xmlns:p="http://primefaces.org/ui"
+      xmlns:fs="http://xmlns.jcp.org/jsf/core"
+      xmlns:ui="http://java.sun.com/jsf/facelets">
+
+<h:head>
+    <title>Descargar archivos del servidor</title>
+
+    <!-- PrimeFlex (si tu proyecto no lo tiene, puedes agregarlo al theme) -->
+    <link rel="stylesheet"
+          href="https://unpkg.com/primeflex@3.3.1/primeflex.min.css" />
+
+    <style>
+        /* Panel principal responsivo */
+        .panel-container {
+            margin: 10px;
+        }
+
+        /* Card para versión móvil */
+        .file-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+            background: #fff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .file-card-title {
+            font-size: 1.1rem;
+            font-weight: bold;
+            margin-bottom: 8px;
+            word-break: break-all;
+        }
+
+        /* Mostrar tabla solo en PC */
+        @media (max-width: 768px) {
+            .desktop-table { display: none !important; }
+        }
+
+        /* Mostrar tarjetas solo en móviles */
+        @media (min-width: 769px) {
+            .mobile-cards { display: none !important; }
+        }
+    </style>
+</h:head>
+
+<h:body>
+
+    <h:form id="form">
+
+        <!-- =============================== -->
+        <!-- DESCARGA DE ARCHIVO ESPECÍFICO -->
+        <!-- =============================== -->
+        <p:panel header="Descargar archivo ejemplo"
+                 styleClass="panel-container">
+            <p:commandButton value="Descargar ejemplo"
+                             ajax="false"
+                             icon="pi pi-download"
+                             styleClass="p-button-rounded p-button-lg w-full">
+                <p:fileDownload value="#{downloadBean.fileExample}" />
+            </p:commandButton>
+        </p:panel>
+
+        <!-- =============================== -->
+        <!-- LISTA DE ARCHIVOS: VERSIÓN PC -->
+        <!-- =============================== -->
+        <p:panel header="Archivos del servidor"
+                 styleClass="panel-container desktop-table">
+
+            <p:dataTable var="f"
+                         value="#{downloadBean.serverFiles}"
+                         responsiveLayout="scroll"
+                         style="font-size:1rem;">
+
+                <p:column headerText="Archivo">
+                    #{f}
+                </p:column>
+
+                <p:column headerText="Acciones" style="width:150px;">
+                    <p:commandButton value="Descargar"
+                                     ajax="false"
+                                     icon="pi pi-download"
+                                     styleClass="p-button-sm">
+                        <p:fileDownload value="#{downloadBean.downloadFile(f)}"/>
+                    </p:commandButton>
+                </p:column>
+            </p:dataTable>
+
+        </p:panel>
+
+        <!-- =============================== -->
+        <!-- LISTA DE ARCHIVOS: VERSIÓN MÓVIL -->
+        <!-- =============================== -->
+        <div class="panel-container mobile-cards">
+
+            <ui:repeat var="f" value="#{downloadBean.serverFiles}">
+                <div class="file-card">
+
+                    <div class="file-card-title">
+                        #{f}
+                    </div>
+
+                    <p:commandButton value="Descargar"
+                                     ajax="false"
+                                     icon="pi pi-download"
+                                     styleClass="p-button-sm p-button-rounded w-full">
+                        <p:fileDownload value="#{downloadBean.downloadFile(f)}"/>
+                    </p:commandButton>
+
+                </div>
+            </ui:repeat>
+
+        </div>
+
+    </h:form>
+
+    <!-- ================================= -->
+    <!-- INDICADOR DE DESCARGA -->
+    <!-- ================================= -->
+    <p:dialog modal="true"
+              widgetVar="dlg"
+              header="Descargando..."
+              closable="false"
+              width="200">
+
+        <div class="p-d-flex p-jc-center p-ai-center" style="padding:20px;">
+            <i class="pi pi-spin pi-spinner" style="font-size:2rem;"></i>
+        </div>
+
+    </p:dialog>
+
+    <script>
+        function show() { PF('dlg').show(); }
+        function hide() { PF('dlg').hide(); }
+    </script>
+
+</h:body>
+</html>

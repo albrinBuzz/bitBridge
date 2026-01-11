@@ -1,0 +1,481 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<html lang="es"
+	xmlns="http://www.w3.org/1999/xhtml"
+	xmlns:h="jakarta.faces.html"
+	xmlns:p="http://primefaces.org/ui"
+	xmlns:f="http://xmlns.jcp.org/jsf/core"
+	xmlns:sec="https://joinfaces.org/security"
+	xmlns:ui="http://java.sun.com/jsf/facelets">
+
+<h:head>
+    <meta charset="utf-8" />
+    <title>Travela - Tourism Website Template</title>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <meta content="" name="keywords"/>
+    <meta content="" name="description"/>
+
+
+    <!-- Icon Font Stylesheet -->
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.15.4/css/all.css"/>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.4.1/font/bootstrap-icons.css" rel="stylesheet"/>
+
+
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous"/>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" integrity="sha384-I7E8VVD/ismYTF4hNIPjVp/Zjvgyol6VFvRkX/vR+Vc4jQkC+hVqc2pM8ODewa9r" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js" integrity="sha384-0pUGZvbkm6XF6gxjEnlmuGrJXVbNuzT9qBBavbLwCsOGabYfZo0T0to5eqruptLy" crossorigin="anonymous"></script>
+
+   <!--  <h:outputStylesheet name="#{request.contextPath}/css/bootstrap.min.css" />
+     <h:outputStylesheet name="#{request.contextPath}/css/style.css" />-->
+
+
+
+    <link
+            href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i"
+            rel="stylesheet"/>
+    <!-- Scripts personalizados -->
+    <h:outputScript library="js" name="funciones.js" target="head"/>
+    <h:outputStylesheet library="admin/css" name="sb-admin-2.min.css"/>
+
+    <!-- Scripts personalizados -->
+    <h:outputScript library="admin/vendor/jquery" name="jquery.min.js" target="head"/>
+    <h:outputScript library="admin/vendor/bootstrap/js" name="bootstrap.bundle.min.js" target="head"/>
+    <h:outputScript library="admin/vendor/jquery-easing" name="jquery.easing.min.js" target="head"/>
+    <h:outputScript library="admin/js" name="sb-admin-2.min.js" target="head"/>
+    <h:outputScript library="admin/vendor/chart.js" name="Chart.min.js" target="head"/>
+    <h:outputScript library="admin/js/demo" name="chart-area-demo.js" target="head"/>
+    <h:outputScript library="admin/js/demo" name="chart-pie-demo.js" target="head"/>
+
+    <style type="text/css">
+        /* Barra sticky con fondo transparente y gradiente */
+        .sticky-header {
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            background: linear-gradient(to right, rgba(0, 123, 255, 0.9), rgba(0, 123, 255, 0.5));
+            padding: 15px 0;
+        }
+
+        /* Menú desplegable con sombra y bordes redondeados */
+        .dropdown-menu {
+            border-radius: 10px;
+            background-color: #ffffff;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+            min-width: 280px;
+        }
+
+        .dropdown-item {
+            padding: 12px 20px;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .dropdown-item:hover {
+            background-color: #007bff;
+            color: #ffffff;
+        }
+
+        /* Efecto hover en los iconos de usuario */
+        .user-icon {
+            font-size: 1.7rem;
+            color: #ffffff;
+            transition: transform 0.3s ease, color 0.3s ease;
+        }
+
+        .user-icon:hover {
+            transform: scale(1.1);
+            color: #ffc107;
+        }
+
+        /* Estilos de texto y botones dentro del dropdown */
+        .dropdown-header {
+            background-color: #007bff;
+            color: #ffffff;
+            padding: 18px;
+            border-radius: 10px 10px 0 0;
+            text-align: center;
+        }
+
+        .dropdown-menu .btn-primary {
+            background-color: #007bff;
+            border: none;
+            width: 100%;
+            text-align: center;
+        }
+
+        .dropdown-menu .btn-primary:hover {
+            background-color: #0056b3;
+        }
+
+        /* Estilos de la barra de navegación y botones de login */
+        .sticky-header .col-lg-4 {
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+        }
+
+        .sticky-header .col-lg-8 {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+        }
+
+        /* Mejorar el estilo del botón login */
+        .dropdown-toggle {
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: #ffffff;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .dropdown-toggle:hover {
+            background-color: #0056b3;
+        }
+
+        /* Mejoras en los botones de login */
+        .dropdown-menu .btn-secondary {
+            background-color: #6c757d;
+            border-radius: 8px;
+            color: white;
+        }
+
+        .dropdown-menu .btn-secondary:hover {
+            background-color: #495057;
+        }
+
+        .footer {
+            background-color: #343a40;
+            color: #fff;
+        }
+
+        .footer h4 {
+            font-weight: 600;
+        }
+
+        .footer .social-icons i {
+            color: #fff;
+            transition: color 0.3s ease;
+        }
+
+        .footer .social-icons i:hover {
+            color: #007bff;
+        }
+
+        .footer .footer-bank-card i {
+            color: #fff;
+            margin-right: 15px;
+            transition: transform 0.3s ease;
+        }
+
+        .footer .footer-bank-card i:hover {
+            transform: scale(1.1);
+        }
+
+        .footer a {
+            text-decoration: none;
+            color: #fff;
+            transition: color 0.3s ease;
+        }
+
+        .footer a:hover {
+            color: #007bff;
+        }
+
+        .footer .copyright {
+            background-color: #333;
+            color: #fff;
+            padding: 20px 0;
+        }
+
+        .sticky-header {
+    background: linear-gradient(to right, #0d6efd, #0b5ed7);
+    color: white;
+    z-index: 999;
+    position: sticky;
+    top: 0;
+    padding: 12px 0;
+}
+
+.navbar-nav .nav-link {
+    margin: 0 10px;
+    font-weight: 500;
+}
+
+.dropdown-menu {
+    border-radius: 10px;
+    min-width: 320px;
+}
+
+.dropdown-toggle::after {
+    margin-left: 0.5rem;
+}
+        /* Logo */
+        .login-logo {
+            width: 80px;
+            margin-bottom: 20px;
+            animation: fadeIn 1s ease-out;
+            transition: transform 0.3s ease, opacity 0.3s ease;
+            cursor: pointer;
+        }
+
+        .login-logo:hover {
+            transform: scale(1.1);
+            opacity: 0.9;
+        }
+
+    </style>
+</h:head>
+
+<body>
+
+<div class="container-fluid px-5 sticky-header shadow-sm">
+    <div class="row gx-0 align-items-center">
+
+        <!-- LOGO -->
+        <div class="col-lg-3 d-flex align-items-center">
+            <p:link href="/" styleClass="navbar-brand text-white fs-4 fw-bold">
+                <h:graphicImage value="https://www.clipartmax.com/png/middle/201-2011455_logo-de-peruvian-airlines-vector-and-clip-art-inspiration-peruvian-airlines.png"
+                                alt="Logo"
+                                styleClass="login-logo" />
+            </p:link>
+        </div>
+
+        <!-- MENÚ DE NAVEGACIÓN -->
+        <div class="col-lg-6 d-none d-lg-flex justify-content-center">
+            <nav class="navbar navbar-expand-lg navbar-dark">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <p:link href="/home/index.xhtml" styleClass="nav-link text-white">
+                            <i class="fas fa-home me-1"></i>Inicio
+                        </p:link>
+                    </li>
+                    <li class="nav-item">
+                        <p:link href="/home/reservas.xhtml" styleClass="nav-link text-white">
+                            <i class="fas fa-ticket-alt me-1"></i>Reservar Vuelo
+                        </p:link>
+                    </li>
+                    <li class="nav-item">
+                        <p:link href="/estado-vuelo.xhtml" styleClass="nav-link text-white">
+                            <i class="fas fa-plane me-1"></i>Estado de Vuelo
+                        </p:link>
+                    </li>
+                    <li class="nav-item">
+                        <p:link href="/checkin.xhtml" styleClass="nav-link text-white">
+                            <i class="fas fa-luggage-cart me-1"></i>Check-In
+                        </p:link>
+                    </li>
+                    <li class="nav-item">
+                        <p:link href="/ofertas.xhtml" styleClass="nav-link text-white">
+                            <i class="fas fa-tags me-1"></i>Ofertas
+                        </p:link>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+
+        <!-- LOGIN / USUARIO -->
+        <div class="col-lg-3 d-flex justify-content-end">
+            <div class="d-inline-flex align-items-center">
+
+                <!-- SI NO ESTÁ AUTENTICADO -->
+                <h:panelGroup rendered="#{!userBean.loggedIn}">
+                    <div class="dropdown">
+                        <a href="#" class="btn btn-outline-light dropdown-toggle" data-bs-toggle="dropdown">
+                            <i class="fas fa-sign-in-alt me-2"></i> Iniciar Sesión
+                        </a>
+                        <div class="dropdown-menu dropdown-menu-end p-4 rounded shadow-lg" style="min-width: 320px;">
+                            <h:form id="loginForm">
+                                <h:panelGroup>
+                                    <div class="mb-3 text-center">
+                                        <h4>Iniciar sesión</h4>
+                                    </div>
+
+                                    <!-- Usuario -->
+                                    <div class="mb-3">
+                                        <h:outputLabel for="username" value="Usuario:" class="form-label" />
+                                        <h:inputText id="username" value="#{loginBean.username}" required="true"
+                                                     class="form-control" placeholder="Introduce tu usuario" />
+                                        <h:message for="username" styleClass="invalid-feedback d-block" />
+                                    </div>
+
+                                    <!-- Contraseña -->
+                                    <div class="mb-3">
+                                        <h:outputLabel for="password" value="Contraseña:" class="form-label" />
+                                        <p:password id="password" value="#{loginBean.password}" toggleMask="true"
+                                                    class="form-control" placeholder="Introduce tu contraseña" />
+                                        <h:message for="password" styleClass="invalid-feedback d-block" />
+                                    </div>
+
+                                    <!-- Mensajes de error -->
+                                    <h:messages id="loginMessages" styleClass="alert alert-danger mb-3" />
+
+                                    <!-- Botones -->
+                                    <div class="d-grid gap-2">
+                                        <h:commandButton value="Iniciar sesión" action="#{loginBean.login}" class="btn btn-primary" />
+                                        <h:commandButton value="Cancelar" action="#{loginBean.cancelLogin}" class="btn btn-secondary" />
+                                    </div>
+
+                                    <!-- Recuperar contraseña -->
+                                    <div class="text-center mt-3">
+                                        <a href="#" class="text-muted">¿Olvidaste tu contraseña?</a>
+                                    </div>
+
+                                    <!-- Registro -->
+                                    <div class="text-center mt-2">
+                                        <p:link href="/home/registro.xhtml" class="text-primary">
+                                            ¿No tienes cuenta? Regístrate
+                                        </p:link>
+                                    </div>
+                                </h:panelGroup>
+                            </h:form>
+                        </div>
+                    </div>
+                </h:panelGroup>
+
+                <!-- SI ESTÁ AUTENTICADO -->
+                <h:panelGroup rendered="#{userBean.loggedIn}">
+                    <div class="dropdown">
+                        <a href="#" class="btn btn-light dropdown-toggle" data-bs-toggle="dropdown">
+                            <i class="fas fa-user-circle me-2"></i>
+                            <h:outputText value="#{userBean.usuario.nombre}" />
+                        </a>
+                        <div class="dropdown-menu dropdown-menu-end shadow">
+                            <h:panelGroup rendered="#{userBean.hasRole('ROLE_PASAJERO')}">
+                                <p:link href="/perfil/pasajero/index.xhtml" styleClass="dropdown-item">
+                                    <i class="fas fa-suitcase-rolling me-2"></i> Mis Reservas
+                                </p:link>
+                            </h:panelGroup>
+                            <h:panelGroup rendered="#{userBean.hasRole('ROLE_PILOTO')}">
+                                <p:link href="/perfil/piloto/index.xhtml" styleClass="dropdown-item">
+                                    <i class="fas fa-user-tie me-2"></i> Vuelos Asignados
+                                </p:link>
+                            </h:panelGroup>
+                            <h:panelGroup rendered="#{userBean.hasRole('ROLE_ADMIN')}">
+                                <p:link href="/admin/index.xhtml" styleClass="dropdown-item">
+                                    <i class="fas fa-tools me-2"></i> Panel Admin
+                                </p:link>
+                            </h:panelGroup>
+                            <div class="dropdown-divider"></div>
+                            <p:link href="/logout" styleClass="dropdown-item text-danger">
+                                <i class="fas fa-sign-out-alt me-2"></i> Cerrar Sesión
+                            </p:link>
+                        </div>
+                    </div>
+                </h:panelGroup>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+ 		<ui:insert name="contenido"></ui:insert>
+
+<!-- Footer Start -->
+<div class="container-fluid bg-dark py-5 footer">
+    <div class="container py-5">
+        <div class="row g-5">
+
+            <!-- Sección de Contacto -->
+            <div class="col-md-6 col-lg-3 col-xl-3">
+                <h4 class="mb-4 text-white">Contáctanos</h4>
+                <p class="text-white"><i class="fas fa-home me-2"></i> 123 Calle Principal, Ciudad, País</p>
+                <p class="text-white"><i class="fas fa-envelope me-2"></i> contacto@aerolinea.com</p>
+                <p class="text-white"><i class="fas fa-phone-alt me-2"></i> +012 345 67890</p>
+            </div>
+
+            <!-- Sección de Información de la Aerolínea -->
+
+	          <div class="col-md-6 col-lg-3 col-xl-3">
+				    <h4 class="mb-4 text-white">Sobre Nosotros</h4>
+				    <!-- Enlaces a las secciones con parámetro tipo -->
+				    <h:link value="Quiénes Somos" outcome="/home/content.xhtml?tipo=informacion" class="text-white">
+				        <i class="fas fa-angle-right me-2"></i> Quiénes Somos
+				    </h:link><br></br>
+
+				    <h:link value="Historia" outcome="/home/content.xhtml?tipo=informacion" class="text-white">
+				        <i class="fas fa-angle-right me-2"></i> Historia
+				    </h:link><br></br>
+
+				    <h:link value="Servicios" outcome="/home/content.xhtml?tipo=servicios" class="text-white">
+				        <i class="fas fa-angle-right me-2"></i> Servicios
+				    </h:link><br></br>
+
+				    <h:link value="Blog" outcome="/blog/index.xhtml" class="text-white">
+				        <i class="fas fa-angle-right me-2"></i> Blog
+				    </h:link>
+				</div>
+
+				<!-- Sección de Ayuda y Políticas -->
+				<div class="col-md-6 col-lg-3 col-xl-3">
+				    <h4 class="mb-4 text-white">Atención al Cliente</h4>
+				    <!-- Enlaces de contacto, política y preguntas frecuentes -->
+				    <h:link value="Contacto" outcome="/home/content.xhtml?tipo=contacto" class="text-white">
+				        <i class="fas fa-angle-right me-2"></i> Contacto
+				    </h:link><br></br>
+
+				    <h:link value="Políticas de Privacidad" outcome="/home/content.xhtml?tipo=Estático" class="text-white">
+				        <i class="fas fa-angle-right me-2"></i> Políticas de Privacidad
+				    </h:link><br></br>
+
+				    <h:link value="Preguntas Frecuentes" outcome="/home/content.xhtml?tipo=faq" class="text-white">
+				        <i class="fas fa-angle-right me-2"></i> Preguntas Frecuentes
+				    </h:link><br></br>
+
+				    <h:link value="Términos y Condiciones" outcome="/home/content.xhtml?tipo=Estático" class="text-white">
+				        <i class="fas fa-angle-right me-2"></i> Términos y Condiciones
+				    </h:link>
+				</div>
+
+
+
+            <!-- Sección de Redes Sociales y Pagos -->
+            <div class="col-md-6 col-lg-3 col-xl-3">
+                <h4 class="text-white mb-4">Síguenos</h4>
+                <div class="social-icons">
+                    <a href="https://facebook.com" target="_blank" class="text-white me-2">
+                        <i class="fab fa-facebook-f fa-2x"></i>
+                    </a>
+                    <a href="https://twitter.com" target="_blank" class="text-white me-2">
+                        <i class="fab fa-twitter fa-2x"></i>
+                    </a>
+                    <a href="https://instagram.com" target="_blank" class="text-white me-2">
+                        <i class="fab fa-instagram fa-2x"></i>
+                    </a>
+                    <a href="https://linkedin.com" target="_blank" class="text-white me-2">
+                        <i class="fab fa-linkedin fa-2x"></i>
+                    </a>
+                </div>
+                <h4 class="text-white mb-4">Métodos de Pago</h4>
+                <div class="footer-bank-card">
+                    <a href="#" class="text-white me-2"><i class="fab fa-cc-visa fa-2x"></i></a>
+                    <a href="#" class="text-white me-2"><i class="fab fa-cc-mastercard fa-2x"></i></a>
+                    <a href="#" class="text-white me-2"><i class="fab fa-cc-amex fa-2x"></i></a>
+                    <a href="#" class="text-white me-2"><i class="fas fa-credit-card fa-2x"></i></a>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+<!-- Footer End -->
+
+<!-- Copyright Start -->
+<div class="container-fluid copyright text-body py-4 bg-dark">
+    <div class="container">
+        <div class="row g-4 align-items-center">
+            <div class="col-md-6 text-center text-md-end mb-md-0">
+                <i class="fas fa-copyright me-2"></i><a class="text-white" href="#">Aerolínea XYZ</a>, Todos los derechos reservados.
+            </div>
+            <div class="col-md-6 text-center text-md-start">
+                Diseñado por <a class="text-white" href="https://www.tuwebdiseño.com">Tu Web Diseño</a>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Copyright End -->
+
+
+
+</body>
+</html>

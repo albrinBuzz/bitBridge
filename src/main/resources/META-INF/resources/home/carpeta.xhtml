@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:f="jakarta.faces.core"
+      xmlns:h="jakarta.faces.html"
+      xmlns:p="http://primefaces.org/ui"
+      xmlns:fs="http://xmlns.jcp.org/jsf/core"
+      xmlns:ui="http://java.sun.com/jsf/facelets">
+
+<h:head>
+    <title>Subir Carpeta Completa</title>
+
+    <style>
+        .panel-container {
+            margin: 20px auto;
+            max-width: 500px;
+        }
+    </style>
+
+    <script>
+        function enableDirectorySelection() {
+            let input = document.querySelector("input[id$='folderUpload_input']");
+            if (input) {
+                input.setAttribute("webkitdirectory", "true");
+                input.setAttribute("directory", "true");
+                input.setAttribute("multiple", "true");
+                console.log("Carpeta habilitada en:", input);
+            }
+        }
+
+        // Se ejecuta cuando el DOM está listo
+        document.addEventListener("DOMContentLoaded", enableDirectorySelection);
+
+        // Se ejecuta cuando PrimeFaces vuelve a renderizar el componente
+        PrimeFaces.onContentReady(function() {
+            enableDirectorySelection();
+        });
+    </script>
+
+</h:head>
+
+<h:body>
+
+    <h:form enctype="multipart/form-data">
+
+        <p:panel header="Subir Carpeta Completa" styleClass="panel-container">
+
+            <!-- COMPONENTE PARA SUBIR CARPETAS -->
+            <p:fileUpload id="folderUpload"
+                          widgetVar="folderWidget"
+                          value="#{folderUploadBean.files}"
+                          mode="advanced"
+                          multiple="true"
+                          auto="false"
+                          skinSimple="true"
+                          update="messages"
+                          label="Seleccionar carpeta" />
+
+            <p:commandButton value="Subir Carpeta"
+                             icon="pi pi-upload"
+                             actionListener="#{folderUploadBean.uploadFolder}"
+                             update="messages"
+                             style="margin-top:15px"/>
+
+            <p:messages id="messages" showDetail="true" closable="true" />
+
+        </p:panel>
+
+    </h:form>
+
+</h:body>
+</html>

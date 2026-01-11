@@ -3,3 +3,12 @@
 [03:15:07.169] [INFO ] ClientHandler::run(L:51) - Cliente conectado: /127.0.0.1:57368
 [03:15:07.169] [INFO ] Client::setConexion(L:69) - Conectando a 127.0.0.1:8080 como: fedora
 [03:15:07.171] [INFO ] MainController::lambda$connectServer$4(L:68) - Conexión exitosa
+[03:23:00.187] [INFO ] Server::stopServer(L:161) - Deteniendo servidor...
+[03:23:00.188] [INFO ] Server::stopServer(L:179) - Servidor detenido correctamente.
+[03:36:15.653] [INFO ] Server::startServer(L:98) - Servidor P2P escuchando en 0.0.0.0:8080
+[03:36:26.898] [INFO ] Server::stopServer(L:161) - Deteniendo servidor...
+[03:36:26.899] [INFO ] Server::stopServer(L:179) - Servidor detenido correctamente.
+[03:40:10.197] [INFO ] DownloadBean::init(L:55) - Iniciando explorador en: /home/cris/Filetalk
+[03:40:30.483] [INFO ] DownloadBean::init(L:55) - Iniciando explorador en: /home/cris/Filetalk
+[03:40:39.461] [INFO ] DownloadBean::init(L:55) - Iniciando explorador en: /home/cris/Filetalk
+[03:42:48.274] [INFO ] DownloadBean::init(L:55) - Iniciando explorador en: /home/cris/Filetalk

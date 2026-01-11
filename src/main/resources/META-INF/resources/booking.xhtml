@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html lang="en-us" xmlns:h="jakarta.faces.html"
+      xmlns:p="http://primefaces.org/ui"
+      xmlns:pe="http://primefaces.org/ui/extensions"
+      xmlns:f="http://xmlns.jcp.org/jsf/core"
+      xmlns:ui="jakarta.faces.facelets">
+
+  <h:head>
+    <title>Flight Booking - Step 1</title>
+  </h:head>
+  <h:body>
+    <h2>Step 1: Enter Flight Details</h2>
+    <h:form>
+      <h:outputLabel for="passengerName" value="Name: " />
+      <h:inputText id="passengerName" value="#{bookingBean.passengerName}" required="true" />
+
+      <h:outputLabel for="origin" value="Origin: " />
+      <h:inputText id="origin" value="#{bookingBean.origin}" required="true" />
+
+      <h:outputLabel for="destination" value="Destination: " />
+      <h:inputText id="destination" value="#{bookingBean.destination}" required="true" />
+
+      <h:outputLabel for="departureDate" value="Departure Date: " />
+      <h:inputText id="departureDate" value="#{bookingBean.departureDate}" required="true" />
+
+      <h:commandButton value="Next" action="page2" />
+    </h:form>
+  </h:body>
+</html>

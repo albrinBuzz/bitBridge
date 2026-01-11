@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:h="jakarta.faces.html">
+
+<h:head>
+    <title>Subir Carpeta - Móvil</title>
+
+    <!-- MOBILE FIRST -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            margin: 0;
+            padding: 10px;
+            background: #f2f5f7;
+        }
+
+        .container {
+            background: white;
+            padding: 18px;
+            margin: 0 auto;
+            border-radius: 12px;
+            max-width: 500px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+        }
+
+        h2 {
+            font-size: 1.4em;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        /* Botones táctiles */
+        .btn {
+            width: 100%;
+            padding: 16px;
+            margin-top: 10px;
+            font-size: 18px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+
+        .btn-primary:active {
+            background: #005fcc;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:active {
+            background: #1f7d36;
+        }
+
+        /* Barra de progreso */
+        #progressBarContainer {
+            margin-top: 15px;
+            width: 100%;
+            background: #d6d6d6;
+            border-radius: 10px;
+            overflow: hidden;
+            display: none;
+        }
+
+        #progressBar {
+            height: 14px;
+            width: 0%;
+            background: #28a745;
+            transition: width 0.25s ease-in-out;
+        }
+
+        /* Consola adaptada a móviles */
+        #log {
+            margin-top: 15px;
+            background: #111;
+            color: #0f0;
+            padding: 12px;
+            border-radius: 8px;
+            height: 200px;
+            overflow-y: scroll;
+            font-size: 14px;
+            white-space: pre-line;
+            font-family: monospace;
+        }
+    </style>
+
+
+    <script>
+        function enableDirectory() {
+            let input = document.getElementById("folderInput");
+            input.setAttribute("webkitdirectory", "true");
+            input.setAttribute("directory", "true");
+            input.setAttribute("multiple", "true");
+        }
+
+        document.addEventListener("DOMContentLoaded", enableDirectory);
+
+        function log(msg) {
+            const logArea = document.getElementById("log");
+            logArea.textContent += msg + "\n";
+            logArea.scrollTop = logArea.scrollHeight;
+        }
+
+        function selectFolder() {
+            document.getElementById("folderInput").click();
+        }
+
+        async function uploadFolder() {
+            const input = document.getElementById("folderInput");
+            const files = input.files;
+
+            if (!files || files.length === 0) {
+                alert("Debe seleccionar una carpeta.");
+                return;
+            }
+
+            const progressContainer = document.getElementById("progressBarContainer");
+            const progressBar = document.getElementById("progressBar");
+
+            progressContainer.style.display = "block";
+            progressBar.style.width = "0%";
+
+            log("Archivos encontrados: " + files.length);
+            log("Iniciando subida...\n");
+
+            let total = files.length;
+            let uploaded = 0;
+
+            for (const file of files) {
+                let formData = new FormData();
+                formData.append("file", file);
+                formData.append("path", file.webkitRelativePath);
+
+                await fetch("#{request.contextPath}/api/upload-folder", {
+                    method: "POST",
+                    body: formData
+                });
+
+                uploaded++;
+                let pct = Math.round((uploaded / total) * 100);
+                progressBar.style.width = pct + "%";
+
+                log("✔ " + file.webkitRelativePath);
+            }
+
+            log("\n✔ Carpeta completa subida.");
+        }
+    </script>
+
+</h:head>
+
+
+<h:body>
+
+    <div class="container">
+
+        <h2>Subir Carpeta Completa (Móvil)</h2>
+
+        <h:form>
+
+            <!-- Input oculto -->
+            <input id="folderInput" type="file" style="display:none"/>
+
+            <!-- Botón táctil para abrir carpeta -->
+            <button type="button" class="btn btn-primary" onclick="selectFolder()">
+                📁 Seleccionar Carpeta
+            </button>
+
+            <!-- Botón táctil para subir -->
+            <button type="button" class="btn btn-success" onclick="uploadFolder()">
+                ⬆️ Subir Carpeta
+            </button>
+
+            <!-- Barra de progreso -->
+            <div id="progressBarContainer">
+                <div id="progressBar"></div>
+            </div>
+
+            <!-- Consola de estado -->
+            <div id="log"></div>
+
+        </h:form>
+
+    </div>
+
+</h:body>
+</html>

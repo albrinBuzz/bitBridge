@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:h="jakarta.faces.html">
+
+<h:head>
+    <title>P2P File Transfer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+</h:head>
+
+<h:body>
+    <h:form id="form">
+        <h2>Transferencia P2P de Archivos</h2>
+
+        <input type="file" id="fileInput" multiple />
+        <button type="button" onclick="start()">Iniciar Conexión</button>
+        <button type="button" onclick="sendFile()">Enviar Archivo</button>
+
+        <h3>Archivos recibidos:</h3>
+        <ul id="receivedFiles"></ul>
+
+        <script>
+            let localConnection;
+            let dataChannel;
+            let ws;
+            let file;
+            let fileReader;
+            let receivedBuffers = [];
+
+            const chunkSize = 16*1024; // 16KB por chunk
+
+            function start() {
+                // 1️⃣ WebSocket para signaling
+                ws = new WebSocket("ws://localhost:8080/ws/signaling");
+                ws.onmessage = async (event) => {
+                    const message = JSON.parse(event.data);
+
+                    if (message.sdp) {
+                        await localConnection.setRemoteDescription(message.sdp);
+                        if (message.sdp.type === "offer") {
+                            const answer = await localConnection.createAnswer();
+                            await localConnection.setLocalDescription(answer);
+                            ws.send(JSON.stringify({sdp: localConnection.localDescription}));
+                        }
+                    }
+
+                    if (message.candidate) {
+                        try {
+                            await localConnection.addIceCandidate(message.candidate);
+                        } catch(e) { console.error(e); }
+                    }
+                };
+
+                // 2️⃣ Crear RTCPeerConnection
+                const config = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
+                localConnection = new RTCPeerConnection(config);
+
+                localConnection.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        ws.send(JSON.stringify({candidate: event.candidate}));
+                    }
+                };
+
+                // 3️⃣ DataChannel para enviar archivos
+                dataChannel = localConnection.createDataChannel("fileChannel");
+                dataChannel.binaryType = "arraybuffer";
+                dataChannel.onmessage = receiveMessage;
+
+                // 4️⃣ Crear oferta inicial
+                localConnection.createOffer().then(offer => {
+                    localConnection.setLocalDescription(offer);
+                    ws.send(JSON.stringify({sdp: offer}));
+                });
+            }
+
+            function sendFile() {
+                const input = document.getElementById("fileInput");
+                if (input.files.length === 0) return;
+
+                file = input.files[0];
+                fileReader = new FileReader();
+                let offset = 0;
+
+                fileReader.onload = e => {
+                    dataChannel.send(e.target.result);
+                    offset += e.target.result.byteLength;
+                    if (offset < file.size) {
+                        readSlice(offset);
+                    } else {
+                        console.log("Archivo enviado!");
+                    }
+                };
+
+                function readSlice(o) {
+                    const slice = file.slice(o, o + chunkSize);
+                    fileReader.readAsArrayBuffer(slice);
+                }
+
+                readSlice(0);
+            }
+
+            function receiveMessage(event) {
+                receivedBuffers.push(event.data);
+
+                // Suponiendo que se envía todo de una vez o agregar lógica de fin de archivo
+                const received = new Blob(receivedBuffers);
+                const url = URL.createObjectURL(received);
+
+                const li = document.createElement("li");
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "receivedFile";
+                a.innerText = "Descargar archivo recibido";
+                li.appendChild(a);
+                document.getElementById("receivedFiles").appendChild(li);
+
+                // limpiar buffer
+                receivedBuffers = [];
+            }
+        </script>
+    </h:form>
+</h:body>
+</html>
