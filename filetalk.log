@@ -12,3 +12,13 @@
 [03:40:30.483] [INFO ] DownloadBean::init(L:55) - Iniciando explorador en: /home/cris/Filetalk
 [03:40:39.461] [INFO ] DownloadBean::init(L:55) - Iniciando explorador en: /home/cris/Filetalk
 [03:42:48.274] [INFO ] DownloadBean::init(L:55) - Iniciando explorador en: /home/cris/Filetalk
+[04:01:08.166] [INFO ] MainController::lambda$connectServer$3(L:57) - Intentando conectar a 192.168.100.135:8080
+[04:01:08.172] [INFO ] Client::setConexion(L:69) - Conectando a 192.168.100.135:8080 como: fedora
+[04:01:08.174] [INFO ] MainController::lambda$connectServer$4(L:68) - Conexión exitosa
+[04:02:39.699] [INFO ] HostControlPanelSwing$1::done(L:146) - Transferencia exitosa a fedora
+[04:04:14.392] [INFO ] Client$ReadMessages::run(L:223) - Error leyendo del servidor: Socket closed
+[04:05:33.278] [INFO ] MainController::lambda$connectServer$3(L:57) - Intentando conectar a 192.168.100.135:8080
+[04:05:33.283] [INFO ] Client::setConexion(L:69) - Conectando a 192.168.100.135:8080 como: fedora
+[04:05:33.285] [INFO ] MainController::lambda$connectServer$4(L:68) - Conexión exitosa
+[04:06:53.633] [INFO ] HostControlPanelSwing$1::done(L:146) - Transferencia exitosa a fedora
+[04:07:31.901] [ERROR] FileTransferManager::sendFile(L:71) - Error al enviar el archivo: Conexión reinicializada por la máquina remota

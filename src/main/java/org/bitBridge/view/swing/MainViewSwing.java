@@ -104,7 +104,7 @@ public class MainViewSwing extends JFrame implements IMainView {
         JPanel header = new JPanel(new BorderLayout());
         header.setBackground(new Color(20, 25, 29));
         header.setBorder(new EmptyBorder(10, 20, 10, 20));
-        JLabel logo = new JLabel("FILETALK P2P");
+        JLabel logo = new JLabel("BitBridge");
         logo.setFont(new Font("SansSerif", Font.BOLD, 18));
         logo.setForeground(COLOR_PRIMARY);
         JPanel navActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
