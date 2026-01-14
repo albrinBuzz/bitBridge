@@ -6,8 +6,7 @@ import org.bitBridge.Client.TransferManager;
 import org.bitBridge.Observers.TransferencesObserver;
 import org.bitBridge.models.TransferProgress;
 import org.bitBridge.models.Transferencia;
-import org.bitBridge.shared.FileTransferState;
-import org.bitBridge.shared.Logger;
+import org.bitBridge.shared.*;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -19,6 +18,7 @@ public class TransferenciaController {
     private Map<String, Transferencia> transferMap; // Mapa de transferencias activas
     //private TransferencesView view; // Vista para notificar cambios
     private TransferencesObserver transferencesObserver;
+
     private Map<String, Long> startTimes = new ConcurrentHashMap<>();
     // Constructor
     /*public TransferenciaController(TransferencesView view) {
@@ -147,11 +147,26 @@ public class TransferenciaController {
                 transferencesObserver.updateTransferenceFull(progress);
 
                 // Mantenemos compatibilidad con tu método viejo por si acaso
-                transferencesObserver.updateTransference(state, id, percentage);
+                //transferencesObserver.updateTransference(state, id, percentage);
             }
+        }else {
+            // Log diagnóstico mejorado
+            StringBuilder motivo = new StringBuilder("Fallo al actualizar métricas para ID: " + id + ". Motivo: ");
+            if (trans == null) motivo.append("[Transferencia no encontrada en transferMap] ");
+            if (startTime == null) motivo.append("[StartTime no registrado (cronómetro no iniciado)] ");
+            if (totalBytes <= 0) motivo.append("[Tamaño total inválido o cero: ").append(totalBytes).append("] ");
+
+            Logger.logWarn(motivo.toString());
         }
     }
 
+    public boolean notifyTranference(FileHandshakeCommunication handshakeCommunication)
+    {
+        return transferencesObserver.notifyTranference(handshakeCommunication);
+    }
+    public void notifyTranference(FileHandshakeAction action){
+        transferencesObserver.notifyTranference(action);
+    }
     public void removeTransference(String id) {
         transferMap.remove(id);
         startTimes.remove(id); // Limpiar tiempo al terminar

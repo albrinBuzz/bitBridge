@@ -5,6 +5,7 @@ package org.bitBridge.view.swing.components.transfers;
 
 import org.bitBridge.Client.TransferManager;
 import org.bitBridge.models.Transferencia;
+import org.bitBridge.shared.Logger;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -19,6 +20,10 @@ public class TransferenceControlPanelSwing extends JPanel {
 
     private final TransferManager transferManager;
     private final String mode;
+
+    private int lastPercentage = -1;
+    private long lastUIUpdateTime = 0;
+    private static final int UI_UPDATE_INTERVAL = 150;
 
     // Colores Dark UI
     private final Color COLOR_TARJETA = new Color(45, 52, 54);
@@ -135,39 +140,56 @@ public class TransferenceControlPanelSwing extends JPanel {
     }
 
     public void updateProgressBar(int progress) {
+        // OPTIMIZACIÓN 1: Solo actualizar si el porcentaje entero cambió
+        // Esto evita miles de llamadas inútiles si el archivo es grande
+        if (progress == lastPercentage) return;
+        this.lastPercentage = progress;
+
         SwingUtilities.invokeLater(() -> {
             progressBar.setValue(progress);
             progressPercentageLabel.setText(progress + "%");
 
             if (progress >= 100) {
-                progressBar.setForeground(new Color(46, 204, 113)); // Verde éxito
-                detailLabel.setText("✅ Transferencia completada");
-                detailLabel.setForeground(new Color(46, 204, 113));
-                pauseButton.setEnabled(false);
-                resumeButton.setEnabled(false);
+                setCompletado();
             }
         });
     }
 
     public void updateMetrics(double speedMBs, String eta) {
+        long now = System.currentTimeMillis();
+
+        // OPTIMIZACIÓN 2: Throttling de métricas
+        // El ojo humano no puede leer cambios de texto cada 5ms.
+        // Actualizar cada 150ms es fluido y libera al procesador.
+        if (now - lastUIUpdateTime < UI_UPDATE_INTERVAL && speedMBs > 0) {
+            return;
+        }
+        lastUIUpdateTime = now;
+
         SwingUtilities.invokeLater(() -> {
-            // Formateamos la velocidad para que no tenga demasiados decimales
-            String stats;
-            if (speedMBs >= 1.0) {
-                stats = String.format("%.2f MB/s — Quedan: %s", speedMBs, eta);
-            } else {
-                // Si es menos de 1 MB, mostramos KB para que sea más legible
-                stats = String.format("%.1f KB/s — Quedan: %s", speedMBs * 1024, eta);
-            }
+            String stats = formatStats(speedMBs, eta);
 
-            detailLabel.setText(stats);
-
-            // Efecto visual: si la velocidad es 0 (pausado o lento), cambiamos el color
-            if (speedMBs == 0) {
-                detailLabel.setForeground(new Color(239, 68, 68)); // Rojo suave
-            } else {
-                detailLabel.setForeground(COLOR_TEXTO_SEC);
+            // OPTIMIZACIÓN 3: Evitar el re-layout si el texto es idéntico
+            if (!detailLabel.getText().equals(stats)) {
+                detailLabel.setText(stats);
+                detailLabel.setForeground(speedMBs <= 0 ? new Color(239, 68, 68) : COLOR_TEXTO_SEC);
             }
         });
+    }
+
+    private String formatStats(double speedMBs, String eta) {
+        if (speedMBs >= 1.0) {
+            return String.format("%.2f MB/s — Quedan: %s", speedMBs, eta);
+        } else {
+            return String.format("%.1f KB/s — Quedan: %s", speedMBs * 1024, eta);
+        }
+    }
+
+    private void setCompletado() {
+        progressBar.setForeground(new Color(46, 204, 113));
+        detailLabel.setText("✅ Transferencia completada");
+        detailLabel.setForeground(new Color(46, 204, 113));
+        pauseButton.setEnabled(false);
+        resumeButton.setEnabled(false);
     }
 }

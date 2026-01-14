@@ -11,6 +11,7 @@ import org.bitBridge.Observers.TransferencesObserver;
 import org.bitBridge.controller.TransferenciaController;
 import org.bitBridge.server.ConfiguracionServidor;
 import org.bitBridge.shared.*;
+import org.bitBridge.utils.NetworkManager;
 
 import java.io.File;
 import java.io.IOException;
@@ -39,7 +40,7 @@ public class Client {
     private ConfiguracionServidor config =ConfiguracionServidor.getInstancia();
 
     private TransferenciaController transferenciaController;
-
+    private NetworkManager networkManager = new NetworkManager();
     private TransferService transferService;
     private MessageDispatcher dispatcher;
     private DiscoveryService discoveryService = new DiscoveryService();
@@ -84,10 +85,26 @@ public class Client {
         executorService.submit(new ReadMessages(entrada));
     }
 
-    public void conexionAutomatica() throws IOException, InterruptedException {
+    /*public void conexionAutomatica() throws IOException, InterruptedException {
         DiscoveryService.ServerInfo info = discoveryService.discoverServer();
         setConexion(info.address(), info.port());
 
+    }*/
+
+    public void conexionAutomatica() {
+        Logger.logInfo("[Auto] Buscando servidores BitBridge en la red...");
+
+        networkManager.startLookingForServers((ip, port) -> {
+            try {
+                // Evitar conectar si ya estamos conectados
+                if (socket == null || socket.isClosed()) {
+                    Logger.logInfo("[Auto] ¡Servidor detectado! Intentando enlace...");
+                    setConexion(ip, port);
+                }
+            } catch (IOException e) {
+                Logger.logError("Error al conectar automáticamente: " + e.getMessage());
+            }
+        });
     }
 
 
@@ -115,6 +132,8 @@ public class Client {
             if (entrada != null) {
                 entrada.close();
             }
+            List<ClientInfo> clientNicks=new ArrayList<>();
+            notifyHostobserves(clientNicks);
             // Actualización del estado de la conexión en el observador
             //this.observer.updateServerConnection(ServerStatusConnection.DISCONNECTED);
             for (NetObserver obs : observers) {

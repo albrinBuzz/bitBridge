@@ -8,7 +8,7 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 
 public class DiscoveryService {
-    private final int UDP_PORT = 9092;
+    private final int UDP_PORT = 9090;
 
     public ServerInfo discoverServer() throws IOException {
         try (DatagramSocket socketUdp = new DatagramSocket(UDP_PORT)) {

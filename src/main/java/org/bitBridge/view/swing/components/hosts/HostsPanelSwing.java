@@ -116,6 +116,8 @@ public class HostsPanelSwing extends JPanel implements HostsObserver {
     private void mostrarEstadoVacio() {
         SwingUtilities.invokeLater(() -> {
             usuariosBox.removeAll();
+
+            usuariosTitle.setText("🧑‍💻 Usuarios Conectados (0)");
             JLabel placeholder = new JLabel("🔍 Buscando usuarios en la red...");
             placeholder.setForeground(Color.GRAY);
             placeholder.setBorder(new EmptyBorder(20, 20, 20, 20));

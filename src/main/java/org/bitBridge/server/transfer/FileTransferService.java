@@ -10,13 +10,14 @@ import org.bitBridge.shared.Logger;
 
 import java.io.*;
 import java.net.SocketException;
+import java.util.BitSet;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
 public class FileTransferService {
 
     private final ServerContext context;
-    private static final int BUFFER_SIZE = 64 * 1024; // 64KB
+    private static final int BUFFER_SIZE = 128 * 1024; // 64KB
 
     public FileTransferService(ServerContext context) {
         this.context = context;
@@ -25,11 +26,9 @@ public class FileTransferService {
     /**
      * Coordina el envío de un archivo individual entre un emisor y un receptor.
      */
-    public void handleForwardFile(ClientHandler sender, ObjectInputStream entrada) {
+    public void handleForwardFile(ClientHandler sender, ObjectInputStream entrada,FileDirectoryCommunication communication) {
         try {
-            Object nextObject = entrada.readObject();
 
-            if (nextObject instanceof FileDirectoryCommunication communication) {
                 String recipientNick = communication.getRecipient();
                 long fileSize = communication.getSize();
 
@@ -54,6 +53,11 @@ public class FileTransferService {
                     Logger.logError("No se encontró conexión de datos del receptor.");
                     return;
                 }
+            //FileHandshakeAction action=context.transferManager().responseAction(sessionId);
+            FileHandshakeAction action=context.transferManager().waitForResponseAction(sessionId, 7);
+            ///FileHandshakeAction action = manager.waitForResponseAction(sessionId, 30);
+
+            if (action==FileHandshakeAction.ACCEPT_REQUEST) {
 
                 FileHandshakeCommunication start = new FileHandshakeCommunication(
                         FileHandshakeAction.START_TRANSFER, sessionId, communication);
@@ -73,7 +77,14 @@ public class FileTransferService {
                 TimeUnit.MILLISECONDS.sleep(250);
                 receptor.shutDown();
                 sender.shutDown();
+
+            }else {
+                FileHandshakeCommunication start = new FileHandshakeCommunication(
+                        FileHandshakeAction.DECLINE_REQUEST, sessionId, communication);
+
+                sender.sendComunicacion(start);
             }
+
         } catch (Exception e) {
             Logger.logError("Error en FileTransferService (forwardFile): " + e.getMessage());
         }
@@ -110,58 +121,69 @@ public class FileTransferService {
                 return;
             }
 
-            // 3. Notificar inicio
-            FileHandshakeCommunication start = new FileHandshakeCommunication(
-                    FileHandshakeAction.START_TRANSFER, sessionId, com);
+            FileHandshakeAction action=context.transferManager().waitForResponseAction(sessionId, 7);
+            ///FileHandshakeAction action = manager.waitForResponseAction(sessionId, 30);
 
-            dataReceiver.sendComunicacion(start);
-            sender.sendComunicacion(start);
+            if (action==FileHandshakeAction.ACCEPT_REQUEST) {
 
-            byte[] buffer = new byte[BUFFER_SIZE];
-            long totalBytesSentTotal = 0;
+                // 3. Notificar inicio
+                FileHandshakeCommunication start = new FileHandshakeCommunication(
+                        FileHandshakeAction.START_TRANSFER, sessionId, com);
 
-            // --- TU LÓGICA ORIGINAL MANTENIDA ---
-            while (sender.clientSocket.isConnected()) {
-                Object object = entrada.readObject();
+                dataReceiver.sendComunicacion(start);
+                sender.sendComunicacion(start);
 
-                if (object instanceof FileDirectoryCommunication archivo) {
-                    // Orden de lectura igual al envío del cliente
-                    String nombreArchivo = entrada.readUTF();
+                byte[] buffer = new byte[BUFFER_SIZE];
+                long totalBytesSentTotal = 0;
 
-                    dataReceiver.sendComunicacion(archivo);
-                    dataReceiver.getOutputStream().writeUTF(nombreArchivo);
-                    dataReceiver.getOutputStream().flush();
+                // --- TU LÓGICA ORIGINAL MANTENIDA ---
+                while (sender.clientSocket.isConnected()) {
+                    Object object = entrada.readObject();
 
-                    if (archivo.isDirectory() && archivo.getSize() == 0) {
-                        continue;
-                    }
+                    if (object instanceof FileDirectoryCommunication archivo) {
+                        // Orden de lectura igual al envío del cliente
+                        String nombreArchivo = entrada.readUTF();
 
-                    long fileSize = archivo.getSize();
-                    long totalBytesRead = 0;
-                    int bytesRead;
+                        dataReceiver.sendComunicacion(archivo);
+                        dataReceiver.getOutputStream().writeUTF(nombreArchivo);
+                        dataReceiver.getOutputStream().flush();
 
-                    // Puente de bytes exacto para evitar OptionalDataException
+                        if (archivo.isDirectory() && archivo.getSize() == 0) {
+                            continue;
+                        }
 
-                    streamBytes(entrada, dataReceiver.getOutputStream(), fileSize);
+                        long fileSize = archivo.getSize();
+                        long totalBytesRead = 0;
+                        int bytesRead;
+
+                        // Puente de bytes exacto para evitar OptionalDataException
+
+                        streamBytes(entrada, dataReceiver.getOutputStream(), fileSize);
 
 
-                } else if (object instanceof FileHandshakeCommunication respuesta) {
-                    if (respuesta.getAction().equals(FileHandshakeAction.TRANSFER_DONE)) {
-                        FileHandshakeCommunication requestCom = new FileHandshakeCommunication(
-                                FileHandshakeAction.TRANSFER_DONE
-                        );
-                        dataReceiver.sendComunicacion(requestCom);
-                        break;
+                    } else if (object instanceof FileHandshakeCommunication respuesta) {
+                        if (respuesta.getAction().equals(FileHandshakeAction.TRANSFER_DONE)) {
+                            FileHandshakeCommunication requestCom = new FileHandshakeCommunication(
+                                    FileHandshakeAction.TRANSFER_DONE
+                            );
+                            dataReceiver.sendComunicacion(requestCom);
+                            break;
+                        }
                     }
                 }
+                // --- FIN DE LÓGICA ORIGINAL ---
+
+                context.stats().recordBytes(totalBytesSentTotal);
+                Logger.logInfo(logId + " ¡Éxito! Directorio enviado correctamente.");
+
+                dataReceiver.shutDown();
+                sender.shutDown();
+            }else {
+                FileHandshakeCommunication start = new FileHandshakeCommunication(
+                        FileHandshakeAction.DECLINE_REQUEST, sessionId, com);
+
+                sender.sendComunicacion(start);
             }
-            // --- FIN DE LÓGICA ORIGINAL ---
-
-            context.stats().recordBytes(totalBytesSentTotal);
-            Logger.logInfo(logId + " ¡Éxito! Directorio enviado correctamente.");
-
-            dataReceiver.shutDown();
-            sender.shutDown();
 
         } catch (SocketException e) {
             Logger.logError(logId + " Conexión perdida: " + e.getMessage());

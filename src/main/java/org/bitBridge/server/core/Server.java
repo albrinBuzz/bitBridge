@@ -23,6 +23,8 @@ import org.bitBridge.shared.CommunicationType;
 import org.bitBridge.shared.Logger;
 import org.bitBridge.shared.Mensaje;
 
+import org.bitBridge.utils.NetworkManager;
+import org.bitBridge.utils.UPnPManager;
 import org.springframework.context.ConfigurableApplicationContext;
 
 
@@ -39,6 +41,8 @@ public class Server {
     public AtomicLong totalMessagesReceived = new AtomicLong(0);
 
     private ServerStats stats;
+    private NetworkManager networkManager = new NetworkManager();
+    private UPnPManager upnpManager = new UPnPManager();
 
     private ServerObserver serverObserver;
     private static volatile Server serverInstancia;
@@ -66,7 +70,7 @@ public class Server {
     private int actualPort; // Cambia PORT por una variable para saber cuál quedó activo
 
     public void startServer() throws IOException {
-        startBackgroundServices();
+
 
         // 1. Validación de rango antes de intentar abrir el socket
         if (PORT < 0 || PORT > 65535) {
@@ -74,14 +78,18 @@ public class Server {
         }
 
         try {
-            this.isRunning = true;
+
 
             // Intentar enlazar el socket
             serverSocket = new ServerSocket(PORT);
-
+            serverSocket.setReuseAddress(true); // Permite reiniciar la app sin esperar a que el puerto se libere
+            this.isRunning = true;
             // Obtener la dirección local para el log
-            String localAddress = serverSocket.getInetAddress().getHostAddress();
+            //String localAddress = serverSocket.getInetAddress().getHostAddress();
+            String localAddress = NetworkManager.getLocalIp();
             int localPort = serverSocket.getLocalPort();
+
+            startBackgroundServices();
 
             new Thread(() -> {
                 while (isRunning) {
@@ -128,11 +136,19 @@ public class Server {
         return actualPort;
     }
 
-    private void startBackgroundServices() {
+    private void startBackgroundServices() throws UnknownHostException {
         ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2);
 
         // Broadcast cada 2 segundos es suficiente
-        scheduler.scheduleAtFixedRate(this::brocastServer, 0, 2, TimeUnit.SECONDS);
+        //scheduler.scheduleAtFixedRate(this::brocastServer, 0, 2, TimeUnit.SECONDS);
+        String nickname = ConfiguracionServidor.getInstancia().obtener("usuario.nickname");
+        //String host=serverSocket.getInetAddress().getHostName();
+        String hostName = InetAddress.getLocalHost().getHostName();
+        int puertoReal = serverSocket.getLocalPort();
+
+        //upnpManager.openPort(puertoReal);
+
+        networkManager.startServerAnnouncement(puertoReal, hostName);
 
         // IMPORTANTE: Cambio de MILISEGUNDOS a SEGUNDOS
         scheduler.scheduleAtFixedRate(this::updateStatus, 0, 1, TimeUnit.SECONDS);
@@ -275,10 +291,11 @@ public class Server {
     // Método para hacer broadcast del estado del servidor en la red
     private void brocastServer() {
         String msg = "[" + NetworkUtils.getLocalIp() + "][" + PORT + "]";
+        Logger.logInfo(msg);
         try (DatagramSocket socket = new DatagramSocket()) {
             socket.setBroadcast(true);
             byte[] buf = msg.getBytes();
-            socket.send(new DatagramPacket(buf, buf.length, NetworkUtils.getBroadcastAddress(), 9092));
+            socket.send(new DatagramPacket(buf, buf.length, NetworkUtils.getBroadcastAddress(), 9090));
         } catch (Exception e) {
             Logger.logError("Broadcast error: " + e.getMessage());
         }
@@ -313,15 +330,17 @@ public class Server {
 
     }
 
+    public ServerStats getStats() {
+        return stats;
+    }
 
-
-    /*private void updateUptime(){
+/*private void updateUptime(){
         this.serverObserver.updateUptime(formatUptime(serverStartTime));
     }*/
 
     public void updateStatus(){
 
-        Runtime runtime = Runtime.getRuntime();
+        /*Runtime runtime = Runtime.getRuntime();
 
 
     // Total de memoria en JVM (en bytes)
@@ -345,7 +364,7 @@ public class Server {
         //List<ClientInfo>clientInfos=new ArrayList<>(clients.values());
 
         //serverObserver.updateClient(clientInfos, Thread.activeCount());
-        //clients.forEach((clave,valor)->serverObserver.updateClient(valor, Thread.activeCount()));
+        //clients.forEach((clave,valor)->serverObserver.updateClient(valor, Thread.activeCount()));*/
     }
 
     public void updateBytes() {

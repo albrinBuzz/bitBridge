@@ -18,10 +18,15 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <java.version>21</java.version>
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
+        <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
+
 
 
     <dependencies>
@@ -73,6 +78,26 @@
         </dependency>
 
 
+        <dependency>
+            <groupId>org.jmdns</groupId>
+            <artifactId>jmdns</artifactId>
+            <version>3.5.8</version>
+        </dependency>
+
+        <!-- Source: https://mvnrepository.com/artifact/org.jupnp/jupnp -->
+
+        <dependency>
+            <groupId>org.jupnp</groupId>
+            <artifactId>org.jupnp</artifactId>
+            <version>3.0.4</version> <!-- Check for the latest version -->
+        </dependency>
+
+        <dependency>
+            <groupId>org.jupnp</groupId>
+            <artifactId>org.jupnp.support</artifactId>
+            <version>2.5.2</version>
+        </dependency>
+
     </dependencies>
 
     <build>
@@ -100,7 +125,7 @@
                         </goals>
                         <configuration>
                             <mainClass>org.bitBridge.Launcher</mainClass>
-                            <finalName>FileTalk-Desktop</finalName>
+                            <finalName>BitBridge-Desktop</finalName>
                         </configuration>
                     </execution>
 
@@ -111,7 +136,7 @@
                         </goals>
                         <configuration>
                             <mainClass>org.bitBridge.Tests.ServerTest</mainClass>
-                            <finalName>FileTalk-CLI</finalName>
+                            <finalName>BitBridge-CLI</finalName>
                         </configuration>
                     </execution>
                 </executions>
@@ -148,6 +173,18 @@
                     </requiresUnpack>
                 </configuration>
             </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+                <configuration>
+                    <source>21</source>
+                    <target>21</target>
+                    <release>21</release>
+                </configuration>
+            </plugin>
+
         </plugins>
     </build>
 </project>

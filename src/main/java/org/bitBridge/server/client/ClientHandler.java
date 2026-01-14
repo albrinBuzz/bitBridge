@@ -64,15 +64,31 @@ public class ClientHandler implements Runnable {
                 this.nick = contenidoInicial;
                 server.registerClient(this, 8080); // Registrar para que otros hilos lo encuentren
 
-                Logger.logDebug("Sesión técnica [" + nick + "] detectada. Iniciando puente de datos.");
+                Object incoming= entrada.readObject();
 
-                // Delegamos el control al método de transferencia y FINALIZAMOS el run
-                if (this.nick.startsWith("SENDER_")) {
+                if (incoming instanceof FileHandshakeCommunication handshake) {
+                    Logger.logInfo(handshake.getAction().name());
+                   context.transferManager().registerHandshake(handshake.getSessionId(), handshake);
 
-                    transferService.handleForwardFile(this, this.entrada);
-                    //return;
-                    //this.forwardFile(); // Método que explicamos antes para leer bytes
+                } else if (incoming instanceof FileDirectoryCommunication communication) {
+
+                    // Delegamos el control al método de transferencia y FINALIZAMOS el run
+
+                    if (this.nick.startsWith("SENDER_")) {
+                        Logger.logDebug("Sesión técnica [" + nick + "] detectada. Iniciando puente de datos.");
+                        if (communication.getType().equals(CommunicationType.FILE)) {
+                            transferService.handleForwardFile(this, this.entrada,communication);
+                        } else if (communication.getType().equals(CommunicationType.DIRECTORY)) {
+
+                            transferService.relayDirectory(communication, this, this.entrada);
+                        }
+
+                        //return;
+                        //this.forwardFile(); // Método que explicamos antes para leer bytes
+                    }
                 }
+
+
                  // IMPORTANTE: Cerramos este hilo de control de chat
                 //manegerCon();
                 //return;
@@ -95,7 +111,7 @@ public class ClientHandler implements Runnable {
             Logger.logError("Error general en ClientHandler [" + nick + "]: " + e.getMessage());
             e.printStackTrace();
         } finally {
-            //shutDown();
+            shutDown();
         }
     }
     public void manegerCon(){
@@ -112,7 +128,7 @@ public class ClientHandler implements Runnable {
             } catch (ClassNotFoundException | IOException e) {
                 throw new RuntimeException(e);
             } finally {
-                //shutDown();
+                shutDown();
             }
         }
     }
@@ -187,6 +203,10 @@ public class ClientHandler implements Runnable {
             //.logInfo("Error al enviar con el cliente: "+e.getMessage());
         }
 
+    }
+
+    public Socket getClientSocket() {
+        return clientSocket;
     }
 
     public  ObjectOutputStream getOutputStream() { return this.salida; }

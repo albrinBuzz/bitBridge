@@ -1,7 +1,5 @@
 package org.bitBridge.Client;
 
-
-
 import org.bitBridge.controller.TransferenciaController;
 import org.bitBridge.shared.*;
 
@@ -10,241 +8,174 @@ import java.net.Socket;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
-public class FileTransferManager implements TransferManager{
+public class FileTransferManager implements TransferManager {
     private volatile boolean running = true;
     private volatile boolean paused = false;
     private final Object pauseLock = new Object();
-    private ConfiguracionCliente configCliente;
-    private TransferenciaController transferenciaController;
+    private final ConfiguracionCliente configCliente;
+    private final TransferenciaController transferenciaController;
+
+    // Buffer optimizado para balancear memoria y rendimiento (128KB)
+    private static final int BUFFER_SIZE = 128 * 1024;
 
     public FileTransferManager(TransferenciaController transferenciaController) {
-        this.configCliente=new ConfiguracionCliente();
-        this.transferenciaController=transferenciaController;
-
+        this.configCliente = new ConfiguracionCliente();
+        this.transferenciaController = transferenciaController;
     }
 
     public void sendFile(FileDirectoryCommunication com, File file, String SERVER_ADDRESS, int port) {
-        // Generamos un ID de sesión técnico para que el servidor sepa que es transferencia de archivos
         String sessionId = "SENDER_" + new Random().nextInt(10000);
 
-        try (Socket socket = new Socket(SERVER_ADDRESS, port);
-             ObjectOutputStream salida = new ObjectOutputStream(socket.getOutputStream())) {
+        // Uso de try-with-resources para asegurar que el socket y los streams se cierren SIEMPRE
+        try (Socket socket = new Socket(SERVER_ADDRESS, port)) {
+            configurarSocket(socket);
 
-            salida.flush();
-            ObjectInputStream entrada = new ObjectInputStream(socket.getInputStream());
+            try (ObjectOutputStream salida = new ObjectOutputStream(new BufferedOutputStream(socket.getOutputStream()))) {
+                salida.flush();
+                ObjectInputStream entrada = new ObjectInputStream(new BufferedInputStream(socket.getInputStream()));
 
-            // 1. Identificación técnica inicial (Muy importante para el Servidor)
-            salida.writeObject(new Mensaje(sessionId, CommunicationType.MESSAGE));
-            salida.flush();
+                // 1. Identificación técnica inicial
+                salida.writeObject(new Mensaje(sessionId, CommunicationType.MESSAGE));
+                salida.writeObject(com); // Metadatos
+                salida.flush();
 
-            // 2. Registrar en la UI
-            String idTransfe = transferenciaController.addTransference(
-                    FileTransferState.SENDING.name(), com.getRecipient(), com.getRecipient(),
-                    file.getName(), this
-            );
+                Object respuesta = waitForHandshake(entrada);
 
-            // 3. Enviar metadatos del archivo (el objeto 'com')
+                if (respuesta instanceof FileHandshakeCommunication f && f.getAction() == FileHandshakeAction.START_TRANSFER) {
+                    String idTransfe = transferenciaController.addTransference(
+                            FileTransferState.SENDING.name(), com.getRecipient(), com.getRecipient(),
+                            file.getName(), this
+                    );
 
-            salida.writeObject(com);
-            salida.flush();
-            //Logger.logInfo("Información del archivo enviada al servidor.");
+                    transferData(file, salida, idTransfe);
+                } else if (respuesta instanceof FileHandshakeCommunication f) {
+                    transferenciaController.notifyTranference(f.getAction());
+                }
 
-            // 3. Esperar Handshake
-            if (!waitForHandshake(entrada)) {
-                Logger.logError("No se recibió confirmación del servidor para iniciar.");
-                return;
+                // Pequeña espera para asegurar que el buffer se vacíe antes de cerrar
+                TimeUnit.MILLISECONDS.sleep(200);
             }
-
-            // 4. Transferencia de datos
-            transferData(file, salida, idTransfe);
-
-            /*FileHandshakeCommunication response = new FileHandshakeCommunication(
-                    FileHandshakeAction.TRANSFER_DONE
-            );
-            salida.writeObject(response);
-
-            salida.flush();*/
-            TimeUnit.MILLISECONDS.sleep(350);
-
-
-        } catch (IOException e) {
-            Logger.logError("Error al enviar el archivo: " + e.getMessage());
-        } catch (InterruptedException e) {
-            Logger.logError("Error de interrupción en el proceso de transferencia: " + e.getMessage());
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            Logger.logError("Error en sendFile: " + e.getMessage());
         }
     }
 
+    public void receiveFiles(String SERVER_ADDRESS, String port, FileHandshakeCommunication handshakeCommunication) {
+        String sessionId = handshakeCommunication.getSessionId();
+        var info = handshakeCommunication.getFileInfo();
+
+        try (Socket socket = new Socket(SERVER_ADDRESS, Integer.parseInt(port))) {
+            configurarSocket(socket);
+
+            try (ObjectOutputStream salida = new ObjectOutputStream(new BufferedOutputStream(socket.getOutputStream()))) {
+                salida.flush();
+                ObjectInputStream entrada = new ObjectInputStream(new BufferedInputStream(socket.getInputStream()));
 
 
 
-    public   void receiveFiles(String SERVER_ADDRESS,String port,FileHandshakeCommunication handshakeCommunication) {
-        Logger.logInfo("recibiendo archivo");
-        try {
+                if (transferenciaController.notifyTranference(handshakeCommunication)) {
 
-            var communication=handshakeCommunication.getFileInfo();
-            String recipientNick = communication.getRecipient();
-            String fileName = communication.getName();
-            long fileSize = communication.getSize();
+                    // Identificación
+                    salida.writeObject(new Mensaje(sessionId, CommunicationType.MESSAGE));
+                    salida.flush();
 
-            var idTrans= transferenciaController.addTransference(FileTransferState.RECEIVING.name(), recipientNick, recipientNick,fileName,this);
+                    String idTrans = transferenciaController.addTransference(
+                            FileTransferState.RECEIVING.name(), info.getRecipient(), info.getRecipient(), info.getName(), this);
 
+                    salida.writeObject(new FileHandshakeCommunication(FileHandshakeAction.ACCEPT_REQUEST, sessionId));
+                    salida.flush();
 
-            Socket socket=new Socket(SERVER_ADDRESS, Integer.parseInt(port));
+                    // Esperar confirmación START_TRANSFER
+                    if (confirmarInicio(entrada, sessionId)) {
+                        String rutaFull = configCliente.obtener("cliente.directorio_descargas") + info.getName();
 
-            ObjectOutputStream salida = new ObjectOutputStream(socket.getOutputStream());
+                        try (FileOutputStream fos = new FileOutputStream(rutaFull);
+                             BufferedOutputStream bos = new BufferedOutputStream(fos)) {
 
-            ObjectInputStream entrada=new ObjectInputStream(socket.getInputStream());
+                            byte[] buffer = new byte[BUFFER_SIZE];
+                            long totalRead = 0;
+                            long fileSize = info.getSize();
 
+                            while (totalRead < fileSize && running) {
+                                int read = entrada.read(buffer);
+                                if (read == -1) break;
+                                bos.write(buffer, 0, read);
+                                totalRead += read;
 
-            salida.writeObject(new Mensaje(handshakeCommunication.getSessionId(), CommunicationType.MESSAGE));
-            salida.flush();
-
-
-
-            String rutaDescargas = configCliente.obtener("cliente.directorio_descargas");
-
-
-            Object object;
-            while (true) {
-                try {
-                    object = entrada.readObject();
-
-                    if (object instanceof FileHandshakeCommunication respuesta) {
-
-                        // Validamos que sea la respuesta esperada (ej. inicio de transferencia)
-                        if (respuesta.getAction() == FileHandshakeAction.START_TRANSFER &&
-                                respuesta.getSessionId().equals(handshakeCommunication.getSessionId())) {
-
-                            break; // Salir del bucle, ya tienes la respuesta esperada
+                                transferenciaController.updateProgressMetrics(FileTransferState.RECEIVING, idTrans, totalRead, fileSize);
+                            }
+                            bos.flush();
                         }
-
-                    } else if (object instanceof Mensaje mensaje) {
-                        //Logger.logInfo("Mensaje recibido: " + mensaje.getContenido());
-                        // Puedes seguir esperando o tomar otra acción
                     }
-
-                } catch (ClassNotFoundException | IOException e) {
-                    //Logger.logError("Error leyendo objeto del servidor: " + e.getMessage());
-                    break;
+                } else {
+                    salida.writeObject(new FileHandshakeCommunication(FileHandshakeAction.DECLINE_REQUEST, sessionId));
+                    salida.flush();
                 }
             }
-            Logger.logInfo("Comenzando la descarga");
-
-            try (FileOutputStream fileOutputStream = new FileOutputStream(rutaDescargas+fileName)) {
-                byte[] buffer = new byte[65536];
-
-                int bytesRead;
-                long totalBytesRead = 0;
-
-                while (totalBytesRead < fileSize) {
-                    bytesRead = entrada.read(buffer);
-                    if (bytesRead == -1) break;
-                    fileOutputStream.write(buffer, 0, bytesRead);
-                    totalBytesRead += bytesRead;
-
-                    //transferenciaController.updateProgress(FileTransferState.RECEIVING,idTrans,(int)((totalBytesRead * 100) / fileSize));
-                    transferenciaController.updateProgressMetrics(
-                            FileTransferState.RECEIVING,
-                            idTrans,
-                            totalBytesRead,
-                            fileSize
-                    );
-                }
-
-
-            }
-            Logger.logInfo(rutaDescargas+fileName);
-
-            /*Object fin = entrada.readObject(); // Leer TRANSFER_DONE
-            if (fin instanceof  FileHandshakeCommunication com){
-                if (com.getAction()==FileHandshakeAction.TRANSFER_DONE){
-                    Logger.logInfo("Tranferencia finalizada, cerrando recursos");
-                }
-            }*/
-
-            TimeUnit.MILLISECONDS.sleep(250);
-            entrada.close();
-            socket.close();
-        } catch (IOException e) {
-            System.err.println("Error durante la recepción de archivos: " + e.getMessage());
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
+        } catch (Exception e) {
+            Logger.logError("Error en receiveFiles: " + e.getMessage());
         }
     }
 
     private void transferData(File file, ObjectOutputStream salida, String idTrans) throws IOException, InterruptedException {
-        byte[] buffer = new byte[65536];
         long length = file.length();
         long totalSent = 0;
+        byte[] buffer = new byte[BUFFER_SIZE];
 
-        try (FileInputStream fis = new FileInputStream(file)) {
-            while (totalSent < length && running) {
+        try (FileInputStream fis = new FileInputStream(file);
+             BufferedInputStream bis = new BufferedInputStream(fis)) {
+
+            int bytesRead;
+            while (running && (bytesRead = bis.read(buffer)) != -1) {
                 checkPaused();
-
-                int toRead = (int) Math.min(buffer.length, length - totalSent);
-                int bytesRead = fis.read(buffer, 0, toRead);
-                if (bytesRead == -1) break;
-
                 salida.write(buffer, 0, bytesRead);
                 totalSent += bytesRead;
 
-                int progress = (int) ((totalSent * 100) / length);
-                //transferenciaController.updateProgress(FileTransferState.SENDING, idTrans, progress);
-                transferenciaController.updateProgressMetrics(
-                        FileTransferState.SENDING,
-                        idTrans,
-                        totalSent,
-                        length
-                );
+                transferenciaController.updateProgressMetrics(FileTransferState.SENDING, idTrans, totalSent, length);
             }
             salida.flush();
         }
     }
 
-    private boolean waitForHandshake(ObjectInputStream entrada) throws Exception {
+    // Mejora: Centraliza la configuración del socket
+    private void configurarSocket(Socket socket) throws IOException {
+        socket.setTcpNoDelay(true); // Desactiva algoritmo de Nagle para mayor fluidez
+        socket.setSendBufferSize(BUFFER_SIZE);
+        socket.setReceiveBufferSize(BUFFER_SIZE);
+    }
+
+    // Mejora: Evita duplicidad de código en el bucle de lectura de objetos
+    private boolean confirmarInicio(ObjectInputStream entrada, String sessionId) throws Exception {
         while (true) {
             Object obj = entrada.readObject();
-            if (obj instanceof FileHandshakeCommunication f && f.getAction() == FileHandshakeAction.START_TRANSFER) {
-                return true;
-            } else if (obj instanceof Mensaje m) {
-                Logger.logInfo("Notificación servidor: " + m.getContenido());
+            if (obj instanceof FileHandshakeCommunication f) {
+                return f.getAction() == FileHandshakeAction.START_TRANSFER && f.getSessionId().equals(sessionId);
             }
+            if (obj == null) return false;
+        }
+    }
+
+    private Object waitForHandshake(ObjectInputStream entrada) throws Exception {
+        while (true) {
+            Object obj = entrada.readObject();
+            if (obj instanceof Mensaje m) {
+                Logger.logInfo("Notificación: " + m.getContenido());
+                continue; // Sigue esperando el objeto de comunicación real
+            }
+            if (obj == null) throw new IOException("Flujo nulo");
+            return obj;
         }
     }
 
     private void checkPaused() throws InterruptedException {
         synchronized (pauseLock) {
-            while (paused) {
-                pauseLock.wait();
-            }
+            while (paused) pauseLock.wait();
         }
     }
 
-    public void stop() {
-        running = false;
+    public void stop() { running = false; resume(); }
+    public void pause() { paused = true; }
+    public void resume() { synchronized (pauseLock) { paused = false; pauseLock.notifyAll(); } }
 
-        resume();
-
-    }
-
-    public void pause() {
-        // you may want to throw an IllegalStateException if !running
-        paused = true;
-
-    }
-
-    public void resume() {
-        synchronized (pauseLock) {
-            paused = false;
-            pauseLock.notifyAll(); // Unblocks thread
-
-        }
-    }
-
-    @Override
-    public void cancel() {
-
-    }
+    @Override public void cancel() { stop(); }
 }

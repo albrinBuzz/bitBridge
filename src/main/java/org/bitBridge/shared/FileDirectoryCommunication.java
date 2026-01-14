@@ -31,6 +31,15 @@ public class FileDirectoryCommunication extends Communication implements Seriali
         this.recipient=recipient;
     }
 
+    public FileDirectoryCommunication(String name,int totalArchivos,String recipient,long size) {
+        super(CommunicationType.DIRECTORY);
+        this.name = name;
+        this.size = size;
+        this.isDirectory = true;
+        this.totalArchivos=totalArchivos;
+        this.recipient=recipient;
+    }
+
     public FileDirectoryCommunication(String name, long length) {
         super(CommunicationType.FILE);  // O puedes usar CommunicationType.DIRECTORY si es un directorio
         this.name = name;

@@ -1,0 +1,9 @@
+# Permitir los puertos
+sudo ufw allow 8080/tcp
+sudo ufw allow 8081/tcp
+
+# (Opcional) Permitir mDNS
+sudo ufw allow 5353/udp
+
+# Verificar estado
+sudo ufw status

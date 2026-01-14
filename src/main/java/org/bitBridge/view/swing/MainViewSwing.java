@@ -11,6 +11,8 @@ import org.bitBridge.view.core.MainController;
 import org.bitBridge.view.core.ServerState;
 import org.bitBridge.view.swing.components.hosts.ChatPanelSwing;
 import org.bitBridge.view.swing.components.hosts.HostsPanelSwing;
+import org.bitBridge.view.swing.components.server.ConfiguracionView;
+import org.bitBridge.view.swing.components.server.ServerDashboard;
 import org.bitBridge.view.swing.components.transfers.TransferenciasViewSwing;
 import org.bitBridge.web.serverGui.ServidorLauncher;
 
@@ -104,20 +106,57 @@ public class MainViewSwing extends JFrame implements IMainView {
         JPanel header = new JPanel(new BorderLayout());
         header.setBackground(new Color(20, 25, 29));
         header.setBorder(new EmptyBorder(10, 20, 10, 20));
+
+        // Logo
         JLabel logo = new JLabel("BitBridge");
         logo.setFont(new Font("SansSerif", Font.BOLD, 18));
         logo.setForeground(COLOR_PRIMARY);
+
+        // Contenedor de acciones
         JPanel navActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
         navActions.setOpaque(false);
+
+        // 1. Botón Dashboard (Monitoreo de Servidor P2P)
+        JButton btnDashboard = new JButton("📊 Dashboard");
+        btnDashboard.setBackground(new Color(60, 63, 65));
+        btnDashboard.addActionListener(e -> {
+            // Aquí lanzas la vista que monitorea el ClientRegistry y ServerStats
+            //new ServerDashboard(Server.getInstance()).setVisible(true);
+            ServerDashboard ds = new ServerDashboard(Server.getInstance());
+            ds.setVisible(true);
+            //ds.appendLog("Dashboard iniciado... monitoreando puerto " + Server.getInstance().getPORT());
+            //JOptionPane.showMessageDialog(this, "Abriendo Monitor de Tráfico y Clientes...");
+        });
+
+        // 2. Botón Descargas
         JButton btnDownloads = new JButton("📁 Abrir Descargas");
         btnDownloads.addActionListener(e -> openDownloadsFolder());
+
+        // 3. Botón Puente Móvil (QR / Spring Boot)
         JButton btnPortal = new JButton("📱 Puente Móvil");
         btnPortal.setBackground(new Color(60, 63, 65));
         btnPortal.addActionListener(e -> new ServidorLauncher().setVisible(true));
+
+        // 4. Botón Configuración (Engranaje)
+        JButton btnSettings = new JButton("⚙️");
+        btnSettings.setBackground(new Color(60, 63, 65));
+        btnSettings.addActionListener(e -> {
+            // Aquí lanzas el diálogo para editar el puerto 8081 y el nickname
+             new ConfiguracionView(
+                     this
+             ).setVisible(true);
+            //JOptionPane.showMessageDialog(this, "Configuración: Puertos, Nickname y Rutas.");
+        });
+
+        // Añadir al panel siguiendo tu orden
+        navActions.add(btnDashboard);
         navActions.add(btnDownloads);
         navActions.add(btnPortal);
+        navActions.add(btnSettings);
+
         header.add(logo, BorderLayout.WEST);
         header.add(navActions, BorderLayout.EAST);
+
         return header;
     }
 
@@ -141,6 +180,9 @@ public class MainViewSwing extends JFrame implements IMainView {
         discoveryProgress.setIndeterminate(true);
         discoveryProgress.setPreferredSize(new Dimension(80, 4));
         discoveryProgress.setVisible(false);
+        discoveryProgress.setIndeterminate(true);
+        //discoveryProgress.setStringPainted(true);
+        //discoveryProgress.setString("Escaneando red...");
 
         serverStatusLabel = new JLabel("○ NODO LOCAL: OFF");
         startServerBtn = new JButton("Activar Servidor");
@@ -243,7 +285,9 @@ public class MainViewSwing extends JFrame implements IMainView {
     private void startAutoDiscovery() {
         autoConnectBtn.setEnabled(false);
         discoveryProgress.setVisible(true);
-        new Thread(() -> {
+        controller.startAutoDiscovery();
+
+        /*new Thread(() -> {
             try {
                 client.conexionAutomatica();
                 SwingUtilities.invokeLater(() -> {
@@ -257,7 +301,7 @@ public class MainViewSwing extends JFrame implements IMainView {
                     showAlert("Red", "No se detectó el servidor en la red local.");
                 });
             }
-        }).start();
+        }).start();*/
     }
 
     private void exitApplication() {
@@ -288,7 +332,9 @@ public class MainViewSwing extends JFrame implements IMainView {
     @Override
     public void updateConnectionUI(ConnectionState state, String detail) {
         SwingUtilities.invokeLater(() -> {
-            connectBtn.setEnabled(state != ConnectionState.CONNECTING);
+            boolean isConnecting = (state == ConnectionState.CONNECTING);
+            connectBtn.setEnabled(!isConnecting);
+            autoConnectBtn.setEnabled(!isConnecting);
 
             if (state == ConnectionState.CONNECTION_ERROR) {
                 showAlert("Error de Conexión", "No se pudo establecer el enlace: " + detail);
@@ -302,6 +348,7 @@ public class MainViewSwing extends JFrame implements IMainView {
                     connectBtn.setBackground(COLOR_DANGER);
                     ipField.setEnabled(false);
                     portField.setEnabled(false);
+                    discoveryProgress.setVisible(false);
                 }
                 case DISCONNECTED, CONNECTION_ERROR -> {
                     connectionStatusLabel.setText("● OFF");
@@ -310,13 +357,23 @@ public class MainViewSwing extends JFrame implements IMainView {
                     connectBtn.setBackground(COLOR_PRIMARY);
                     ipField.setEnabled(true);
                     portField.setEnabled(true);
+                    discoveryProgress.setVisible(false);
+                    if (state == ConnectionState.CONNECTION_ERROR) {
+                        showAlert("Error de Red", detail);
+                    }
                 }
                 case CONNECTING -> {
                     connectionStatusLabel.setText("● BUSCANDO...");
                     connectionStatusLabel.setForeground(COLOR_WARNING);
+                    discoveryProgress.setVisible(true);
+                    discoveryProgress.setIndeterminate(true);
                 }
             }
         });
+    }
+
+    private void handleDesconnectionAction() {
+
     }
 
     private JPanel createFooterStatus() {

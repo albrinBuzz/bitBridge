@@ -110,4 +110,8 @@ public class ConfiguracionServidor {
             return valorDefecto;
         }
     }
+
+    public void setProperty(String clave, String nuevoNombre) {
+        propiedades.setProperty(clave,nuevoNombre);
+    }
 }

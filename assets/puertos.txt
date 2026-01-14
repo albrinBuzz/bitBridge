@@ -1,0 +1,20 @@
+BITBRIDGE - CONFIGURACIÓN DE RED
+
+PUERTOS WEB (HTTP/API):
+- 8080 (Default)
+- 8888 (Alternativo 1)
+- 9000 (Alternativo 2)
+- 5000 (Usado en desarrollo)
+
+PUERTOS DE TRANSFERENCIA (TCP/P2P):
+- 8081 (Default)
+- 8889 (Alternativo 1)
+- 9001 (Alternativo 2)
+- 5001 (Usado en desarrollo)
+
+RANGO DINÁMICO RECOMENDADO:
+- 45000 hasta 45100 (Para asignación automática de sockets)
+
+PUERTOS DE DESCUBRIMIENTO:
+- 5353 (UDP - Multicast DNS)
+- 1900 (UDP - UPnP Discovery)

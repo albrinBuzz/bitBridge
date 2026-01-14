@@ -6,6 +6,7 @@ import com.google.zxing.client.j2se.MatrixToImageWriter;
 import com.google.zxing.common.BitMatrix;
 import com.google.zxing.qrcode.QRCodeWriter;
 
+import org.bitBridge.shared.Logger;
 import org.bitBridge.web.MainWeb;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ConfigurableApplicationContext;
@@ -16,6 +17,7 @@ import javax.swing.border.LineBorder;
 import java.awt.*;
 import java.net.InetAddress;
 import java.net.URI;
+import java.util.Locale;
 
 public class ServidorLauncher extends JFrame {
 
@@ -207,8 +209,24 @@ public class ServidorLauncher extends JFrame {
     }
 
     // --- LÓGICA DE CONTROL ---
+    private boolean esPuertoDisponible(int puerto) {
+        try (java.net.ServerSocket ss = new java.net.ServerSocket(puerto)) {
+            ss.setReuseAddress(true);
+            return true;
+        } catch (java.io.IOException e) {
+            return false;
+        }
+    }
 
     private void iniciar(int puertoAIntentar) {
+        if (!esPuertoDisponible(puertoAIntentar)) {
+            SwingUtilities.invokeLater(() -> {
+                mostrarPanelAyudaPuerto(puertoAIntentar);
+                resetearUI();
+            });
+            return;
+        }
+
         btnAccion.setEnabled(false);
         progressBar.setIndeterminate(true);
         lblStatus.setText("● Enciendo El Servidor Web...");
@@ -244,9 +262,34 @@ public class ServidorLauncher extends JFrame {
             } catch (Exception e) {
                 SwingUtilities.invokeLater(() -> {
                     detenerServidor(false);
-                    lblStatus.setText("● ERROR DE CONEXIÓN");
+
+                    Logger.logWarn(e.getMessage());
+                    // --- Análisis de Error Mejorado ---
+                    String mensajeError = "No se pudo iniciar el puente web.";
+                    String sugerencia = "\n\nSugerencia: ";
+
+                    if (e.getMessage().contains("Port already in use") || e.toString().contains("BindException")) {
+                        mensajeError = "EL PUERTO " + puertoAIntentar + " ESTÁ OCUPADO";
+                        sugerencia += "Cierra otras aplicaciones o intenta con el puerto 8082.";
+                    } else if (e.toString().contains("Permission denied")) {
+                        mensajeError = "PERMISO DE SISTEMA DENEGADO";
+                        sugerencia += "Ejecuta los comandos de Firewall que configuramos o usa un puerto superior al 1024.";
+                    } else {
+                        sugerencia += "Asegúrate de tener conexión a la red local.";
+                    }
+
+                    lblStatus.setText("● FALLO AL INICIAR");
                     lblStatus.setForeground(new Color(220, 53, 69));
-                    JOptionPane.showMessageDialog(this, "No se pudo iniciar el puente web: " + e.getMessage());
+
+                    // Mostramos un diálogo más profesional y útil
+                    JOptionPane.showMessageDialog(this,
+                            "⚠️ " + mensajeError + sugerencia + "\nDetalles: " + e.getLocalizedMessage(),
+                            "Error de Red - BitBridge",
+                            JOptionPane.ERROR_MESSAGE);
+
+                    progressBar.setIndeterminate(false);
+                    progressBar.setValue(0);
+                    btnAccion.setEnabled(true);
                 });
             }
         }).start();
@@ -329,6 +372,28 @@ public class ServidorLauncher extends JFrame {
         if (seleccion == JOptionPane.YES_OPTION) {
             detenerServidor(true);
         }
+    }
+
+    private void mostrarPanelAyudaPuerto(int puerto) {
+        String mensaje = "<html>" +
+                "<body style='width: 300px; font-family: sans-serif;'>" +
+                "<h2 style='color: #e74c3c;'>Puerto " + puerto + " bloqueado</h2>" +
+                "<p>No se pudo iniciar el servidor web porque el puerto ya está en uso.</p>" +
+                "<hr>" +
+                "<b>Causas probables y soluciones:</b>" +
+                "<ul>" +
+                "<li><b>Otra instancia:</b> Verifica si ya tienes otra ventana de BitBridge abierta.</li>" +
+                "<li><b>Servicio en conflicto:</b> Alguna aplicación (como McAfee, Docker o servidores dev) está usando este puerto.</li>" +
+                "<li><b>Proceso huérfano:</b> A veces Java no se cierra bien. Intenta reiniciar la aplicación.</li>" +
+                "</ul>" +
+                "<p style='background: #34495e; padding: 5px; color: white;'>" +
+                "<b>Tip para expertos:</b><br>" +
+                "En consola usa: <br><code>netstat -ano | findstr :" + puerto + "</code> (Windows)<br>" +
+                "<code>sudo lsof -i :" + puerto + "</code> (Linux)" +
+                "</p>" +
+                "</body></html>";
+
+        JOptionPane.showMessageDialog(this, mensaje, "Conflicto de Red Detectado", JOptionPane.WARNING_MESSAGE);
     }
 
     private void setupShutdownHook() {

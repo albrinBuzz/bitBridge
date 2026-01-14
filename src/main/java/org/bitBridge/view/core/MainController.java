@@ -38,6 +38,36 @@ public class MainController {
         });
     }
 
+    public void startAutoDiscovery() {
+        // 1. Notificar inicio inmediatamente
+        view.updateConnectionUI(ConnectionState.CONNECTING, "Buscando servidor en la red local...");
+
+        CompletableFuture.runAsync(() -> {
+            long startTime = System.currentTimeMillis();
+            try {
+                // Realizar la conexión real
+                client.conexionAutomatica();
+
+                // --- TRUCO DE UX: Retardo mínimo ---
+                // Si la conexión tardó menos de 1500ms, esperamos la diferencia
+                long duration = System.currentTimeMillis() - startTime;
+                if (duration < 1500) {
+                    Thread.sleep(1500 - duration);
+                }
+
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }).thenRun(() -> {
+            Logger.logInfo("Conexión exitosa");
+            view.updateConnectionUI(ConnectionState.CONNECTED, "Conectado");
+        }).exceptionally(ex -> {
+            Throwable cause = (ex.getCause() != null) ? ex.getCause() : ex;
+            view.updateConnectionUI(ConnectionState.CONNECTION_ERROR, cause.getMessage());
+            return null;
+        });
+    }
+
     public void connectServer(String ip, String portStr) {
         // 1. Validación previa (Evita errores de parsing antes de lanzar el hilo)
         int port;

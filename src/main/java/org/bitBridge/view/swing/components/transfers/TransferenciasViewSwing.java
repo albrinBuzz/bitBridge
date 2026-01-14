@@ -6,7 +6,7 @@ import org.bitBridge.Client.TransferManager;
 import org.bitBridge.Observers.TransferencesObserver;
 import org.bitBridge.models.TransferProgress;
 import org.bitBridge.models.Transferencia;
-import org.bitBridge.shared.FileTransferState;
+import org.bitBridge.shared.*;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -113,7 +113,7 @@ public class TransferenciasViewSwing extends JPanel implements TransferencesObse
         );
     }
 
-    @Override
+    /*@Override
     public void updateTransferenceFull(TransferProgress progress) {
         // 1. Buscamos el panel específico usando el ID de la transferencia
         TransferenceControlPanelSwing panel = transferMap.get(progress.id());
@@ -126,6 +126,123 @@ public class TransferenciasViewSwing extends JPanel implements TransferencesObse
                 // 3. Pasamos las métricas nuevas al panel
                 panel.updateMetrics(progress.speedMBs(), progress.eta());
             });
+        }else {
+            Logger.logInfo("No se encontro la transferencia ");
         }
+    }*/
+
+    @Override
+    public void updateTransferenceFull(TransferProgress progress) {
+        TransferenceControlPanelSwing panel = transferMap.get(progress.id());
+        if (panel != null) {
+            // NO usar invokeLater aquí, deja que el Panel decida cuándo
+            // hacerlo mediante su propia lógica de throttling explicada arriba.
+            panel.updateProgressBar(progress.percentage());
+            panel.updateMetrics(progress.speedMBs(), progress.eta());
+        }
+    }
+
+    @Override
+    public boolean notifyTranference(FileHandshakeCommunication handshakeCommunication) {
+        // Usamos una variable atómica o un array para obtener el resultado desde el hilo de la GUI
+        final boolean[] accepted = {false};
+        var com=handshakeCommunication.getFileInfo();
+
+        try {
+            // Ejecutamos y esperamos la respuesta del usuario en el Event Dispatch Thread
+            SwingUtilities.invokeAndWait(() -> {
+                String mensaje = String.format(
+                        "<html><body style='width: 250px; font-family: sans-serif;'>" +
+                                "<h3 style='color: #00BFFF;'>📥 Solicitud de Archivo</h3>" +
+                                "<p><b>Origen:</b> %s</p>" +
+                                "<p><b>Archivo:</b> <font color='#F1C40F'>%s</font></p>" +
+                                "<p><b>Tamaño:</b> %s</p>" +
+                                "<hr><p>¿Deseas recibir este archivo?</p>" +
+                                "</body></html>",
+                        com.getRecipient(),
+                        com.getName(),
+                        formatSize(com.getSize())
+                );
+
+                int option = JOptionPane.showConfirmDialog(
+                        null, // O el frame principal si lo tienes referenciado
+                        mensaje,
+                        "BitBridge | Transferencia Entrante",
+                        JOptionPane.YES_NO_OPTION,
+                        JOptionPane.QUESTION_MESSAGE
+                );
+
+                accepted[0] = (option == JOptionPane.YES_OPTION);
+            });
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+
+        return accepted[0];
+    }
+
+    @Override
+    public void notifyTranference(FileHandshakeAction action) {
+        SwingUtilities.invokeLater(() -> {
+            // Usamos el switch de Java 21 para manejar cada caso del Enum
+            switch (action) {
+                case SEND_REQUEST -> {
+                    // Podrías mostrar un pequeño indicador de "Enviando solicitud..."
+                    Logger.logInfo("Solicitud enviada al receptor.");
+                }
+
+                case DECLINE_REQUEST -> {
+                    showAlert("Transferencia Rechazada", "El destinatario ha rechazado el archivo.");
+                    // Si tienes un diálogo de progreso abierto, este es el momento de cerrarlo
+                }
+
+                case START_TRANSFER -> {
+                    Logger.logInfo("¡Transferencia autorizada! Iniciando flujo de bytes.");
+                }
+
+                // --- MANEJO DE ERRORES CRÍTICOS ---
+                case ERROR_DISCO_LLENO -> {
+                    showAlert("Error de Almacenamiento", "No hay espacio suficiente en el disco del receptor.");
+                }
+
+                case ERROR_ARCHIVO_GRANDE -> {
+                    showAlert("Límite Excedido", "El archivo es demasiado grande para ser procesado por el servidor.");
+                }
+
+                case ERROR_TIPO_PROHIBIDO -> {
+                    showAlert("Seguridad", "El tipo de archivo seleccionado no está permitido por el servidor.");
+                }
+
+                case ERROR_TIMEOUT -> {
+                    showAlert("Tiempo Agotado", "El receptor no respondió a tiempo. Inténtalo de nuevo.");
+                }
+
+                case SERVER_BUSY -> {
+                    showAlert("Servidor Saturado", "El servidor está procesando demasiadas solicitudes. Espera un momento.");
+                }
+
+                case TRANSFER_DONE -> {
+                    // Puedes mostrar un "Pop-up" de éxito o un sonido
+                    Logger.logInfo("Proceso finalizado con éxito.");
+                }
+
+                default -> Logger.logWarn("Acción de transferencia no manejada en UI: " + action);
+            }
+        });
+    }
+
+    // Método auxiliar para alertas (estilo BitBridge)
+    private void showAlert(String titulo, String mensaje) {
+        JOptionPane.showMessageDialog(this, mensaje, titulo, JOptionPane.WARNING_MESSAGE);
+    }
+
+    /**
+     * Utilidad para formatear el tamaño de bytes a algo legible
+     */
+    private String formatSize(long v) {
+        if (v < 1024) return v + " B";
+        int z = (63 - Long.numberOfLeadingZeros(v)) / 10;
+        return String.format("%.1f %sB", (double)v / (1L << (z * 10)), " KMGTPE".charAt(z));
     }
 }
