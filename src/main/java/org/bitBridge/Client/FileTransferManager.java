@@ -40,6 +40,7 @@ public class FileTransferManager implements TransferManager {
                 salida.flush();
 
                 Object respuesta = waitForHandshake(entrada);
+                Logger.logInfo(respuesta.getClass().getName());
 
                 if (respuesta instanceof FileHandshakeCommunication f && f.getAction() == FileHandshakeAction.START_TRANSFER) {
                     String idTransfe = transferenciaController.addTransference(
@@ -108,6 +109,8 @@ public class FileTransferManager implements TransferManager {
                         }
                     }
                 } else {
+                    salida.writeObject(new Mensaje(sessionId, CommunicationType.MESSAGE));
+                    salida.flush();
                     salida.writeObject(new FileHandshakeCommunication(FileHandshakeAction.DECLINE_REQUEST, sessionId));
                     salida.flush();
                 }

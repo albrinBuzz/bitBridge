@@ -5,6 +5,7 @@ package org.bitBridge;
 
 
 
+import org.bitBridge.view.swing.MainView;
 import org.bitBridge.view.swing.MainViewSwing;
 
 import javax.swing.*;
@@ -17,6 +18,7 @@ public class Launcher {
 
         //FileChannel.transferTo();
 
-        SwingUtilities.invokeLater(() -> new MainViewSwing().setVisible(true));
+        //SwingUtilities.invokeLater(() -> new MainViewSwing().setVisible(true));
+        SwingUtilities.invokeLater(() -> new MainView().setVisible(true));
     }
 }

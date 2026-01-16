@@ -12,6 +12,7 @@ import org.bitBridge.controller.TransferenciaController;
 import org.bitBridge.server.ConfiguracionServidor;
 import org.bitBridge.shared.*;
 import org.bitBridge.utils.NetworkManager;
+import org.bitBridge.view.core.MainController;
 
 import java.io.File;
 import java.io.IOException;
@@ -22,6 +23,7 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -35,6 +37,7 @@ public class Client {
     private Socket socket;
     private ObjectInputStream entrada;
     private ObjectOutputStream salida;
+    private String hostName;
     private ExecutorService executorService;
     //private Observer observer;
     private ConfiguracionServidor config =ConfiguracionServidor.getInstancia();
@@ -44,6 +47,7 @@ public class Client {
     private TransferService transferService;
     private MessageDispatcher dispatcher;
     private DiscoveryService discoveryService = new DiscoveryService();
+
     public Client(){
         this.executorService = Executors.newFixedThreadPool(10); // Usar un pool de hilos para manejar tareas concurrentes
         transferenciaController=new TransferenciaController();
@@ -56,7 +60,7 @@ public class Client {
         this.SERVER_ADDRESS = serverAddress;
         this.SERVER_PORT = serverPort;
 
-        String hostName = InetAddress.getLocalHost().getHostName();
+        hostName = InetAddress.getLocalHost().getHostName()+ new Random().nextInt(1,9999);
         ClientContext context = new ClientContext(SERVER_ADDRESS, SERVER_PORT, transferenciaController, executorService);
         this.dispatcher = new MessageDispatcher(this, context);
         this.transferService = new TransferService(context);
@@ -117,6 +121,8 @@ public class Client {
         return SERVER_ADDRESS;
     }
 
+
+
     public void desconect() {
         try {
             // Verificar si la salida y el socket no están ya cerrados
@@ -140,6 +146,7 @@ public class Client {
                 //obs.onMessageReceived(msg); // Hilo del Socket
                 obs.onStatusChanged(ServerStatusConnection.DISCONNECTED);
             }
+            Logger.logInfo("Desconectando");
 
         } catch (IOException e) {
             // Manejo de la excepción
@@ -158,7 +165,7 @@ public class Client {
      */
     public void sendFileToHost(ClientInfo recipient, File file) {
         if (file == null || !file.exists()) return;
-        transferService.enqueueFileSend(recipient, file);
+        transferService.enqueueFileSend(recipient, file,hostName);
     }
     /**
      * Envía un directorio de forma agnóstica.
@@ -194,6 +201,12 @@ public class Client {
         for (HostsObserver observer : hostsObservers) {
                     observer.updateAllHosts(hosts);  // Notifica a los observadores con el nuevo mensaje
         }
+        if (observers.isEmpty()){
+            Logger.logInfo("No hay obseradores");
+        }
+        for (NetObserver observer : observers) {
+            observer.onHostListUpdated(hosts);  // Notifica a los observadores con el nuevo mensaje
+        }
     }
 
     public void setTransferencesObserver(TransferencesObserver transferencesObserver){
@@ -208,6 +221,13 @@ public class Client {
     }
 
 
+    public void setHostName(String hostName) {
+        this.hostName = hostName;
+    }
+
+    public String getHostName() {
+        return hostName;
+    }
 
     // Hilo que lee los mensajes del servidor
     private class ReadMessages implements Runnable {
@@ -240,6 +260,7 @@ public class Client {
 
             } catch (IOException | ClassNotFoundException e) {
                 Logger.logInfo("Error leyendo del servidor: " + e.getMessage());
+                //cleanUp();
                 e.printStackTrace();
 
             }catch (Exception e) {
@@ -247,13 +268,13 @@ public class Client {
                     e.printStackTrace();
 
             } finally {
-
                 cleanUp();
             }
         }
 
 
         public void cleanUp() {
+            Logger.logInfo("Limpiando");
             try {
                 if (entrada != null) {
                     entrada.close();
@@ -261,8 +282,9 @@ public class Client {
                 if (socket != null) {
                     socket.close();
                 }
-                notifyHostobserves(new ArrayList<>());
+                //notifyHostobserves(new ArrayList<>());
                 desconect();
+
             } catch (IOException e) {
                 System.out.println("Error al cerrar recursos: " + e.getMessage());
             }

@@ -35,6 +35,7 @@ public class ClientRegistry {
             activeHandlers.remove(handler);
             socketToInfoMap.remove(handler.clientSocket);
         }
+
     }
 
     /**

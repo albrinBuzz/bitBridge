@@ -82,6 +82,7 @@ public class Server {
 
             // Intentar enlazar el socket
             serverSocket = new ServerSocket(PORT);
+            //serverSocket = new ServerSocket(25565, 50, InetAddress.getByName("0.0.0.0"));
             serverSocket.setReuseAddress(true); // Permite reiniciar la app sin esperar a que el puerto se libere
             this.isRunning = true;
             // Obtener la dirección local para el log
@@ -327,7 +328,7 @@ public class Server {
         ClientListMessage updateMsg = new ClientListMessage(CommunicationType.UPDATE, currentClients);
 
         registry.getAllHandlers().forEach(h -> h.sendComunicacion(updateMsg));
-
+        stats.setClients(currentClients);
     }
 
     public ServerStats getStats() {

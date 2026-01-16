@@ -115,21 +115,23 @@ public class ClientHandler implements Runnable {
         }
     }
     public void manegerCon(){
+        try {
         while (!clientSocket.isClosed()) {
-            try {
+
                 Object incoming = entrada.readObject();
                 if (incoming instanceof Communication communication) {
                     server.totalMessagesReceived.getAndIncrement();
                     handleComunication(communication);
                 }
-            } catch (EOFException | SocketException e) {
-                Logger.logInfo("Cliente [" + nick + "] desconectado.");
-                break;
-            } catch (ClassNotFoundException | IOException e) {
-                throw new RuntimeException(e);
-            } finally {
-                shutDown();
-            }
+
+        }
+        } catch (EOFException | SocketException e) {
+            Logger.logInfo("Cliente [" + nick + "] desconectado.");
+
+        } catch (ClassNotFoundException | IOException e) {
+            throw new RuntimeException(e);
+        } finally {
+            shutDown();
         }
     }
 

@@ -9,14 +9,26 @@ public class FileDirectoryCommunication extends Communication implements Seriali
     private boolean isDirectory;    // Indicador de si es un archivo o un directorio
     private int  totalArchivos;
     private String recipient;
-    private String hash;
+
+
+    // Identificación y Seguridad
+    private String hash;         // Checksum del contenido
+    private String algorithm;    // "SHA-256"
+    private String mimeType;     // "application/pdf", "image/png"
+
+    // Transferencia Avanzada
+    private long lastModified;   // Fecha original del archivo
+    private long offset;         // Para reanudar descargas (byte de inicio)
+    private String senderNick;   // Quién lo ofrece
+    private String senderIp;     // Ubicación de red
 
     // Constructor para archivo
-    public FileDirectoryCommunication(String name, long size,String recipient) {
+    public FileDirectoryCommunication(String name, long size,String recipient,String senderNick) {
         super(CommunicationType.FILE);  // O puedes usar CommunicationType.DIRECTORY si es un directorio
         this.name = name;
         this.size = size;
         this.recipient=recipient;
+        this.senderNick=senderNick;
 
         this.isDirectory = false;  // Es un archivo por defecto
     }
@@ -81,6 +93,14 @@ public class FileDirectoryCommunication extends Communication implements Seriali
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public String getSenderNick() {
+        return senderNick;
+    }
+
+    public String getSenderIp() {
+        return senderIp;
     }
 
     // Representación en cadena (opcional)

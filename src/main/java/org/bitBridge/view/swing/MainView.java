@@ -2,215 +2,249 @@ package org.bitBridge.view.swing;
 
 import com.formdev.flatlaf.FlatClientProperties;
 import com.formdev.flatlaf.FlatDarkLaf;
+import org.bitBridge.Client.core.Client;
+import org.bitBridge.server.core.Server;
+import org.bitBridge.view.core.ConnectionState;
+import org.bitBridge.view.core.IMainView;
+import org.bitBridge.view.core.MainController;
+import org.bitBridge.view.core.ServerState;
+import org.bitBridge.view.swing.components.hosts.ChatPanel;
+import org.bitBridge.view.swing.components.hosts.NetworkClientsPanel;
+import org.bitBridge.view.swing.components.transfers.TransferPanel;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableCellRenderer;
 import java.awt.*;
 
-public class MainView extends JFrame {
-    private JTextField ipField, puertoField, searchUser;
-    private JLabel serverStatusLabel, connectionStatusLabel, connectionText;
-    private JButton startServerBtn, btnAbrirSwing;
-    private JComboBox<String> temaCombo, idiomaCombo;
+public class MainView extends JFrame implements IMainView {
+    private static final Color NICOTINE_ORANGE = new Color(255, 165, 0);
+    private static final Color BG_DARKER = new Color(25, 25, 25);
+    private static final Color SUCCESS_GREEN = new Color(46, 204, 113);
+    private final Color COLOR_SUCCESS = new Color(46, 204, 113);
+    private final Color COLOR_DANGER = new Color(231, 76, 60);
+    private final Color COLOR_PRIMARY = new Color(52, 152, 219);
+    private final Color COLOR_WARNING = new Color(241, 196, 15);
 
-    // Colores de tu estilo JavaFX
-    private final Color HEADER_BG = new Color(44, 62, 80);
-    private final Color CONNECTION_BG = new Color(52, 73, 94);
+
+    private DefaultTableModel downloadModel;
+    JTabbedPane mainTabs;
+    //NetworkClientsPanel clientesPanel = new NetworkClientsPanel();
+    private HeaderPanel headerPanel;
+    private StatusBarPanel statusBar;
+
+    private MainController controller;
+    private Client client;
+    private Server server;
+    private TransferPanel transferPanel;
+    private NetworkClientsPanel clientsPanel;
+    ChatPanel chatPanel;
 
     public MainView() {
-        setupLookAndFeel();
-        initComponents();
-        configureWindow();
-    }
 
-    private void setupLookAndFeel() {
-        try {
-            UIManager.setLookAndFeel(new FlatDarkLaf());
-            UIManager.put("Button.arc", 8);
-            UIManager.put("Component.arc", 8);
-            UIManager.put("TextComponent.arc", 8);
-        } catch (Exception e) { e.printStackTrace(); }
-    }
+        setupTheme();
 
-    private void configureWindow() {
-        setTitle("App de Transferencias - Vista Principal (Swing)");
-        setSize(1100, 850);
+        server=Server.getInstance();
+        client=new Client();
+        controller=new MainController(this,client,server);
+
+        transferPanel = new TransferPanel();
+        clientsPanel=new NetworkClientsPanel(client);
+        this.client.getTransferenciaController().setTransferencesObserver(transferPanel);
+
+        //transferPanel.setTransferCountListener(this);
+        chatPanel = new ChatPanel(client);
+
+        setTitle("BitBridge - [P2P Network Node]");
+        setSize(1350, 850);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
-        setLocationRelativeTo(null);
-    }
-
-    private void initComponents() {
         setLayout(new BorderLayout());
 
-        // AGRUPAR CONTROLES SUPERIORES (Igual que mainBox en tu FX)
-        JPanel topContainer = new JPanel();
-        topContainer.setLayout(new BoxLayout(topContainer, BoxLayout.Y_AXIS));
+        // 1. BARRA SUPERIOR CON CONTROL DE SERVIDOR
+        headerPanel = new HeaderPanel(controller);
+        add(headerPanel, BorderLayout.NORTH);
 
-        topContainer.add(createHeader());
-        topContainer.add(createConnectionStatus());
-        topContainer.add(createTopMenu());
+        mainTabs = new JTabbedPane();
+        mainTabs.putClientProperty("JTabbedPane.showTabSeparators", true);
 
-        add(topContainer, BorderLayout.NORTH);
+        // Pestañas principales
+        mainTabs.addTab("🌐 Clientes en Red", clientsPanel); // NUEVA PESTAÑA
 
-        // --- CUERPO CENTRAL (Center Box) ---
-        JPanel centerBox = new JPanel();
-        centerBox.setLayout(new BoxLayout(centerBox, BoxLayout.Y_AXIS));
-        centerBox.setBorder(new EmptyBorder(10, 10, 10, 10));
+        clientsPanel.setHostCountListener((source, count) -> {
+            updateTabTitle(source, "🌐 Clientes", count);
+        });
 
-        // Paneles simulados (Aquí irían tus HostsPanel, ChatPanel, etc.)
-        centerBox.add(createPlaceholderPanel("Hosts Panel (HostsPanel)", 150));
-        centerBox.add(Box.createVerticalStrut(10));
-        centerBox.add(createPlaceholderPanel("Chat Panel (ChatPanel)", 200));
-        centerBox.add(Box.createVerticalStrut(10));
-        centerBox.add(createPlaceholderPanel("Envío Avanzado (EnvioAvanzadoPanel)", 250));
 
-        JScrollPane scrollPane = new JScrollPane(centerBox);
-        scrollPane.getVerticalScrollBar().setUnitIncrement(16);
-        scrollPane.setBorder(null);
-        add(scrollPane, BorderLayout.CENTER);
+        mainTabs.addTab("🔍 Buscar Archivos", createSearchPanel());
 
-        // --- SIDEBAR (Usuarios Conectados) ---
-        add(createUsuariosSidebar(), BorderLayout.WEST);
+        //mainTabs.addTab("📥 Descargas", transferPanel);
 
-        // --- BOTTOM (Estado y Seguridad) ---
-        JPanel bottomContainer = new JPanel();
-        bottomContainer.setLayout(new GridLayout(2, 1));
-        bottomContainer.add(createEstadoSistemaBox());
-        bottomContainer.add(createSeguridadBox());
-        add(bottomContainer, BorderLayout.SOUTH);
+        //mainTabs.addTab("⬇ Transferencias", (Component) this.client.getTransferenciaController().setTransferencesObserver(new TransferPanel()));
+        mainTabs.addTab("⬇ Transferencias", transferPanel);
+        transferPanel.setTransferCountListener((source, count) -> {
+            updateTabTitle(source, "⬇ Transferencias", count);
+        });
+
+        mainTabs.addTab("📂 Explorar Compartidos", createSharedExplorerPanel());
+        mainTabs.addTab("💬 Chat Privado", chatPanel);
+
+        chatPanel.setCountListener((source, count) -> {
+            // Usamos el método genérico que creamos antes
+            updateTabTitle(source, "💬 Chat Privado", count);
+        });
+
+        // 4. Resetear contador al entrar a la pestaña
+        mainTabs.addChangeListener(e -> {
+            if (mainTabs.getSelectedComponent() == chatPanel) {
+                chatPanel.resetUnreadCount();
+            }
+        });
+
+        mainTabs.addTab("👥 Amigos", createFriendsManagerPanel());
+        mainTabs.addTab("⚙ Intereses", createPlaceholderPanel("✨", "Búsquedas automáticas"));
+// Dentro del constructor BitBridgeNicotineUI()
+        mainTabs.addTab("📦 Repositorio Global", createGlobalRepositoryPanel());
+        mainTabs.addTab("📈 Rendimiento Servidor", createServerPerformancePanel());
+        // 3. SECCIÓN INFERIOR (LOGS Y STATUS)
+        JPanel southPanel = new JPanel(new BorderLayout());
+        southPanel.add(createLogConsole(), BorderLayout.CENTER);
+        statusBar = new StatusBarPanel();
+        statusBar.updateNetworkStats(12.5, 1.2, 2233);
+        add(statusBar, BorderLayout.SOUTH);
+        //southPanel.add(createStatusBar(), BorderLayout.SOUTH);
+
+        JSplitPane mainSplit = new JSplitPane(JSplitPane.VERTICAL_SPLIT, mainTabs, southPanel);
+        mainSplit.setDividerLocation(580);
+        mainSplit.setResizeWeight(1.0);
+        mainSplit.setBorder(null);
+
+
+
+
+        add(mainSplit, BorderLayout.CENTER);
     }
 
-    private JPanel createHeader() {
-        JPanel header = new JPanel(new BorderLayout());
-        header.setBackground(HEADER_BG);
-        header.setBorder(new EmptyBorder(10, 15, 10, 15));
+    private void updateTabTitle(Component panel, String baseTitle, int count) {
+        SwingUtilities.invokeLater(() -> {
+            int index = mainTabs.indexOfComponent(panel);
+            if (index != -1) {
+                String newTitle = (count > 0) ? baseTitle + " (" + count + ")" : baseTitle;
+                mainTabs.setTitleAt(index, newTitle);
 
-        // Info Usuario
-        JPanel userInfo = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 0));
-        userInfo.setOpaque(false);
-        JLabel userLabel = new JLabel("👤 Juan Ortega");
-        userLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
-        userLabel.setForeground(Color.WHITE);
-
-        JLabel statusLabel = new JLabel("[🟢 Offline ▼]");
-        statusLabel.setForeground(Color.RED);
-
-        userInfo.add(userLabel);
-        userInfo.add(statusLabel);
-
-        // Botones Derecha
-        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
-        buttons.setOpaque(false);
-        buttons.add(new JButton("⚙️ Configuración"));
-        buttons.add(new JButton("🔒 Seguridad"));
-        buttons.add(new JButton("🚪 Cerrar sesión"));
-
-        header.add(userInfo, BorderLayout.WEST);
-        header.add(buttons, BorderLayout.EAST);
-        return header;
+                // Si hay actividad (count > 0), resaltamos la pestaña
+                mainTabs.setForegroundAt(index, count > 0 ? COLOR_PRIMARY : null);
+            }
+        });
     }
 
-    private JPanel createConnectionStatus() {
-        JPanel bar = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
-        bar.setBackground(CONNECTION_BG);
-        bar.setBorder(new EmptyBorder(5, 10, 5, 10));
+    public void initGui(){
 
-        connectionText = new JLabel("🔌 Conexión:");
-        connectionStatusLabel = new JLabel("[🟢 Desconectado]");
-        connectionStatusLabel.setForeground(Color.RED);
-
-        ipField = new JTextField("192.168.100.111", 10);
-        puertoField = new JTextField("8080", 5);
-
-        startServerBtn = new JButton("🔛 Iniciar Servidor");
-        btnAbrirSwing = new JButton("📱 Panel QR");
-        btnAbrirSwing.setBackground(new Color(41, 128, 185));
-        btnAbrirSwing.setForeground(Color.WHITE);
-
-        bar.add(connectionText);
-        bar.add(connectionStatusLabel);
-        bar.add(new JLabel("IP:")); bar.add(ipField);
-        bar.add(new JLabel("Port:")); bar.add(puertoField);
-        bar.add(new JLabel("Latencia: 35ms"));
-        bar.add(new JButton("🔄 Conectar"));
-        bar.add(Box.createHorizontalStrut(20));
-        bar.add(startServerBtn);
-        bar.add(btnAbrirSwing);
-
-        return bar;
     }
 
-    private JPanel createTopMenu() {
-        JPanel menu = new JPanel(new BorderLayout());
-        menu.setBorder(new EmptyBorder(10, 15, 10, 15));
 
-        JPanel leftActions = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
-        searchUser = new JTextField(15);
-        searchUser.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Buscar usuario...");
-
-        leftActions.add(searchUser);
-        leftActions.add(new JButton("📁 Mis archivos"));
-        leftActions.add(new JButton("📤 Enviar archivo"));
-        leftActions.add(new JButton("📤 Transferencias"));
-
-        JPanel rightActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
-        temaCombo = new JComboBox<>(new String[]{"Claro", "Oscuro"});
-        idiomaCombo = new JComboBox<>(new String[]{"Español", "Inglés"});
-
-        rightActions.add(new JLabel("Tema:")); rightActions.add(temaCombo);
-        rightActions.add(new JButton("⚙️ Personalizar"));
-        rightActions.add(new JLabel("Idioma:")); rightActions.add(idiomaCombo);
-
-        menu.add(leftActions, BorderLayout.WEST);
-        menu.add(rightActions, BorderLayout.EAST);
-        return menu;
+    @Override
+    public void updateServerUI(ServerState state, String errorMessage) {
+        SwingUtilities.invokeLater(() -> {
+            headerPanel.updateServerStatus(state, errorMessage);
+            if (errorMessage != null) {
+                showAlert("Error del Servidor", errorMessage);
+            }
+        });
     }
 
-    private JPanel createUsuariosSidebar() {
-        JPanel sidebar = new JPanel(new BorderLayout());
-        sidebar.setPreferredSize(new Dimension(230, 0));
-        sidebar.setBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, Color.DARK_GRAY));
-        sidebar.setBorder(new EmptyBorder(10,10,10,10));
+    @Override
+    public void showAlert(String title, String content) {
 
-        JLabel title = new JLabel("👥 Usuarios Conectados");
-        title.setFont(new Font("Segoe UI", Font.BOLD, 14));
-
-        DefaultListModel<String> model = new DefaultListModel<>();
-        model.addElement("🟢 Ana Torres [en línea]");
-        model.addElement("🟡 Pablo Gil [ausente]");
-        model.addElement("🟢 Carlos Méndez [en línea]");
-
-        JList<String> list = new JList<>(model);
-        list.setBackground(new Color(30, 30, 30));
-
-        sidebar.add(title, BorderLayout.NORTH);
-        sidebar.add(new JScrollPane(list), BorderLayout.CENTER);
-        return sidebar;
     }
 
-    private JPanel createEstadoSistemaBox() {
-        JPanel p = new JPanel(new FlowLayout(FlowLayout.LEFT, 20, 10));
-        p.add(new JLabel("📦 Uso: 5.9 GB / 6 GB"));
-        p.add(new JLabel("📈 Velocidad: 4.2 MB/s"));
-        p.add(new JLabel("CPU: 35%"));
-        p.add(new JLabel("RAM: 62%"));
+    @Override
+    public void updateTheme(String themeName) {
+
+    }
+
+    @Override
+    public void updateConnectionUI(ConnectionState state, String detail) {
+        SwingUtilities.invokeLater(() -> {
+            headerPanel.updateConnectionStatus(state, detail);
+        });
+    }
+
+
+    private JPanel createGlobalRepositoryPanel() {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBorder(new EmptyBorder(10, 10, 10, 10));
+
+        return panel;
+    }
+
+    private JPanel createServerPerformancePanel() {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBorder(new EmptyBorder(15, 15, 15, 15));
+
+        return panel;
+    }
+
+    private JPanel createFriendsManagerPanel() {
+        JPanel panel = new JPanel(new BorderLayout());
+
+        return panel;
+    }
+
+
+    // (Otros métodos como createSearchPanel, createSharedExplorerPanel, etc. se mantienen igual de tu estructura base)
+    private JPanel createSearchPanel() {
+        JPanel panel = new JPanel(new BorderLayout());
+
+        return panel;
+    }
+
+    private JPanel createSharedExplorerPanel() {
+        JPanel panel = new JPanel(new BorderLayout());
+
+        return panel;
+    }
+
+
+
+    private JScrollPane createLogConsole() {
+        JTextArea log = new JTextArea();
+        log.setBackground(BG_DARKER);
+        log.setForeground(new Color(180, 180, 180));
+        log.setFont(new Font("Monospaced", Font.PLAIN, 11));
+        log.setEditable(false);
+        log.setText(" 13/01/26 16:18:54 BitBridge Node Iniciado...\n 13/01/26 16:20:10 Escaneo de carpetas locales finalizado.\n 13/01/26 16:21:05 Conectado a 'Fedora-PC' vía P2P.");
+        JScrollPane scroll = new JScrollPane(log);
+        scroll.setPreferredSize(new Dimension(0, 100));
+        return scroll;
+    }
+
+    /*private JPanel createStatusBar() {
+        JPanel status = new JPanel(new BorderLayout());
+        status.setBorder(new EmptyBorder(5, 10, 5, 10));
+        JLabel traffic = new JLabel("⬇ 13.4 MB/s | ⬆ 2.1 MB/s | Paquetes: 104,201");
+        traffic.setForeground(NICOTINE_ORANGE);
+        status.add(new JLabel("Motor P2P: Activo | RAM: 156MB"), BorderLayout.WEST);
+        status.add(traffic, BorderLayout.EAST);
+        return status;
+    }*/
+
+    private JPanel createPlaceholderPanel(String icon, String text) {
+        JPanel p = new JPanel(new GridBagLayout());
+        JLabel l = new JLabel("<html><center><font size='60'>" + icon + "</font><br><br>" + text + "</center></html>");
+        l.setForeground(Color.GRAY);
+        p.add(l);
         return p;
     }
 
-    private JPanel createSeguridadBox() {
-        JPanel p = new JPanel(new FlowLayout(FlowLayout.LEFT, 20, 10));
-        p.add(new JLabel("🛡️ Usuarios Bloqueados: 2"));
-        p.add(new JLabel("🔐 2FA: Activado"));
-        return p;
-    }
-
-    // Método de ayuda para crear bloques visuales
-    private JPanel createPlaceholderPanel(String title, int height) {
-        JPanel p = new JPanel(new BorderLayout());
-        p.setMaximumSize(new Dimension(Integer.MAX_VALUE, height));
-        p.setPreferredSize(new Dimension(500, height));
-        p.setBorder(BorderFactory.createTitledBorder(title));
-        return p;
+    private void setupTheme() {
+        try {
+            UIManager.setLookAndFeel(new FlatDarkLaf());
+            UIManager.put("TabbedPane.selectedBackground", NICOTINE_ORANGE.darker());
+            UIManager.put("TabbedPane.selectedForeground", Color.WHITE);
+            //UIManager.put("ProgressBar.arc", 0); // Estilo Nicotine es cuadrado
+        } catch (Exception e) { e.printStackTrace(); }
     }
 
     public static void main(String[] args) {

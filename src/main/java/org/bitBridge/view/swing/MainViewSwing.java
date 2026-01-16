@@ -169,7 +169,7 @@ public class MainViewSwing extends JFrame implements IMainView {
 
         connectionStatusLabel = new JLabel("● DESCONECTADO");
         connectionStatusLabel.setForeground(COLOR_DANGER);
-        ipField = new JTextField("127.0.0.1", 10);
+        ipField = new JTextField("localhost", 10);
         portField = new JTextField("8080", 5);
         connectBtn = new JButton("Conectar");
         connectBtn.addActionListener(e -> handleConnectionAction());

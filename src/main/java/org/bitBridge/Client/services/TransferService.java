@@ -22,8 +22,8 @@ public class TransferService {
         this.dirManager = new DirectoryTransferManager(context.transferController());
     }
 
-    public void enqueueFileSend(ClientInfo recipient, File file) {
-        var com = new FileDirectoryCommunication(file.getName(), file.length(), recipient.getNick());
+    public void enqueueFileSend(ClientInfo recipient, File file,String sender) {
+        var com = new FileDirectoryCommunication(file.getName(), file.length(), recipient.getNick(),sender);
         context.executor().submit(() -> {
             try {
                 fileManager.sendFile(com, file, context.serverAddress(), context.serverPort());

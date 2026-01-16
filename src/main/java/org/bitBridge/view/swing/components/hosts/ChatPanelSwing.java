@@ -30,6 +30,7 @@ public class ChatPanelSwing extends JPanel implements NetObserver {
 
     public ChatPanelSwing(Client client) {
         this.client = client;
+        this.client.addObserver(this);
         initGUI();
     }
 

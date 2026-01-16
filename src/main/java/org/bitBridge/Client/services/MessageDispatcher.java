@@ -32,6 +32,7 @@ public class MessageDispatcher {
         else if (incoming instanceof Mensaje msg) {
             client.handleIncomingMessage(msg.getContenido());
         }
+
     }
 
     private void handleTransfer(FileHandshakeCommunication handshake) {

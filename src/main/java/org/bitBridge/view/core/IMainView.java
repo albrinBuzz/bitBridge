@@ -6,7 +6,4 @@ public interface IMainView {
     void updateTheme(String themeName);
     void updateConnectionUI(ConnectionState state, String detail);
 
-
-
-
 }

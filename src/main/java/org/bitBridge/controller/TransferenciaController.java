@@ -186,7 +186,8 @@ public class TransferenciaController {
         return transferMap;
     }
 
-    public void setTransferencesObserver(TransferencesObserver transferencesObserver) {
+    public TransferencesObserver setTransferencesObserver(TransferencesObserver transferencesObserver) {
         this.transferencesObserver = transferencesObserver;
+        return transferencesObserver;
     }
 }

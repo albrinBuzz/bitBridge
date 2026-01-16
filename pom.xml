@@ -114,6 +114,20 @@
             </plugin>
 
             <plugin>
+                <groupId>org.graalvm.buildtools</groupId>
+                <artifactId>native-maven-plugin</artifactId>
+                <version>0.9.28</version>
+                <extensions>true</extensions>
+                <configuration>
+                    <buildArgs>
+                        <arg>--gui</arg>
+                        <arg>-H:Name=BitBridge</arg>
+                        <arg>--no-fallback</arg>
+                    </buildArgs>
+                </configuration>
+            </plugin>
+
+            <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <version>3.3.4</version>
