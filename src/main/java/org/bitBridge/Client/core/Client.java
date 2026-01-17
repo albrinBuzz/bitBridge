@@ -12,14 +12,12 @@ import org.bitBridge.Observers.TransferencesObserver;
 import org.bitBridge.controller.TransferenciaController;
 import org.bitBridge.server.ConfiguracionServidor;
 import org.bitBridge.shared.*;
+import org.bitBridge.shared.network.ProtocolService;
 import org.bitBridge.utils.NetworkManager;
 import org.bitBridge.view.core.MainController;
 
 import java.awt.*;
-import java.io.File;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
+import java.io.*;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
@@ -37,8 +35,8 @@ public class Client {
     private String SERVER_ADDRESS;
     private int SERVER_PORT;
     private Socket socket;
-    private ObjectInputStream entrada;
-    private ObjectOutputStream salida;
+    private DataInputStream entrada;
+    private DataOutputStream salida;
     private String hostName;
     private ExecutorService executorService;
     //private Observer observer;
@@ -55,13 +53,13 @@ public class Client {
     public Client()  {
         this.executorService = Executors.newFixedThreadPool(10); // Usar un pool de hilos para manejar tareas concurrentes
         transferenciaController=new TransferenciaController();
-        context = new ClientContext(SERVER_ADDRESS, SERVER_PORT, transferenciaController, executorService,this);
 
-        try {
+
+        /*try {
             screenNetworkHandler=new ScreenNetworkHandler(context);
         } catch (AWTException e) {
             throw new RuntimeException(e);
-        }
+        }*/
     }
 
 
@@ -70,6 +68,7 @@ public class Client {
         this.SERVER_ADDRESS = serverAddress;
         this.SERVER_PORT = serverPort;
 
+        context = new ClientContext(SERVER_ADDRESS, SERVER_PORT, transferenciaController, executorService,this);
         //hostName = InetAddress.getLocalHost().getHostName()+ new Random().nextInt(1,9999);
         hostName = InetAddress.getLocalHost().getHostName();
         this.dispatcher = new MessageDispatcher(this, context);
@@ -85,15 +84,14 @@ public class Client {
 
         // 2. IMPORTANTE: El orden debe coincidir con el servidor para evitar Deadlock
         // Primero Salida -> Flush -> Luego Entrada
-        salida = new ObjectOutputStream(socket.getOutputStream());
+        salida = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
         salida.flush();
-
-        entrada = new ObjectInputStream(socket.getInputStream());
+        entrada = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
 
         // 3. Enviar identificación inicial
         Mensaje saludo = new Mensaje(hostName, CommunicationType.MESSAGE);
-        salida.writeObject(saludo);
-        salida.flush();
+        enviarComunicacion(saludo);
+
 
         // 4. Iniciar escucha
         executorService.submit(new ReadMessages(entrada));
@@ -137,7 +135,9 @@ public class Client {
         try {
             // Verificar si la salida y el socket no están ya cerrados
             if (socket != null && !socket.isClosed()) {
-                salida.writeObject(new Mensaje(CommunicationType.DISCONNECT));
+
+                ProtocolService.writeFormattedPayload(salida, new Mensaje(CommunicationType.DISCONNECT));
+
             }
 
             // Solo cerrar el socket y la entrada si no están ya cerrados
@@ -185,9 +185,9 @@ public class Client {
         transferService.enqueueDirectorySend(recipient, directory);
     }
 
-    public void enviarMensaje(String mensaje) throws IOException {
 
-        salida.writeObject(new Mensaje(mensaje,CommunicationType.MESSAGE));
+    public void enviarMensaje(String mensaje) throws IOException {
+        enviarComunicacion(new Mensaje(mensaje, CommunicationType.MESSAGE));
     }
 
     public void sendScreenSnapshot(ClientInfo recipient){
@@ -243,16 +243,16 @@ public class Client {
     }
 
     public void enviarComunicacion(Communication communication) throws IOException {
-
-        salida.writeObject(communication);
+        if (socket != null && !socket.isClosed()) {
+            ProtocolService.writeFormattedPayload(salida, communication);
+        }
     }
 
     // Hilo que lee los mensajes del servidor
     private class ReadMessages implements Runnable {
-        private final ObjectInputStream entrada;
-        private Communication communication;
+        private final DataInputStream entrada;
 
-        public ReadMessages(ObjectInputStream entrada) {
+        public ReadMessages(DataInputStream entrada) {
             this.entrada = entrada;
         }
 
@@ -261,22 +261,19 @@ public class Client {
             try {
 
 
-                while (socket.isConnected()) {
+                while (!socket.isClosed()) {
 
-                    Object object = entrada.readObject();
+                    Communication comm = ProtocolService.readFormattedPayload(entrada);
 
-
-                    if (object != null) {
-
-                        dispatcher.dispatch(object);
-
-                    }else {
-                        Logger.logInfo("Mensaje nulo");
+                    if (comm != null) {
+                        // Tu dispatcher recibe el objeto reconstruido (Mensaje, ClientList, etc.)
+                        dispatcher.dispatch(comm);
                     }
+
                 }
                 Logger.logInfo("socket cerrado");
 
-            } catch (IOException | ClassNotFoundException e) {
+            } catch (IOException e) {
                 Logger.logInfo("Error leyendo del servidor: " + e.getMessage());
                 //cleanUp();
                 e.printStackTrace();

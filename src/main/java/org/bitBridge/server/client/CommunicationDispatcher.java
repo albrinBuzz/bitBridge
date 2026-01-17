@@ -37,7 +37,7 @@ public class CommunicationDispatcher {
         }, ExecutionMode.SYNC);
 
         // Registro de DIRECTORY (También debe ser SYNC para no corromper el stream)
-        registerHandler(CommunicationType.DIRECTORY, (exchange, comm) -> {
+        /*registerHandler(CommunicationType.DIRECTORY, (exchange, comm) -> {
             var client = exchange.getSender();
             var ctx = exchange.getContext();
             new FileTransferService(ctx).relayDirectory((FileDirectoryCommunication) comm, client, client.objectInputStream());

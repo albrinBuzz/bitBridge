@@ -7,6 +7,7 @@ import org.bitBridge.shared.FileDirectoryCommunication;
 import org.bitBridge.shared.FileHandshakeAction;
 import org.bitBridge.shared.FileHandshakeCommunication;
 import org.bitBridge.shared.Logger;
+import org.bitBridge.shared.network.ProtocolService;
 
 import java.io.*;
 import java.net.SocketException;
@@ -26,7 +27,7 @@ public class FileTransferService {
     /**
      * Coordina el envío de un archivo individual entre un emisor y un receptor.
      */
-    public void handleForwardFile(ClientHandler sender, ObjectInputStream entrada,FileDirectoryCommunication communication) {
+    public void handleForwardFile(ClientHandler sender, DataInputStream entrada,FileDirectoryCommunication communication) {
         try {
 
                 String recipientNick = communication.getRecipient();
@@ -69,7 +70,8 @@ public class FileTransferService {
                 streamBytes(entrada, receptor.getOutputStream(), fileSize);
 
                 // FINALIZACIÓN
-                Object fin = entrada.readObject();
+                //Object fin = entrada.readObject();
+                Object fin = ProtocolService.readFormattedPayload(entrada);
                 if (fin instanceof FileHandshakeCommunication com) {
                     receptor.sendComunicacion(com);
                 }
@@ -145,8 +147,9 @@ public class FileTransferService {
                         String nombreArchivo = entrada.readUTF();
 
                         dataReceiver.sendComunicacion(archivo);
-                        dataReceiver.getOutputStream().writeUTF(nombreArchivo);
-                        dataReceiver.getOutputStream().flush();
+
+                        //dataReceiver.getOutputStream().writeUTF(nombreArchivo);
+                        //dataReceiver.getOutputStream().flush();
 
                         if (archivo.isDirectory() && archivo.getSize() == 0) {
                             continue;
@@ -158,7 +161,7 @@ public class FileTransferService {
 
                         // Puente de bytes exacto para evitar OptionalDataException
 
-                        streamBytes(entrada, dataReceiver.getOutputStream(), fileSize);
+                        //streamBytes(entrada, dataReceiver.getOutputStream(), fileSize);
 
 
                     } else if (object instanceof FileHandshakeCommunication respuesta) {
@@ -193,7 +196,7 @@ public class FileTransferService {
         }
     }
 
-    private void streamBytes(ObjectInputStream in, ObjectOutputStream out, long totalSize) throws IOException {
+    private void streamBytes(DataInputStream in, DataOutputStream out, long totalSize) throws IOException {
         byte[] buffer = new byte[BUFFER_SIZE];
         long totalRead = 0;
         while (totalRead < totalSize) {

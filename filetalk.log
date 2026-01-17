@@ -160,3 +160,107 @@
 [19:04:53.272] [INFO ] Client$ReadMessages::cleanUp(L:295) - Limpiando
 [19:04:53.273] [INFO ] ChatPanel::onHostListUpdated(L:146) - []
 [19:04:53.273] [INFO ] Client::desconect(L:159) - Desconectando
+[22:27:34.121] [INFO ] NetworkManager::startServerAnnouncement(L:47) - [mDNS] Nodo creado en interfaz: 192.168.100.111
+[22:27:34.123] [INFO ] NetworkManager::startServerAnnouncement(L:55) - [📡] SERVIDOR ACTIVO: [fedora] | IP: 192.168.100.111 | Puerto: 8080
+[22:27:34.124] [INFO ] Server::startServer(L:115) - Servidor P2P escuchando en 192.168.100.111:8080
+[22:27:35.007] [INFO ] MainController::lambda$connectServer$6(L:93) - Intentando conectar a 127.0.0.1:8080
+[22:27:35.012] [INFO ] Client::setConexion(L:82) - Conectando a 127.0.0.1:8080 como: fedora
+[22:27:35.034] [INFO ] MainController::lambda$connectServer$7(L:104) - Conexión exitosa
+[22:27:35.039] [INFO ] ChatPanel::onHostListUpdated(L:146) - [org.bitBridge.Client.ClientInfo@58900bdb]
+[22:27:40.044] [ERROR] ClientHandler::run(L:45) - Error en [fedora]: Read timed out
+[22:27:40.045] [INFO ] Client$ReadMessages::run(L:278) - Error leyendo del servidor: null
+[22:27:40.045] [INFO ] Client$ReadMessages::cleanUp(L:293) - Limpiando
+[22:27:40.046] [INFO ] ChatPanel::onHostListUpdated(L:146) - []
+[22:27:40.046] [INFO ] Client::desconect(L:158) - Desconectando
+[22:28:12.520] [INFO ] NetworkManager::startServerAnnouncement(L:47) - [mDNS] Nodo creado en interfaz: 192.168.100.111
+[22:28:12.522] [INFO ] NetworkManager::startServerAnnouncement(L:55) - [📡] SERVIDOR ACTIVO: [fedora] | IP: 192.168.100.111 | Puerto: 8080
+[22:28:12.523] [INFO ] Server::startServer(L:115) - Servidor P2P escuchando en 192.168.100.111:8080
+[22:28:13.258] [INFO ] MainController::lambda$connectServer$6(L:93) - Intentando conectar a 127.0.0.1:8080
+[22:28:13.263] [INFO ] Client::setConexion(L:82) - Conectando a 127.0.0.1:8080 como: fedora
+[22:28:13.276] [INFO ] MainController::lambda$connectServer$7(L:104) - Conexión exitosa
+[22:28:13.281] [INFO ] ChatPanel::onHostListUpdated(L:146) - [org.bitBridge.Client.ClientInfo@74428a45]
+[22:30:12.531] [INFO ] NetworkManager::startServerAnnouncement(L:47) - [mDNS] Nodo creado en interfaz: 192.168.100.111
+[22:30:12.533] [INFO ] NetworkManager::startServerAnnouncement(L:55) - [📡] SERVIDOR ACTIVO: [fedora] | IP: 192.168.100.111 | Puerto: 8080
+[22:30:12.534] [INFO ] Server::startServer(L:115) - Servidor P2P escuchando en 192.168.100.111:8080
+[22:30:13.241] [INFO ] MainController::lambda$connectServer$6(L:93) - Intentando conectar a 127.0.0.1:8080
+[22:30:13.245] [INFO ] Client::setConexion(L:82) - Conectando a 127.0.0.1:8080 como: fedora
+[22:30:13.259] [INFO ] ProtocolService::readFormattedPayload(L:37) - {"contenido":"fedora","communicationType":"MESSAGE"}
+[22:30:13.260] [INFO ] MainController::lambda$connectServer$7(L:104) - Conexión exitosa
+[22:30:13.264] [INFO ] ProtocolService::readFormattedPayload(L:37) - {"clientNicks":[{"address":"127.0.0.1","connectionTime":1768613413262,"nick":"fedora","port":8080}],"communicationType":"UPDATE"}
+[22:30:13.265] [INFO ] ChatPanel::onHostListUpdated(L:146) - [org.bitBridge.Client.ClientInfo@58900bdb]
+[22:30:13.265] [INFO ] ProtocolService::readFormattedPayload(L:37) - {"contenido":"Conectado como: fedora","communicationType":"MESSAGE"}
+[22:30:48.041] [INFO ] ProtocolService::readFormattedPayload(L:37) - {"contenido":"como estas?","communicationType":"MESSAGE"}
+[22:30:53.651] [INFO ] ProtocolService::readFormattedPayload(L:37) - {"contenido":"pues bien gracisa","communicationType":"MESSAGE"}
+[22:33:15.405] [INFO ] ProtocolService::readFormattedPayload(L:37) - {"contenido":"fedora","communicationType":"MESSAGE"}
+[22:33:15.406] [INFO ] ProtocolService::readFormattedPayload(L:37) - {"clientNicks":[{"address":"127.0.0.1","connectionTime":1768613413262,"nick":"fedora","port":8080},{"address":"192.168.100.106","connectionTime":1768613595405,"nick":"fedora1","port":8080}],"communicationType":"UPDATE"}
+[22:33:15.406] [INFO ] ChatPanel::onHostListUpdated(L:146) - [org.bitBridge.Client.ClientInfo@3b3ad755, org.bitBridge.Client.ClientInfo@6a597e01]
+[22:33:15.406] [INFO ] ProtocolService::readFormattedPayload(L:37) - {"contenido":"[ fedora1] Se ha unido al Chat","communicationType":"MESSAGE"}
+[22:33:23.296] [INFO ] ProtocolService::readFormattedPayload(L:37) - {"contenido":"como esetas?","communicationType":"MESSAGE"}
+[22:33:23.298] [INFO ] ProtocolService::readFormattedPayload(L:37) - {"contenido":"[fedora1] \u003d\u003e como esetas?","communicationType":"MESSAGE"}
+[22:33:31.616] [INFO ] ProtocolService::readFormattedPayload(L:37) - {"contenido":"pues estoy bien gracias","communicationType":"MESSAGE"}
+[23:09:45.005] [INFO ] NetworkManager::startServerAnnouncement(L:47) - [mDNS] Nodo creado en interfaz: 192.168.100.111
+[23:09:45.008] [INFO ] NetworkManager::startServerAnnouncement(L:55) - [📡] SERVIDOR ACTIVO: [fedora] | IP: 192.168.100.111 | Puerto: 8080
+[23:09:45.008] [INFO ] Server::startServer(L:115) - Servidor P2P escuchando en 192.168.100.111:8080
+[23:09:45.911] [INFO ] MainController::lambda$connectServer$6(L:93) - Intentando conectar a 127.0.0.1:8080
+[23:09:45.915] [INFO ] Client::setConexion(L:82) - Conectando a 127.0.0.1:8080 como: fedora
+[23:09:45.929] [INFO ] MainController::lambda$connectServer$7(L:104) - Conexión exitosa
+[23:09:45.934] [INFO ] ChatPanel::onHostListUpdated(L:146) - [org.bitBridge.Client.ClientInfo@25c495ba]
+[23:09:49.066] [INFO ] ChatPanel::onHostListUpdated(L:146) - [org.bitBridge.Client.ClientInfo@468ece91, org.bitBridge.Client.ClientInfo@ad63bac]
+[23:10:30.669] [ERROR] FileTransferManager::sendFile(L:69) - Error en sendFile: Conexión rehusada
+[23:10:30.701] [INFO ] NetworkClientsPanel$3::done(L:253) - Transferencia exitosa a fedora1
+[23:10:45.715] [INFO ] NetworkManager::startServerAnnouncement(L:47) - [mDNS] Nodo creado en interfaz: 192.168.100.111
+[23:10:45.718] [INFO ] NetworkManager::startServerAnnouncement(L:55) - [📡] SERVIDOR ACTIVO: [fedora] | IP: 192.168.100.111 | Puerto: 8080
+[23:10:45.718] [INFO ] Server::startServer(L:115) - Servidor P2P escuchando en 192.168.100.111:8080
+[23:10:47.434] [INFO ] Client::conexionAutomatica(L:106) - [Auto] Buscando servidores BitBridge en la red...
+[23:10:47.435] [INFO ] NetworkManager::startLookingForServers(L:77) - [🔍] Iniciando búsqueda de nodos en la red: 192.168.100.111
+[23:10:48.934] [INFO ] MainController::lambda$startAutoDiscovery$4(L:68) - Conexión exitosa
+[23:10:49.724] [INFO ] NetworkManager$1::serviceAdded(L:82) - [+] Servicio detectado: fedora. Resolviendo...
+[23:10:49.725] [INFO ] NetworkManager$1::serviceResolved(L:99) - [✨] NODO RESUELTO: fedora -> 192.168.100.111:8080
+[23:10:49.725] [INFO ] Client::lambda$conexionAutomatica$0(L:112) - [Auto] ¡Servidor detectado! Intentando enlace...
+[23:10:49.739] [INFO ] Client::setConexion(L:82) - Conectando a 192.168.100.111:8080 como: fedora
+[23:10:49.765] [INFO ] NetworkManager$1::serviceResolved(L:99) - [✨] NODO RESUELTO: fedora -> 192.168.100.111:8080
+[23:10:49.765] [INFO ] NetworkManager$1::serviceResolved(L:99) - [✨] NODO RESUELTO: fedora -> 192.168.100.111:8080
+[23:10:49.765] [INFO ] NetworkManager$1::serviceResolved(L:99) - [✨] NODO RESUELTO: fedora -> 192.168.100.111:8080
+[23:10:49.769] [INFO ] ChatPanel::onHostListUpdated(L:146) - [org.bitBridge.Client.ClientInfo@6acfbb42]
+[23:10:57.822] [INFO ] ChatPanel::onHostListUpdated(L:146) - [org.bitBridge.Client.ClientInfo@9060181, org.bitBridge.Client.ClientInfo@93f50d0]
+[23:11:04.335] [ERROR] FileTransferManager::sendFile(L:69) - Error en sendFile: Conexión rehusada
+[23:11:04.367] [INFO ] NetworkClientsPanel$3::done(L:253) - Transferencia exitosa a fedora1
+[23:12:38.072] [INFO ] NetworkManager::startServerAnnouncement(L:47) - [mDNS] Nodo creado en interfaz: 192.168.100.111
+[23:12:38.074] [INFO ] NetworkManager::startServerAnnouncement(L:55) - [📡] SERVIDOR ACTIVO: [fedora] | IP: 192.168.100.111 | Puerto: 8080
+[23:12:38.075] [INFO ] Server::startServer(L:115) - Servidor P2P escuchando en 192.168.100.111:8080
+[23:12:38.690] [INFO ] MainController::lambda$connectServer$6(L:93) - Intentando conectar a 127.0.0.1:8080
+[23:12:38.694] [INFO ] Client::setConexion(L:83) - Conectando a 127.0.0.1:8080 como: fedora
+[23:12:38.708] [INFO ] MainController::lambda$connectServer$7(L:104) - Conexión exitosa
+[23:12:38.713] [INFO ] ChatPanel::onHostListUpdated(L:146) - [org.bitBridge.Client.ClientInfo@21fed24d]
+[23:12:44.728] [INFO ] ChatPanel::onHostListUpdated(L:146) - [org.bitBridge.Client.ClientInfo@42f549f1, org.bitBridge.Client.ClientInfo@4b06edbb]
+[23:12:49.950] [INFO ] FileTransferService::handleForwardFile(L:36) - Buscando destinatario: fedora1
+[23:12:49.951] [INFO ] FileTransferService::handleForwardFile(L:50) - Esperando al receptor para: FILE_4705
+[23:12:49.980] [INFO ] NetworkClientsPanel$3::done(L:253) - Transferencia exitosa a fedora1
+[23:13:00.429] [INFO ] ChatPanel::onHostListUpdated(L:146) - [org.bitBridge.Client.ClientInfo@4bbf24fe]
+[23:13:04.953] [ERROR] TransferSessionManager::waitForReceptor(L:32) - Timeout esperando receptor: FILE_4705
+[23:13:04.953] [ERROR] FileTransferService::handleForwardFile(L:54) - No se encontró conexión de datos del receptor.
+[23:13:04.954] [ERROR] FileTransferManager::sendFile(L:69) - Error en sendFile: null
+[23:13:04.954] [INFO ] ChatPanel::onHostListUpdated(L:146) - [org.bitBridge.Client.ClientInfo@11899d6e]
+[23:13:23.196] [INFO ] ChatPanel::onHostListUpdated(L:146) - [org.bitBridge.Client.ClientInfo@795be46f, org.bitBridge.Client.ClientInfo@5ccb5ca]
+[23:13:26.796] [INFO ] FileTransferService::handleForwardFile(L:36) - Buscando destinatario: fedora1
+[23:13:26.797] [INFO ] FileTransferService::handleForwardFile(L:50) - Esperando al receptor para: FILE_9233
+[23:13:26.829] [INFO ] NetworkClientsPanel$3::done(L:253) - Transferencia exitosa a fedora1
+[23:13:29.577] [INFO ] TransferSessionManager::waitForResponseAction(L:75) - Esperando decisión del receptor para sesión: FILE_9233
+[23:13:29.577] [INFO ] TransferSessionManager::registerHandshake(L:44) - Registrando handshake para FILE_9233: ACCEPT_REQUEST
+[23:13:29.577] [INFO ] TransferSessionManager::waitForResponseAction(L:78) - Respuesta recibida para FILE_9233: ACCEPT_REQUEST
+[23:13:29.578] [INFO ] FileTransferManager::sendFile(L:47) - Handshake recibido: START_TRANSFER
+[23:13:29.582] [INFO ] ChatPanel::onHostListUpdated(L:146) - [org.bitBridge.Client.ClientInfo@3766e959, org.bitBridge.Client.ClientInfo@6a597036]
+[23:13:29.780] [ERROR] FileTransferService::handleForwardFile(L:91) - Error en FileTransferService (forwardFile): null
+[23:13:29.781] [INFO ] ChatPanel::onHostListUpdated(L:146) - [org.bitBridge.Client.ClientInfo@4c87898e, org.bitBridge.Client.ClientInfo@2c050731]
+[23:13:50.443] [INFO ] FileTransferService::handleForwardFile(L:36) - Buscando destinatario: fedora1
+[23:13:50.444] [INFO ] FileTransferService::handleForwardFile(L:50) - Esperando al receptor para: FILE_3579
+[23:13:50.476] [INFO ] NetworkClientsPanel$3::done(L:253) - Transferencia exitosa a fedora1
+[23:13:51.723] [INFO ] TransferSessionManager::waitForResponseAction(L:75) - Esperando decisión del receptor para sesión: FILE_3579
+[23:13:51.724] [INFO ] TransferSessionManager::registerHandshake(L:44) - Registrando handshake para FILE_3579: DECLINE_REQUEST
+[23:13:51.724] [INFO ] TransferSessionManager::waitForResponseAction(L:78) - Respuesta recibida para FILE_3579: DECLINE_REQUEST
+[23:13:51.725] [INFO ] FileTransferManager::sendFile(L:47) - Handshake recibido: DECLINE_REQUEST
+[23:13:51.725] [INFO ] ChatPanel::onHostListUpdated(L:146) - [org.bitBridge.Client.ClientInfo@2ca91fc9, org.bitBridge.Client.ClientInfo@d5002aa]
+[23:13:51.725] [INFO ] ChatPanel::onHostListUpdated(L:146) - [org.bitBridge.Client.ClientInfo@7deb3177, org.bitBridge.Client.ClientInfo@79538d74]
+[23:19:15.447] [INFO ] ChatPanel::onHostListUpdated(L:146) - [org.bitBridge.Client.ClientInfo@1d6092c0, org.bitBridge.Client.ClientInfo@10a89694, org.bitBridge.Client.ClientInfo@34ec7d7f]
+[23:21:14.889] [INFO ] ChatPanel::onHostListUpdated(L:146) - [org.bitBridge.Client.ClientInfo@51b16ebb, org.bitBridge.Client.ClientInfo@48de00df]
+[23:21:19.970] [INFO ] ChatPanel::onHostListUpdated(L:146) - [org.bitBridge.Client.ClientInfo@1c963366, org.bitBridge.Client.ClientInfo@4bc6a20e, org.bitBridge.Client.ClientInfo@11d8c97b]

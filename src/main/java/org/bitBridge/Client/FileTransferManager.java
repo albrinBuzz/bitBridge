@@ -2,6 +2,7 @@ package org.bitBridge.Client;
 
 import org.bitBridge.controller.TransferenciaController;
 import org.bitBridge.shared.*;
+import org.bitBridge.shared.network.ProtocolService;
 
 import java.io.*;
 import java.net.Socket;
@@ -30,27 +31,35 @@ public class FileTransferManager implements TransferManager {
         try (Socket socket = new Socket(SERVER_ADDRESS, port)) {
             configurarSocket(socket);
 
-            try (ObjectOutputStream salida = new ObjectOutputStream(new BufferedOutputStream(socket.getOutputStream()))) {
-                salida.flush();
-                ObjectInputStream entrada = new ObjectInputStream(new BufferedInputStream(socket.getInputStream()));
-
-                // 1. Identificación técnica inicial
-                salida.writeObject(new Mensaje(sessionId, CommunicationType.MESSAGE));
-                salida.writeObject(com); // Metadatos
+            try (DataOutputStream salida = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
+                 DataInputStream entrada = new DataInputStream(new BufferedInputStream(socket.getInputStream()))) {
                 salida.flush();
 
-                Object respuesta = waitForHandshake(entrada);
-                Logger.logInfo(respuesta.getClass().getName());
+                // 2. Identificación técnica inicial (Protocolo JSON)
+                // Enviamos el ID de sesión para que el servidor sepa que es una conexión de datos
+                ProtocolService.writeFormattedPayload(salida, new Mensaje(sessionId, CommunicationType.MESSAGE));
 
-                if (respuesta instanceof FileHandshakeCommunication f && f.getAction() == FileHandshakeAction.START_TRANSFER) {
+                // Enviamos los metadatos del archivo (JSON)
+                ProtocolService.writeFormattedPayload(salida, com);
+                salida.flush();
+
+                FileHandshakeCommunication respuesta = waitForHandshake(entrada);
+                Logger.logInfo("Handshake recibido: " + respuesta.getAction());
+
+                if (respuesta.getAction() == FileHandshakeAction.START_TRANSFER) {
+                    // Registro en la interfaz
                     String idTransfe = transferenciaController.addTransference(
-                            FileTransferState.SENDING.name(), com.getRecipient(), com.getRecipient(),
-                            file.getName(), this
+                            FileTransferState.SENDING.name(),
+                            com.getRecipient(),
+                            com.getRecipient(),
+                            file.getName(),
+                            this
                     );
 
                     transferData(file, salida, idTransfe);
-                } else if (respuesta instanceof FileHandshakeCommunication f) {
-                    transferenciaController.notifyTranference(f.getAction());
+
+                } else if (respuesta.getAction() == FileHandshakeAction.DECLINE_REQUEST) {
+                    transferenciaController.notifyTranference(respuesta.getAction());
                 }
 
                 // Pequeña espera para asegurar que el buffer se vacíe antes de cerrar
@@ -68,23 +77,22 @@ public class FileTransferManager implements TransferManager {
         try (Socket socket = new Socket(SERVER_ADDRESS, Integer.parseInt(port))) {
             configurarSocket(socket);
 
-            try (ObjectOutputStream salida = new ObjectOutputStream(new BufferedOutputStream(socket.getOutputStream()))) {
-                salida.flush();
-                ObjectInputStream entrada = new ObjectInputStream(new BufferedInputStream(socket.getInputStream()));
+            try (DataOutputStream salida = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
+                 DataInputStream entrada = new DataInputStream(new BufferedInputStream(socket.getInputStream()))) {
 
+                salida.flush();
 
 
                 if (transferenciaController.notifyTranference(handshakeCommunication)) {
 
-                    // Identificación
-                    salida.writeObject(new Mensaje(sessionId, CommunicationType.MESSAGE));
-                    salida.flush();
+                    // 1. Identificación Inicial (JSON)
+                    ProtocolService.writeFormattedPayload(salida, new Mensaje(sessionId, CommunicationType.MESSAGE));
 
                     String idTrans = transferenciaController.addTransference(
                             FileTransferState.RECEIVING.name(), info.getRecipient(), info.getRecipient(), info.getName(), this);
 
-                    salida.writeObject(new FileHandshakeCommunication(FileHandshakeAction.ACCEPT_REQUEST, sessionId));
-                    salida.flush();
+                    // 2. Aceptar la petición (JSON)
+                    ProtocolService.writeFormattedPayload(salida, new FileHandshakeCommunication(FileHandshakeAction.ACCEPT_REQUEST, sessionId));
 
                     // Esperar confirmación START_TRANSFER
                     if (confirmarInicio(entrada, sessionId)) {
@@ -109,10 +117,8 @@ public class FileTransferManager implements TransferManager {
                         }
                     }
                 } else {
-                    salida.writeObject(new Mensaje(sessionId, CommunicationType.MESSAGE));
-                    salida.flush();
-                    salida.writeObject(new FileHandshakeCommunication(FileHandshakeAction.DECLINE_REQUEST, sessionId));
-                    salida.flush();
+                    ProtocolService.writeFormattedPayload(salida, new Mensaje(sessionId, CommunicationType.MESSAGE));
+                    ProtocolService.writeFormattedPayload(salida, new FileHandshakeCommunication(FileHandshakeAction.DECLINE_REQUEST, sessionId));
                 }
             }
         } catch (Exception e) {
@@ -120,7 +126,7 @@ public class FileTransferManager implements TransferManager {
         }
     }
 
-    private void transferData(File file, ObjectOutputStream salida, String idTrans) throws IOException, InterruptedException {
+    private void transferData(File file, DataOutputStream salida, String idTrans) throws IOException, InterruptedException {
         long length = file.length();
         long totalSent = 0;
         byte[] buffer = new byte[BUFFER_SIZE];
@@ -148,25 +154,40 @@ public class FileTransferManager implements TransferManager {
     }
 
     // Mejora: Evita duplicidad de código en el bucle de lectura de objetos
-    private boolean confirmarInicio(ObjectInputStream entrada, String sessionId) throws Exception {
+    private boolean confirmarInicio(DataInputStream entrada, String sessionId) throws Exception {
         while (true) {
-            Object obj = entrada.readObject();
-            if (obj instanceof FileHandshakeCommunication f) {
+            // Leemos el mensaje formateado en JSON
+            Communication comm = ProtocolService.readFormattedPayload(entrada);
+
+            if (comm instanceof FileHandshakeCommunication f) {
                 return f.getAction() == FileHandshakeAction.START_TRANSFER && f.getSessionId().equals(sessionId);
             }
-            if (obj == null) return false;
+
+            if (comm == null) return false;
+            // Si llega un mensaje de texto (notificación), seguimos esperando el handshake
         }
     }
 
-    private Object waitForHandshake(ObjectInputStream entrada) throws Exception {
+    private FileHandshakeCommunication waitForHandshake(DataInputStream entrada) throws Exception {
         while (true) {
-            Object obj = entrada.readObject();
-            if (obj instanceof Mensaje m) {
-                Logger.logInfo("Notificación: " + m.getContenido());
-                continue; // Sigue esperando el objeto de comunicación real
+            // Leemos usando el nuevo protocolo JSON
+            Communication comm = ProtocolService.readFormattedPayload(entrada);
+
+            if (comm == null) throw new IOException("Conexión cerrada inesperadamente por el servidor.");
+
+            // Si llega un mensaje de texto plano, lo logueamos pero no cortamos la espera
+            if (comm instanceof Mensaje m) {
+                Logger.logInfo("Notificación del servidor durante handshake: " + m.getContenido());
+                continue;
             }
-            if (obj == null) throw new IOException("Flujo nulo");
-            return obj;
+
+            // Si es el objeto de Handshake que esperamos, lo devolvemos
+            if (comm instanceof FileHandshakeCommunication handshake) {
+                return handshake;
+            }
+
+            // Si llega otra cosa que no esperamos, decidimos si ignorar o lanzar error
+            Logger.logInfo("Tipo inesperado recibido: " + comm.getType());
         }
     }
 

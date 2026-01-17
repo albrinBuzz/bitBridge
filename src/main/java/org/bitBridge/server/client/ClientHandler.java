@@ -1,53 +1,39 @@
 package org.bitBridge.server.client;
 
+import com.google.gson.Gson;
 import org.bitBridge.server.core.ServerContext;
 import org.bitBridge.server.transfer.FileTransferService;
 import org.bitBridge.shared.*;
+import org.bitBridge.shared.network.ProtocolService;
+
 import java.io.*;
 import java.net.Socket;
 import java.net.SocketException;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
 public class ClientHandler implements Runnable {
     private final Socket clientSocket;
     private final ServerContext context;
-    private ObjectOutputStream salida;
-    private ObjectInputStream entrada;
+    private DataInputStream entrada;
+    private DataOutputStream salida;
+
     public String nick;
     private final Map<CommunicationType, ActionHandler> actionHandlers = new HashMap<>();
 
     public ClientHandler(Socket socket, ServerContext context) {
         this.clientSocket = socket;
         this.context = context;
-        try {
+        /*try {
             clientSocket.setSoTimeout(5000);
         } catch (SocketException e) {
             throw new RuntimeException(e);
-        }
-        initializeHandlers();
+        }*/
+
     }
 
-    private void initializeHandlers() {
-        // Registro de servicios: Fácil de extender a futuro
-        actionHandlers.put(CommunicationType.MESSAGE, (comm, client, ctx) -> {
-            Mensaje m = (Mensaje) comm;
-            context.server().broadcastMessage("[" + nick + "] => " + m.getContenido(), client);
-            context.server().addMessageHistory("[" + nick + "] => " + m.getContenido());
-        });
 
-        actionHandlers.put(CommunicationType.DIRECTORY, (comm, client, ctx) -> {
-            new FileTransferService(ctx).relayDirectory((FileDirectoryCommunication) comm, client, entrada);
-        });
-
-        actionHandlers.put(CommunicationType.FILE, (comm, client, ctx) -> {
-            new FileTransferService(ctx).handleForwardFile(client,client.objectInputStream(), (FileDirectoryCommunication) comm);
-        });
-
-
-        // Aquí podrías agregar:
-        // actionHandlers.put(CommunicationType.AUDIO_STREAM, new AudioHandler());
-    }
 
     @Override
     public void run() {
@@ -63,14 +49,16 @@ public class ClientHandler implements Runnable {
     }
 
     private void setupConnection() throws IOException {
-        salida = new ObjectOutputStream(clientSocket.getOutputStream());
-        salida.flush();
-        entrada = new ObjectInputStream(clientSocket.getInputStream());
+        // Cambiamos los streams a DataStream
+        this.salida = new DataOutputStream(new BufferedOutputStream(clientSocket.getOutputStream()));
+        this.salida.flush();
+        this.entrada = new DataInputStream(new BufferedInputStream(clientSocket.getInputStream()));
     }
 
     private void authenticate() throws Exception {
-        Object inicial = entrada.readObject();
-        if (!(inicial instanceof Mensaje mensaje)) throw new IOException("Protocolo inválido");
+
+        Communication comm = ProtocolService.readFormattedPayload(entrada);
+        if (!(comm instanceof Mensaje mensaje)) throw new IOException("Protocolo inválido");
 
         String contenido = mensaje.getContenido();
         if (isSessionId(contenido)) {
@@ -84,7 +72,7 @@ public class ClientHandler implements Runnable {
         }
     }
 
-    private void processLoop() throws Exception {
+    /*private void processLoop() throws Exception {
         while (!clientSocket.isClosed()) {
             try {
                 Object incoming = entrada.readObject();
@@ -95,11 +83,27 @@ public class ClientHandler implements Runnable {
                 Logger.logError("Objeto desconocido recibido: " + e.getMessage());
             }
         }
+    }*/
+
+    private void processLoop() throws Exception {
+        while (!clientSocket.isClosed()) {
+            try {
+                // Delegamos la lectura al ProtocolService
+                Communication comm = ProtocolService.readFormattedPayload(entrada);
+
+                if (comm != null) {
+                    context.dispatcher().dispatch(this, comm, context);
+                }
+            } catch (EOFException e) {
+                break; // Conexión cerrada limpiamente
+            }
+        }
     }
 
     private void handleTechnicalSession() throws Exception {
         context.server().registerClient(this, 8080);
-        Object next = entrada.readObject();
+        //Object next = entrada.readObject();
+        Communication next = ProtocolService.readFormattedPayload(entrada);
 
         if (next instanceof FileHandshakeCommunication handshake) {
             context.transferManager().registerHandshake(handshake.getSessionId(), handshake);
@@ -126,19 +130,22 @@ public class ClientHandler implements Runnable {
         return nick;
     }
 
-    public ObjectInputStream objectInputStream() {
-        return entrada;
-    }
 
-    public ObjectOutputStream getOutputStream() {
-        return salida;
-    }
 
-    public synchronized void sendComunicacion(Object msg) {
+
+    /*public synchronized void sendComunicacion(Object msg) {
         try {
             salida.writeObject(msg);
             salida.flush();
         } catch (IOException e) { e.printStackTrace(); }
+    }*/
+
+    public synchronized void sendComunicacion(Communication comm) {
+        try {
+            ProtocolService.writeFormattedPayload(salida, comm);
+        } catch (IOException e) {
+            Logger.logError("Error enviando: " + e.getMessage());
+        }
     }
 
     public void shutDown() {
@@ -169,5 +176,13 @@ public class ClientHandler implements Runnable {
     private void close() {
         context.registry().unregister(this);
         try { clientSocket.close(); } catch (IOException ignored) {}
+    }
+
+    public DataInputStream objectInputStream() {
+        return entrada;
+    }
+
+    public DataOutputStream getOutputStream() {
+        return salida;
     }
 }
