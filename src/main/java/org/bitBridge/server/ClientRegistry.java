@@ -52,7 +52,7 @@ public class ClientRegistry {
 
     public void updateAllClients() {
         var infoList = clientPool.stream()
-                .map(c -> new ClientInfo(c.clientSocket, c.nick, 0))
+                .map(c -> new ClientInfo(c.getClientSocket(), c.nick, 0))
                 .collect(Collectors.toList());
 
         broadcast(new ClientListMessage(CommunicationType.UPDATE, infoList), null);

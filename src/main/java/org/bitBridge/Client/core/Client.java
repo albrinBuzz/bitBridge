@@ -4,6 +4,7 @@ package org.bitBridge.Client.core;
 import org.bitBridge.Client.ClientInfo;
 import org.bitBridge.Client.network.DiscoveryService;
 import org.bitBridge.Client.services.MessageDispatcher;
+import org.bitBridge.Client.services.ScreenNetworkHandler;
 import org.bitBridge.Client.services.TransferService;
 import org.bitBridge.Observers.HostsObserver;
 import org.bitBridge.Observers.NetObserver;
@@ -14,6 +15,7 @@ import org.bitBridge.shared.*;
 import org.bitBridge.utils.NetworkManager;
 import org.bitBridge.view.core.MainController;
 
+import java.awt.*;
 import java.io.File;
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -47,11 +49,19 @@ public class Client {
     private TransferService transferService;
     private MessageDispatcher dispatcher;
     private DiscoveryService discoveryService = new DiscoveryService();
+    private ScreenNetworkHandler screenNetworkHandler;
+    private ClientContext context;
 
-    public Client(){
+    public Client()  {
         this.executorService = Executors.newFixedThreadPool(10); // Usar un pool de hilos para manejar tareas concurrentes
         transferenciaController=new TransferenciaController();
+        context = new ClientContext(SERVER_ADDRESS, SERVER_PORT, transferenciaController, executorService,this);
 
+        try {
+            screenNetworkHandler=new ScreenNetworkHandler(context);
+        } catch (AWTException e) {
+            throw new RuntimeException(e);
+        }
     }
 
 
@@ -60,8 +70,8 @@ public class Client {
         this.SERVER_ADDRESS = serverAddress;
         this.SERVER_PORT = serverPort;
 
-        hostName = InetAddress.getLocalHost().getHostName()+ new Random().nextInt(1,9999);
-        ClientContext context = new ClientContext(SERVER_ADDRESS, SERVER_PORT, transferenciaController, executorService);
+        //hostName = InetAddress.getLocalHost().getHostName()+ new Random().nextInt(1,9999);
+        hostName = InetAddress.getLocalHost().getHostName();
         this.dispatcher = new MessageDispatcher(this, context);
         this.transferService = new TransferService(context);
 
@@ -180,6 +190,9 @@ public class Client {
         salida.writeObject(new Mensaje(mensaje,CommunicationType.MESSAGE));
     }
 
+    public void sendScreenSnapshot(ClientInfo recipient){
+        screenNetworkHandler.sendScreenSnapshot(recipient.getNick(),1f);
+    }
 
     public void addObserver(NetObserver observer) {
         observers.add(observer);
@@ -227,6 +240,11 @@ public class Client {
 
     public String getHostName() {
         return hostName;
+    }
+
+    public void enviarComunicacion(Communication communication) throws IOException {
+
+        salida.writeObject(communication);
     }
 
     // Hilo que lee los mensajes del servidor

@@ -2,6 +2,7 @@ package org.bitBridge.server.core;
 
 
 import org.bitBridge.server.client.ClientRegistry;
+import org.bitBridge.server.client.CommunicationDispatcher;
 import org.bitBridge.server.client.NicknameService;
 import org.bitBridge.server.stats.ServerStats;
 import org.bitBridge.server.transfer.TransferSessionManager;
@@ -14,7 +15,8 @@ public record ServerContext(
         NicknameService nicknameService,
         TransferSessionManager transferManager,
         ServerStats stats,
-        Server server // Mantenemos una referencia limitada para métodos de orquestación
+        Server server, // Mantenemos una referencia limitada para métodos de orquestación
+        CommunicationDispatcher dispatcher
 ) {
     // Aquí puedes añadir métodos de conveniencia si son necesarios
 }

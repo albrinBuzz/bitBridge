@@ -11,5 +11,8 @@ public enum CommunicationType {
     NOTIFICATION,   // Notificaciones generales
     ALERT,   // Mensaje de error
     UPDATE,
-    DISCONNECT
+    DISCONNECT,
+    SCREEN_CAPTURE,
+    AUDIO_STREAM
+
 }

@@ -137,7 +137,7 @@ public class FileTransferService {
                 long totalBytesSentTotal = 0;
 
                 // --- TU LÓGICA ORIGINAL MANTENIDA ---
-                while (sender.clientSocket.isConnected()) {
+                while (sender.getClientSocket().isConnected()) {
                     Object object = entrada.readObject();
 
                     if (object instanceof FileDirectoryCommunication archivo) {

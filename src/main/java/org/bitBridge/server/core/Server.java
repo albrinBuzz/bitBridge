@@ -13,6 +13,7 @@ import org.bitBridge.server.ConfiguracionServidor;
 import org.bitBridge.server.NetworkServer;
 import org.bitBridge.server.client.ClientHandler;
 import org.bitBridge.server.client.ClientRegistry;
+import org.bitBridge.server.client.CommunicationDispatcher;
 import org.bitBridge.server.client.NicknameService;
 import org.bitBridge.server.console.ConsoleView;
 import org.bitBridge.server.network.NetworkUtils;
@@ -36,9 +37,10 @@ public class Server {
     private final ClientRegistry registry = new ClientRegistry();
     private final NicknameService nicknameService = new NicknameService();
 
-    private final List<ClientHandler> clientPool = new CopyOnWriteArrayList<>();
 
-    public AtomicLong totalMessagesReceived = new AtomicLong(0);
+
+    private final CommunicationDispatcher dispatcher;
+
 
     private ServerStats stats;
     private NetworkManager networkManager = new NetworkManager();
@@ -63,7 +65,13 @@ public class Server {
         this.stats = new ServerStats();
         this.PORT = Integer.parseInt(ConfiguracionServidor.getInstancia().obtener("servidor.puerto"));
         this.consoleView = new ConsoleView(stats, PORT);
-        this.context = new ServerContext(registry, nicknameService, transferManager, stats, this);
+        this.dispatcher = new CommunicationDispatcher();
+        this.context = new ServerContext(registry, nicknameService, transferManager, stats, this,dispatcher);
+
+
+
+
+
     }
 
     // Método que inicia el servidor y maneja las conexiones de los clientes
@@ -96,7 +104,7 @@ public class Server {
                 while (isRunning) {
                     try {
                         Socket clientSocket = serverSocket.accept();
-                        ClientHandler handler = new ClientHandler(clientSocket, this, context);
+                        ClientHandler handler = new ClientHandler(clientSocket, context);
                         new Thread(handler).start();
                     } catch (IOException e) {
                         if (isRunning) Logger.logError("Error al aceptar conexión: " + e.getMessage());
@@ -178,15 +186,7 @@ public class Server {
             Logger.logInfo("Deteniendo servidor...");
             isRunning = false;
 
-            // 1. Cerrar todos los clientes conectados de forma paralela
-            clientPool.parallelStream().forEach(handler -> {
-                try {
-                    handler.shutDown();
-                } catch (Exception e) {
-                    Logger.logError("Error al cerrar un cliente: " + e.getMessage());
-                }
-            });
-            clientPool.clear();
+            registry.shutDown();
 
             // 2. Cerrar el socket principal
             if (serverSocket != null && !serverSocket.isClosed()) {
@@ -308,6 +308,7 @@ public class Server {
     // Método sincronizado para enviar un mensaje a todos los clientes, excepto uno
     public synchronized void broadcastMessage(String message, ClientHandler excludeClient) {
         Mensaje msg = new Mensaje(message, CommunicationType.MESSAGE);
+        stats.addMessage(message);
 
         // Usamos el registry para obtener a quién enviar
         registry.getHandlersExcept(excludeClient).forEach(client -> {

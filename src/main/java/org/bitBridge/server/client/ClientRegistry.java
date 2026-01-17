@@ -2,6 +2,7 @@ package org.bitBridge.server.client;
 
 
 import org.bitBridge.Client.ClientInfo;
+import org.bitBridge.shared.Logger;
 
 import java.net.Socket;
 import java.util.ArrayList;
@@ -24,7 +25,7 @@ public class ClientRegistry {
      */
     public void addClient(ClientHandler handler, ClientInfo info) {
         activeHandlers.add(handler);
-        socketToInfoMap.put(handler.clientSocket, info);
+        socketToInfoMap.put(handler.getClientSocket(), info);
     }
 
     /**
@@ -33,7 +34,7 @@ public class ClientRegistry {
     public void removeClient(ClientHandler handler) {
         if (handler != null) {
             activeHandlers.remove(handler);
-            socketToInfoMap.remove(handler.clientSocket);
+            socketToInfoMap.remove(handler.getClientSocket());
         }
 
     }
@@ -74,20 +75,33 @@ public class ClientRegistry {
     }
 
     public ClientInfo register(ClientHandler handler, int puerto) {
-        ClientInfo info = new ClientInfo(handler.clientSocket, handler.nick, puerto);
+        ClientInfo info = new ClientInfo(handler.getClientSocket(), handler.nick, puerto);
         activeHandlers.add(handler);
-        socketToInfoMap.put(handler.clientSocket, info);
+        socketToInfoMap.put(handler.getClientSocket(), info);
         return info; // Devolvemos la info por si stats o la UI la necesitan
     }
 
     public void unregister(ClientHandler handler) {
         activeHandlers.remove(handler);
-        socketToInfoMap.remove(handler.clientSocket);
+        socketToInfoMap.remove(handler.getClientSocket());
     }
     /**
      * Limpia todos los registros (Útil al apagar el servidor).
      */
     public void clear() {
+        activeHandlers.clear();
+        socketToInfoMap.clear();
+    }
+
+    public void shutDown() {
+        // 1. Cerrar todos los clientes conectados de forma paralela
+        activeHandlers.parallelStream().forEach(handler -> {
+            try {
+                handler.shutDown();
+            } catch (Exception e) {
+                Logger.logError("Error al cerrar un cliente: " + e.getMessage());
+            }
+        });
         activeHandlers.clear();
         socketToInfoMap.clear();
     }
