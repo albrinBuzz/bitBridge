@@ -315,13 +315,13 @@ public class HeaderPanel extends JPanel {
             btnStartHub.setText("HUB ACTIVO");
             btnStartHub.setBackground(SUCCESS_GREEN.darker());
             btnStartHub.setForeground(Color.WHITE);
-            lblHubStatus.setText("HUB: PORT 8080");
+            lblHubStatus.setText("Estado HUB: ");
             lblHubStatus.setForeground(SUCCESS_GREEN);
         } else {
             btnStartHub.setText("ENCENDER HUB");
             btnStartHub.setBackground(new Color(45, 45, 45));
             btnStartHub.setForeground(Color.LIGHT_GRAY);
-            lblHubStatus.setText("HUB: OFF");
+            lblHubStatus.setText("Estado HUB: OFF");
             lblHubStatus.setForeground(Color.GRAY);
         }
     }

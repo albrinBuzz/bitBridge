@@ -31,11 +31,12 @@ public class TransferenciaController {
     }
 
     // Método para agregar una nueva transferencia
-    public String addTransference(String mode, String srcAddr, String dstAddr, String fileName, TransferManager transferManager) {
+    public String addTransference(String mode, String srcAddr, String dstAddr, String fileName, TransferManager transferManager,long lengh) {
         UUID uuid = UUID.randomUUID();
         String id = uuid.toString();
 
         Transferencia transferencia = new Transferencia(id, fileName, srcAddr, dstAddr, FileTransferState.IN_PROGRESS, transferManager);
+        transferencia.setTamano(lengh);
         transferMap.put(id, transferencia);
 
         // REGISTRAMOS EL TIEMPO DE INICIO AQUÍ
@@ -109,6 +110,7 @@ public class TransferenciaController {
 
     public void updateProgressMetrics(FileTransferState state, String id, long currentBytes, long totalBytes) {
         Transferencia trans = transferMap.get(id);
+
         Long startTime = startTimes.get(id);
 
         if (trans != null && startTime != null && totalBytes > 0) {

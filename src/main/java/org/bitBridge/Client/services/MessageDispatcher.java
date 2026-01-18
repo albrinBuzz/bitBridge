@@ -141,7 +141,7 @@ public class MessageDispatcher {
                             .receiveFiles(context.serverAddress(), String.valueOf(context.serverPort()), handshake);
                 } else {
                     new DirectoryTransferManager(context.transferController())
-                            .reciveDirectory(context.serverAddress(), String.valueOf(context.serverPort()), handshake);
+                            .receiveDirectory(context.serverAddress(), String.valueOf(context.serverPort()), handshake);
                 }
             } catch (Exception e) {
                 e.printStackTrace();

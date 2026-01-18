@@ -197,7 +197,7 @@ public class TransferPanel extends JPanel implements TransferencesObserver {
                     "0.0 MB/s",
                     0,
                     //formatSize(t.getTamano()),
-                    887,
+                    formatSize(t.getTamano()),
                     t.getId() // Pasamos el ID a la celda de acciones
 
 
@@ -210,6 +210,7 @@ public class TransferPanel extends JPanel implements TransferencesObserver {
     // Sustituye tu método updateTransferenceFull por este:
     @Override
     public void updateTransferenceFull(TransferProgress p) {
+
         Integer modelRowIndex = rowMap.get(p.id());
         if (modelRowIndex == null) return;
 

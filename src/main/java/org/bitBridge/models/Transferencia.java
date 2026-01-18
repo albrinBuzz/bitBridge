@@ -11,6 +11,7 @@ public class Transferencia {
     private String srcAddr; // Dirección de origen
     private String dstAddr; // Dirección de destino
     private int progress; // Porcentaje de progreso
+    private long tamano;
     private FileTransferState state; // Estado de la transferencia
     private TransferManager transferManager; // El administrador de la transferencia
 
@@ -88,6 +89,13 @@ public class Transferencia {
         return id;
     }
 
+    public void setTamano(long tamano) {
+        this.tamano = tamano;
+    }
+
+    public long getTamano() {
+        return tamano;
+    }
 
     // Para obtener un estado legible de la transferencia
     public String getStateDescription() {
@@ -103,5 +111,18 @@ public class Transferencia {
             default:
                 return "Desconocido";
         }
+    }
+
+    @Override
+    public String toString() {
+        return "Transferencia{" +
+                "id='" + id + '\'' +
+                ", fileName='" + fileName + '\'' +
+                ", srcAddr='" + srcAddr + '\'' +
+                ", dstAddr='" + dstAddr + '\'' +
+                ", progress=" + progress +
+                ", state=" + state +
+                ", transferManager=" + transferManager +
+                '}';
     }
 }

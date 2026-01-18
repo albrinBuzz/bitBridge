@@ -18,6 +18,7 @@ public class FileDirectoryCommunication extends Communication implements Seriali
 
     // Transferencia Avanzada
     private long lastModified;   // Fecha original del archivo
+    private long creationTime;
     private long offset;         // Para reanudar descargas (byte de inicio)
     private String senderNick;   // Quién lo ofrece
     private String senderIp;     // Ubicación de red
@@ -101,6 +102,22 @@ public class FileDirectoryCommunication extends Communication implements Seriali
 
     public String getSenderIp() {
         return senderIp;
+    }
+
+    public void setCreationTime(long creationTime) {
+        this.creationTime = creationTime;
+    }
+
+    public void setLastModified(long lastModified) {
+        this.lastModified = lastModified;
+    }
+
+    public long getCreationTime() {
+        return creationTime;
+    }
+
+    public long getLastModified() {
+        return lastModified;
     }
 
     // Representación en cadena (opcional)
