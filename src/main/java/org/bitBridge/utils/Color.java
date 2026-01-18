@@ -23,7 +23,8 @@ public enum Color {
     MAGENTA_BOLD("\033[1;35m"), // MAGENTA
     CYAN_BOLD("\033[1;36m"),    // CYAN
     WHITE_BOLD("\033[1;37m"),   // WHITE
-
+    PURPLE_BOLD ("\033[1;35m"), // Púrpura Negrita
+     PURPLE_BRIGHT ("\033[0;95m"),
     // Underline
     BLACK_UNDERLINED("\033[4;30m"),     // BLACK
     RED_UNDERLINED("\033[4;31m"),       // RED

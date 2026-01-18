@@ -2,14 +2,18 @@ package org.bitBridge.view.core;
 
 
 
+import org.bitBridge.Client.ClientInfo;
 import org.bitBridge.Client.core.Client;
+import org.bitBridge.Observers.NetObserver;
 import org.bitBridge.server.core.Server;
 import org.bitBridge.shared.Logger;
+import org.bitBridge.shared.ServerStatusConnection;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 
-public class MainController {
+public class MainController implements NetObserver {
     private final Client client;
     private final IMainView view;
     private final Server server;
@@ -18,6 +22,8 @@ public class MainController {
         this.view = view;
         this.client = client;
         this.server = server;
+
+        this.client.addObserver(this);
     }
 
     public void startServer() {
@@ -121,4 +127,21 @@ public class MainController {
             view.updateConnectionUI(ConnectionState.DISCONNECTED, null);
         }).start();
     }
+
+
+
+    @Override
+    public void onStatusChanged(ServerStatusConnection status) {
+        // Importante: El evento viene del hilo "ReadMessages",
+        // debemos saltar al hilo de Swing para actualizar la UI.
+        java.awt.EventQueue.invokeLater(() -> {
+            if (status == ServerStatusConnection.DISCONNECTED) {
+                view.updateConnectionUI(ConnectionState.DISCONNECTED, "Conexión perdida con el servidor.");
+            }
+        });
+    }
+
+    // Los demás métodos pueden quedar vacíos si el controlador no los necesita
+    @Override public void onMessageReceived(String message) {}
+    @Override public void onHostListUpdated(List<ClientInfo> hosts) {}
 }

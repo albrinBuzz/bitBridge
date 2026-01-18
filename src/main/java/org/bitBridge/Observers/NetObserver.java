@@ -11,4 +11,5 @@ public interface NetObserver {
     void onMessageReceived(String message);
     void onStatusChanged(ServerStatusConnection status);
     void onHostListUpdated(List<ClientInfo> hosts);
+
 }

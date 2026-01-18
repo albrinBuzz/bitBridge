@@ -3,13 +3,15 @@ package org.bitBridge.server.transfer;
 
 import org.bitBridge.server.client.ClientHandler;
 import org.bitBridge.server.core.ServerContext;
-import org.bitBridge.shared.FileDirectoryCommunication;
-import org.bitBridge.shared.FileHandshakeAction;
-import org.bitBridge.shared.FileHandshakeCommunication;
-import org.bitBridge.shared.Logger;
+import org.bitBridge.shared.*;
+import org.bitBridge.shared.network.ProtocolService;
 
 import java.io.*;
 import java.net.SocketException;
+import java.nio.ByteBuffer;
+import java.nio.channels.Channels;
+import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.WritableByteChannel;
 import java.util.BitSet;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
@@ -26,7 +28,7 @@ public class FileTransferService {
     /**
      * Coordina el envío de un archivo individual entre un emisor y un receptor.
      */
-    public void handleForwardFile(ClientHandler sender, ObjectInputStream entrada,FileDirectoryCommunication communication) {
+    public void handleForwardFile(ClientHandler sender, DataInputStream entrada,FileDirectoryCommunication communication) {
         try {
 
                 String recipientNick = communication.getRecipient();
@@ -65,11 +67,21 @@ public class FileTransferService {
                 receptor.sendComunicacion(start);
                 sender.sendComunicacion(start);
 
+                long startNIO = System.nanoTime();
                 // Transferencia de bytes
                 streamBytes(entrada, receptor.getOutputStream(), fileSize);
+                long endNIO = System.nanoTime();
+
+                // Cálculo de resultados
+
+                double segundosNIO = (endNIO - startNIO) / 1_000_000_000.0;
+                double mbSize =fileSize / (1024.0 * 1024.0);
+
+                Logger.logInfo("NIO Zero-Copy: "+(mbSize / segundosNIO)+"MB/s"+"("+segundosNIO+" seg)");
 
                 // FINALIZACIÓN
-                Object fin = entrada.readObject();
+                //Object fin = entrada.readObject();
+                Object fin = ProtocolService.readFormattedPayload(entrada);
                 if (fin instanceof FileHandshakeCommunication com) {
                     receptor.sendComunicacion(com);
                 }
@@ -93,107 +105,98 @@ public class FileTransferService {
     /**
      * Lógica original adaptada para relay de directorios
      */
-    public void relayDirectory(FileDirectoryCommunication com, ClientHandler sender, ObjectInputStream entrada) {
+    public void relayDirectory(FileDirectoryCommunication com, ClientHandler sender, DataInputStream entrada) {
         String recipientNick = com.getRecipient();
         String dirName = com.getName();
-
-        // Log con ID para rastreo
-        String logId = "[DIR-TRANSFER-" + new Random().nextInt(1000) + "]";
-        Logger.logInfo(logId + " Solicitud de directorio: '" + dirName + "' para " + recipientNick);
+        String logId = "[DIR-RELAY-" + new Random().nextInt(1000) + "]";
 
         ClientHandler recipient = context.registry().findByNick(recipientNick);
         if (recipient == null) {
-            Logger.logError(logId + " Receptor no encontrado.");
+            Logger.logError(logId + " Receptor '" + recipientNick + "' no encontrado.");
             return;
         }
 
         try {
             String sessionId = "DIR_" + new Random().nextInt(1000, 9999);
 
-            // 1. Handshake inicial
+            // 1. Notificar al receptor sobre la solicitud (JSON vía ProtocolService dentro de sendComunicacion)
             recipient.sendComunicacion(new FileHandshakeCommunication(
                     FileHandshakeAction.SEND_REQUEST, sessionId, com));
 
-            // 2. Espera al canal de datos
+            // 2. Esperar al canal de datos del receptor
             ClientHandler dataReceiver = context.transferManager().waitForReceptor(sessionId, 20);
             if (dataReceiver == null) {
-                Logger.logError(logId + " Timeout esperando canal de datos.");
+                Logger.logError(logId + " Timeout esperando conexión de datos del receptor.");
                 return;
             }
 
-            FileHandshakeAction action=context.transferManager().waitForResponseAction(sessionId, 7);
-            ///FileHandshakeAction action = manager.waitForResponseAction(sessionId, 30);
+            FileHandshakeAction action = context.transferManager().waitForResponseAction(sessionId, 7);
 
-            if (action==FileHandshakeAction.ACCEPT_REQUEST) {
-
-                // 3. Notificar inicio
+            if (action == FileHandshakeAction.ACCEPT_REQUEST) {
+                // Confirmación de inicio a ambos (JSON)
                 FileHandshakeCommunication start = new FileHandshakeCommunication(
                         FileHandshakeAction.START_TRANSFER, sessionId, com);
 
                 dataReceiver.sendComunicacion(start);
                 sender.sendComunicacion(start);
 
-                byte[] buffer = new byte[BUFFER_SIZE];
-                long totalBytesSentTotal = 0;
+                DataOutputStream outDestino = new DataOutputStream(dataReceiver.getOutputStream());
+                boolean transferenciaActiva = true;
 
-                // --- TU LÓGICA ORIGINAL MANTENIDA ---
-                while (sender.clientSocket.isConnected()) {
-                    Object object = entrada.readObject();
+                // --- BUCLE DE RELAY HÍBRIDO ---
+                while (transferenciaActiva && !sender.getClientSocket().isClosed()) {
+                    // Leer el siguiente comando del emisor (JSON)
+                    Communication object = ProtocolService.readFormattedPayload(entrada);
 
-                    if (object instanceof FileDirectoryCommunication archivo) {
-                        // Orden de lectura igual al envío del cliente
-                        String nombreArchivo = entrada.readUTF();
+                    if (object instanceof FileDirectoryCommunication archivoMeta) {
+                        // Re-enviar metadatos al destinatario (JSON)
+                        ProtocolService.writeFormattedPayload(outDestino, archivoMeta);
 
-                        dataReceiver.sendComunicacion(archivo);
-                        dataReceiver.getOutputStream().writeUTF(nombreArchivo);
-                        dataReceiver.getOutputStream().flush();
+                        // Leer y re-enviar el String UTF de la ruta relativa
+                        String rutaRelativa = entrada.readUTF();
+                        outDestino.writeUTF(rutaRelativa);
+                        outDestino.flush();
 
-                        if (archivo.isDirectory() && archivo.getSize() == 0) {
-                            continue;
+                        if (archivoMeta.isDirectory()) {
+                            continue; // Es solo una carpeta, no hay bytes de contenido
                         }
 
-                        long fileSize = archivo.getSize();
-                        long totalBytesRead = 0;
-                        int bytesRead;
+                        // PUENTE DE BYTES: Transferencia cruda de archivo a archivo
+                        long fileSize = archivoMeta.getSize();
+                        long totalRead = 0;
+                        byte[] buffer = new byte[BUFFER_SIZE];
 
-                        // Puente de bytes exacto para evitar OptionalDataException
+                        while (totalRead < fileSize) {
+                            int toRead = (int) Math.min(buffer.length, fileSize - totalRead);
+                            int bytesRead = entrada.read(buffer, 0, toRead);
+                            if (bytesRead == -1) break;
 
-                        streamBytes(entrada, dataReceiver.getOutputStream(), fileSize);
-
+                            outDestino.write(buffer, 0, bytesRead);
+                            totalRead += bytesRead;
+                        }
+                        outDestino.flush();
 
                     } else if (object instanceof FileHandshakeCommunication respuesta) {
-                        if (respuesta.getAction().equals(FileHandshakeAction.TRANSFER_DONE)) {
-                            FileHandshakeCommunication requestCom = new FileHandshakeCommunication(
-                                    FileHandshakeAction.TRANSFER_DONE
-                            );
-                            dataReceiver.sendComunicacion(requestCom);
-                            break;
+                        if (respuesta.getAction() == FileHandshakeAction.TRANSFER_DONE) {
+                            // Notificar fin al receptor y cerrar bucle
+                            ProtocolService.writeFormattedPayload(outDestino, respuesta);
+                            outDestino.flush();
+                            transferenciaActiva = false;
                         }
                     }
                 }
-                // --- FIN DE LÓGICA ORIGINAL ---
+                Logger.logInfo(logId + " Retransmisión de directorio finalizada.");
 
-                context.stats().recordBytes(totalBytesSentTotal);
-                Logger.logInfo(logId + " ¡Éxito! Directorio enviado correctamente.");
-
-                dataReceiver.shutDown();
-                sender.shutDown();
-            }else {
-                FileHandshakeCommunication start = new FileHandshakeCommunication(
-                        FileHandshakeAction.DECLINE_REQUEST, sessionId, com);
-
-                sender.sendComunicacion(start);
+            } else {
+                sender.sendComunicacion(new FileHandshakeCommunication(FileHandshakeAction.DECLINE_REQUEST, sessionId));
             }
 
-        } catch (SocketException e) {
-            Logger.logError(logId + " Conexión perdida: " + e.getMessage());
         } catch (Exception e) {
-            Logger.logError(logId + " Error crítico: " + e.getMessage());
-            e.printStackTrace();
+            Logger.logError(logId + " Error en relay: " + e.getMessage());
         }
     }
 
-    private void streamBytes(ObjectInputStream in, ObjectOutputStream out, long totalSize) throws IOException {
+    private void streamBytes(DataInputStream in, DataOutputStream out, long totalSize) throws IOException {
         byte[] buffer = new byte[BUFFER_SIZE];
         long totalRead = 0;
         while (totalRead < totalSize) {
@@ -206,4 +209,27 @@ public class FileTransferService {
         }
         out.flush();
     }
+
+    /*private void streamBytes(DataInputStream entrada, OutputStream salida, long fileSize) throws IOException {
+        // Convertimos los streams existentes a canales de NIO
+        ReadableByteChannel source = Channels.newChannel(entrada);
+        WritableByteChannel dest = Channels.newChannel(salida);
+
+        // Para puentear dos sockets, usamos un ByteBuffer directo (fuera del Heap de Java)
+        // 128KB o 256KB es un tamaño excelente para transferencia entre sockets
+        ByteBuffer buffer = ByteBuffer.allocateDirect(256 * 1024);
+
+        long totalTransferred = 0;
+        while (totalTransferred < fileSize) {
+            buffer.clear();
+            int read = source.read(buffer);
+            if (read == -1) break;
+
+            buffer.flip(); // Prepara el buffer para ser leído y escrito al destino
+            while (buffer.hasRemaining()) {
+                dest.write(buffer);
+            }
+            totalTransferred += read;
+        }
+    }*/
 }

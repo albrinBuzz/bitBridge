@@ -10,5 +10,6 @@ public record ClientContext(
         String serverAddress,
         int serverPort,
         TransferenciaController transferController,
-        ExecutorService executor
+        ExecutorService executor,
+        Client client
 ) {}

@@ -1,12 +1,12 @@
 package org.bitBridge.Client;
 
-
-
 import org.bitBridge.controller.TransferenciaController;
 import org.bitBridge.shared.*;
+import org.bitBridge.shared.network.ProtocolService;
 
 import java.io.*;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -19,109 +19,80 @@ public class DirectoryTransferManager implements TransferManager {
     private volatile boolean running = true;
     private volatile boolean paused = false;
     private final Object pauseLock = new Object();
+
     private String rutaCopia;
     private String carpeta;
     private String rutaCarpetaActual;
-    private ObjectOutputStream out;
-    private ObjectInputStream entrada;
+
+    // Cambiados a DataStreams para compatibilidad JSON/Binario
+    private DataOutputStream out;
+    private DataInputStream entrada;
+
     private ConfiguracionCliente configCliente;
     private String nick;
     private int totalArchivos;
     private long tamanoTotal;
-    private long totalBytesLeidos=0;
-    private int archivosEnviados;
+    private long totalBytesLeidos = 0;
     private TransferenciaController transferenciaController;
     private String recipient;
-    private static final int BUFFER_SIZE = 128 * 1024; // 64KB
+    private static final int BUFFER_SIZE = 128 * 1024; // 128KB
 
     public DirectoryTransferManager(TransferenciaController transferenciaController) {
         this.configCliente = new ConfiguracionCliente();
-        rutaCopia = configCliente.obtener("cliente.directorio_descargas");
-        rutaCarpetaActual = rutaCopia;
+        this.rutaCopia = configCliente.obtener("cliente.directorio_descargas");
+        this.rutaCarpetaActual = rutaCopia;
         this.transferenciaController = transferenciaController;
-    }
-
-    private void logMemoryUsage(String phase) {
-        Runtime runtime = Runtime.getRuntime();
-        long totalMemory = runtime.totalMemory();
-        long freeMemory = runtime.freeMemory();
-        long usedMemory = totalMemory - freeMemory;
-        /*
-        Logger.logInfo(phase + " - Memoria total: " + totalMemory / (1024 * 1024) + " MB");
-        Logger.logInfo(phase + " - Memoria libre: " + freeMemory / (1024 * 1024) + " MB");
-        Logger.logInfo(phase + " - Memoria usada: " + usedMemory / (1024 * 1024) + " MB");
-        */
     }
 
     public void sendDirectory(File archivo, String SERVER_ADDRESS, int port, String recipient) {
         this.carpeta = archivo.getName();
         this.nick = SERVER_ADDRESS;
         this.recipient = recipient;
-        archivosEnviados = 0;
         String sessionId = "SENDER_" + new Random().nextInt(10000);
 
         AtomicInteger totalArchivosContador = new AtomicInteger(0);
         AtomicLong totalTam = new AtomicLong(0);
 
         try {
-            archivosTotales(archivo, totalArchivosContador,totalTam);
-
+            archivosTotales(archivo, totalArchivosContador, totalTam);
         } catch (IOException e) {
             Logger.logError("Error al contar archivos: " + e.getMessage());
             return;
         }
+
         this.totalArchivos = totalArchivosContador.get();
-        tamanoTotal=totalTam.get();
-
-        Logger.logInfo(String.valueOf(tamanoTotal));
-
-
-        logMemoryUsage("Inicio de sendDirectory");
+        this.tamanoTotal = totalTam.get();
 
         try (Socket socket = new Socket(SERVER_ADDRESS, port)) {
-            out = new ObjectOutputStream(socket.getOutputStream());
-            entrada = new ObjectInputStream(socket.getInputStream());
+            socket.setTcpNoDelay(true);
 
-            //out.writeObject(new Mensaje("enviando", CommunicationType.MESSAGE));
-            out.writeObject(new Mensaje(sessionId, CommunicationType.MESSAGE));
+            out = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
+            entrada = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
             out.flush();
 
-            out.writeObject(new FileDirectoryCommunication(archivo.getName(), totalArchivos, recipient,tamanoTotal));
+            // 1. Identificación y Metadatos de Carpeta (JSON)
+            ProtocolService.writeFormattedPayload(out, new Mensaje(sessionId, CommunicationType.MESSAGE));
+            ProtocolService.writeFormattedPayload(out, new FileDirectoryCommunication(archivo.getName(), totalArchivos, recipient, tamanoTotal));
             out.flush();
 
-            //String idTransfe = transferenciaController.addTransference(FileTransferState.SENDING.name(), nick, nick, archivo.getName(), this);
-
-            //logMemoryUsage("Después de configuración inicial");
-            Object respuesta = waitForHandshake(entrada);
+            // 2. Esperar Handshake (JSON)
+            Communication respuesta = waitForHandshake(entrada);
 
             if (respuesta instanceof FileHandshakeCommunication f && f.getAction() == FileHandshakeAction.START_TRANSFER) {
-                String idTransfe = transferenciaController.addTransference(FileTransferState.SENDING.name(), nick, nick, archivo.getName(), this);
+                String idTransfe = transferenciaController.addTransference(FileTransferState.SENDING.name(), nick, nick, archivo.getName(), this,tamanoTotal);
 
+                // 3. Iniciar envío recursivo
                 enviarDirectorio(archivo, idTransfe);
 
-                out.writeObject(new FileHandshakeCommunication(FileHandshakeAction.TRANSFER_DONE));
+                // 4. Notificar fin de transferencia de carpeta (JSON)
+                ProtocolService.writeFormattedPayload(out, new FileHandshakeCommunication(FileHandshakeAction.TRANSFER_DONE));
                 out.flush();
 
             } else if (respuesta instanceof FileHandshakeCommunication f) {
                 transferenciaController.notifyTranference(f.getAction());
             }
 
-
-            /*Object object;
-            while ((object = entrada.readObject()) != null) {
-                if (object instanceof FileHandshakeCommunication respuesta &&
-                        respuesta.getAction() == FileHandshakeAction.START_TRANSFER) {
-                    break;
-                } else if (object instanceof Mensaje mensaje) {
-                    Logger.logInfo("Mensaje recibido: " + mensaje.getContenido());
-                }
-            }*/
-
-            logMemoryUsage("Antes de enviar directorio");
-
             TimeUnit.MILLISECONDS.sleep(200);
-
-            logMemoryUsage("Final de sendDirectory");
         } catch (Exception e) {
             Logger.logError("Error en sendDirectory: " + e.getMessage());
         } finally {
@@ -130,15 +101,16 @@ public class DirectoryTransferManager implements TransferManager {
         }
     }
 
-    private Object waitForHandshake(ObjectInputStream entrada) throws Exception {
+    private Communication waitForHandshake(DataInputStream entrada) throws Exception {
         while (true) {
-            Object obj = entrada.readObject();
-            if (obj instanceof Mensaje m) {
-                Logger.logInfo("Notificación: " + m.getContenido());
-                continue; // Sigue esperando el objeto de comunicación real
+            Communication comm = ProtocolService.readFormattedPayload(entrada);
+            if (comm == null) throw new IOException("Flujo nulo");
+
+            if (comm instanceof Mensaje m) {
+                Logger.logInfo("Notificación servidor: " + m.getContenido());
+                continue;
             }
-            if (obj == null) throw new IOException("Flujo nulo");
-            return obj;
+            return comm;
         }
     }
 
@@ -146,172 +118,159 @@ public class DirectoryTransferManager implements TransferManager {
         File[] files = archivo.listFiles();
         if (files == null) return;
 
+        // Manejo de carpetas vacías
         if (files.length == 0) {
             rutaCopia = archivo.getCanonicalPath().substring(archivo.getAbsolutePath().indexOf(carpeta));
-            rutaCarpetaActual = archivo.getAbsolutePath();
-
-            out.writeObject(new FileDirectoryCommunication(archivo.getName(), 0, recipient));
-            out.flush();
+            ProtocolService.writeFormattedPayload(out, new FileDirectoryCommunication(archivo.getName(), 0, recipient));
             out.writeUTF(rutaCopia);
             out.flush();
+            return;
         }
 
         for (File file : files) {
+            if (!running) break;
             if (file.isFile()) {
                 rutaCopia = file.getCanonicalPath().substring(file.getAbsolutePath().indexOf(carpeta));
                 rutaCarpetaActual = file.getAbsolutePath();
-
-                logMemoryUsage("Antes de copiar: " + file.getName());
-               long sumaArchivo= copy(idTransfe);
-                archivosEnviados++;
-                //transferenciaController.updateProgress(FileTransferState.SENDING, idTransfe, (int) ((archivosEnviados * 100L) / totalArchivos));
-
-
-                logMemoryUsage("Después de copiar: " + file.getName());
+                copy(idTransfe);
             } else if (file.isDirectory()) {
                 enviarDirectorio(file, idTransfe);
             }
         }
     }
-    public void reciveDirectory(String SERVER_ADDRESS, String port, FileHandshakeCommunication handshakeCommunication) throws IOException, ClassNotFoundException {
-        String sessionId = handshakeCommunication.getSessionId();
 
-        // Usamos try-with-resources para asegurar el cierre de sockets y streams
-        try (Socket socket = new Socket(SERVER_ADDRESS, Integer.parseInt(port));
-             ObjectOutputStream salida = new ObjectOutputStream(new BufferedOutputStream(socket.getOutputStream()))) {
+    private long copy(String idTransfe) throws IOException, InterruptedException {
+        File archivo = new File(rutaCarpetaActual);
+        long totalFileSize = archivo.length();
+        long bytesSentInFile = 0;
 
-            salida.flush();
-            ObjectInputStream entrada = new ObjectInputStream(new BufferedInputStream(socket.getInputStream()));
+        // A. Metadatos del archivo individual (JSON)
+        ProtocolService.writeFormattedPayload(out, new FileDirectoryCommunication(archivo.getName(), totalFileSize));
+        // B. Ruta relativa para reconstrucción (UTF)
+        out.writeUTF(rutaCopia);
+        out.flush();
 
-            if (transferenciaController.notifyTranference(handshakeCommunication)) {
-                // Handshake inicial
-                salida.writeObject(new Mensaje(sessionId, CommunicationType.MESSAGE));
-                salida.writeObject(new FileHandshakeCommunication(FileHandshakeAction.ACCEPT_REQUEST, sessionId));
-                salida.flush();
+        // C. Contenido binario
+        try (FileInputStream fis = new FileInputStream(archivo)) {
+            byte[] buffer = new byte[BUFFER_SIZE];
+            int bytesRead;
 
-                var communication = handshakeCommunication.getFileInfo();
-                String carpeta = communication.getName();
-                long totalBytesCarpeta = communication.getSize(); // <--- IMPORTANTE: Tamaño total de la carpeta
-                String recipientNick = communication.getRecipient();
-
-                // Esperar START_TRANSFER
-                Object object;
-                while ((object = entrada.readObject()) != null) {
-                    if (object instanceof FileHandshakeCommunication f &&
-                            f.getAction() == FileHandshakeAction.START_TRANSFER) break;
+            while (bytesSentInFile < totalFileSize) {
+                synchronized (pauseLock) {
+                    if (paused) {
+                        pauseLock.wait();
+                        continue;
+                    }
                 }
 
-                // Crear directorio raíz y registrar transferencia
-                new File(carpeta).mkdir();
+                bytesRead = fis.read(buffer);
+                if (bytesRead == -1) break;
+
+                out.write(buffer, 0, bytesRead);
+                bytesSentInFile += bytesRead;
+                totalBytesLeidos += bytesRead;
+
+                transferenciaController.updateProgressMetrics(
+                        FileTransferState.SENDING, idTransfe, totalBytesLeidos, tamanoTotal
+                );
+            }
+        }
+        out.flush();
+        return bytesSentInFile;
+    }
+
+    public void receiveDirectory(String SERVER_ADDRESS, String port, FileHandshakeCommunication handshakeCommunication) {
+        String sessionId = handshakeCommunication.getSessionId();
+        var folderInfo = handshakeCommunication.getFileInfo();
+        long totalBytesCarpeta = folderInfo.getSize();
+
+        try (Socket socket = new Socket(SERVER_ADDRESS, Integer.parseInt(port))) {
+            out = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
+            entrada = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
+            out.flush();
+
+            if (transferenciaController.notifyTranference(handshakeCommunication)) {
+                // Identificación (JSON)
+                ProtocolService.writeFormattedPayload(out, new Mensaje(sessionId, CommunicationType.MESSAGE));
+                ProtocolService.writeFormattedPayload(out, new FileHandshakeCommunication(FileHandshakeAction.ACCEPT_REQUEST, sessionId));
+                out.flush();
+
+                // Esperar START_TRANSFER (JSON)
+                Communication startConfirm = waitForHandshake(entrada);
+                if (!(startConfirm instanceof FileHandshakeCommunication f && f.getAction() == FileHandshakeAction.START_TRANSFER)) return;
+
                 String idTransfe = transferenciaController.addTransference(
-                        FileTransferState.RECEIVING.name(), recipientNick, recipientNick, carpeta, this
+                        FileTransferState.RECEIVING.name(), folderInfo.getRecipient(), folderInfo.getRecipient(), folderInfo.getName(), this,
+                        totalBytesCarpeta
                 );
 
-                long bytesRecibidosAcumulados = 0; // <--- Métrica para velocidad y ETA global
+                long bytesRecibidosAcumulados = 0;
                 boolean transferenciaActiva = true;
 
-                while (transferenciaActiva && (object = entrada.readObject()) != null) {
-                    if (object instanceof FileDirectoryCommunication archivo) {
-                        String nombreArchivo = entrada.readUTF();
-                        String rutaDescargas = configCliente.obtener("cliente.directorio_descargas");
-                        String rutaCompleta = rutaDescargas + nombreArchivo;
+                while (transferenciaActiva) {
+                    // 1. Leer Metadatos (JSON)
+                    Communication comm = ProtocolService.readFormattedPayload(entrada);
 
-                        if (archivo.isDirectory()) {
+                    if (comm instanceof FileDirectoryCommunication archivoMeta) {
+                        // 2. Leer ruta relativa (UTF)
+                        String nombreRelativo = entrada.readUTF();
+                        String rutaCompleta = configCliente.obtener("cliente.directorio_descargas") + File.separator + nombreRelativo;
+
+                        if (archivoMeta.isDirectory()) {
                             new File(rutaCompleta).mkdirs();
                             continue;
                         }
 
                         crearDirectorios(rutaCompleta);
 
+                        // 3. Recibir Bytes (Binario crudo)
                         try (FileOutputStream fos = new FileOutputStream(rutaCompleta)) {
                             byte[] buffer = new byte[BUFFER_SIZE];
-                            int bytesRead;
-                            long fileSize = archivo.getSize();
+                            long fileSize = archivoMeta.getSize();
                             long readInCurrentFile = 0;
 
-                            while (readInCurrentFile < fileSize && (bytesRead = entrada.read(buffer)) != -1) {
+                            while (readInCurrentFile < fileSize) {
+                                int toRead = (int) Math.min(buffer.length, fileSize - readInCurrentFile);
+                                int bytesRead = entrada.read(buffer, 0, toRead);
+                                if (bytesRead == -1) break;
+
                                 fos.write(buffer, 0, bytesRead);
-
                                 readInCurrentFile += bytesRead;
-                                bytesRecibidosAcumulados += bytesRead; // Acumulamos el total de la carpeta
+                                bytesRecibidosAcumulados += bytesRead;
 
-                                // Actualizamos con el acumulado global y el tamaño total de la carpeta
                                 transferenciaController.updateProgressMetrics(
-                                        FileTransferState.RECEIVING,
-                                        idTransfe,
-                                        bytesRecibidosAcumulados,
-                                        totalBytesCarpeta
-                                );
+                                        FileTransferState.RECEIVING, idTransfe, bytesRecibidosAcumulados, totalBytesCarpeta);
                             }
                             fos.flush();
                         }
-                    } else if (object instanceof FileHandshakeCommunication fin &&
-                            fin.getAction() == FileHandshakeAction.TRANSFER_DONE) {
+                    } else if (comm instanceof FileHandshakeCommunication h && h.getAction() == FileHandshakeAction.TRANSFER_DONE) {
                         transferenciaActiva = false;
                     }
                 }
-                Logger.logInfo("Transferencia de carpeta finalizada.");
+            }else {
+                ProtocolService.writeFormattedPayload(out, new Mensaje(sessionId, CommunicationType.MESSAGE));
+                ProtocolService.writeFormattedPayload(out, new FileHandshakeCommunication(FileHandshakeAction.DECLINE_REQUEST, sessionId));
+                out.flush();
 
-            } else {
-                salida.writeObject(new FileHandshakeCommunication(FileHandshakeAction.DECLINE_REQUEST, sessionId));
-                salida.flush();
             }
+        } catch (Exception e) {
+            Logger.logError("Error en receiveDirectory: " + e.getMessage());
         }
     }
 
     public void crearDirectorios(String archivo) {
-        try {
-            Path path = Paths.get(archivo);
-            Path directorioPadre = path.getParent();
-            if (directorioPadre != null && !Files.exists(directorioPadre)) {
+        Path path = Paths.get(archivo);
+        Path directorioPadre = path.getParent();
+        if (directorioPadre != null && !Files.exists(directorioPadre)) {
+            try {
                 Files.createDirectories(directorioPadre);
+            } catch (IOException e) {
+                Logger.logError("No se pudo crear directorio: " + directorioPadre);
             }
-        } catch (IOException e) {
-            Logger.logError("Error al crear directorios: " + e.getMessage());
         }
     }
 
-    private long copy(String idTransfe) throws IOException, InterruptedException {
-        String sourcePath = rutaCarpetaActual;
-        File archivo = new File(sourcePath);
-        long totalFileSize = archivo.length();
-        long totalBytesReaded = 0;
-
-        out.writeObject(new FileDirectoryCommunication(archivo.getName(), archivo.length()));
-        out.flush();
-        out.writeUTF(rutaCopia);
-        out.flush();
-
-        try (FileInputStream fileInputStream = new FileInputStream(sourcePath)) {
-            byte[] buffer = new byte[BUFFER_SIZE];
-            int bytesRead;
-
-            while (totalBytesReaded < totalFileSize) {
-                synchronized (pauseLock) {
-                    if (paused) {
-                        pauseLock.wait();
-                    } else {
-                        bytesRead = fileInputStream.read(buffer);
-                        if (bytesRead == -1) break;
-                        out.write(buffer, 0, bytesRead);
-                        out.flush();
-                        totalBytesReaded += bytesRead;
-                        totalBytesLeidos+= bytesRead;
-
-                        transferenciaController.updateProgressMetrics(
-                                FileTransferState.SENDING,
-                                idTransfe,
-                                totalBytesLeidos,
-                                tamanoTotal
-                        );
-                    }
-                }
-            }
-        }
-        return totalBytesReaded;
-    }
-
-    private void archivosTotales(File archivo, AtomicInteger totalArchivos,AtomicLong tamanoTotal) throws IOException {
+    private void archivosTotales(File archivo, AtomicInteger totalArchivos, AtomicLong tamanoTotal) throws IOException {
         File[] files = archivo.listFiles();
         if (files != null) {
             for (File file : files) {
@@ -319,30 +278,14 @@ public class DirectoryTransferManager implements TransferManager {
                     totalArchivos.incrementAndGet();
                     tamanoTotal.addAndGet(file.length());
                 } else if (file.isDirectory()) {
-                    archivosTotales(file, totalArchivos,tamanoTotal);
+                    archivosTotales(file, totalArchivos, tamanoTotal);
                 }
             }
         }
     }
 
-    public void stop() {
-        running = false;
-        resume();
-    }
-
-    public void pause() {
-        paused = true;
-    }
-
-    public void resume() {
-        synchronized (pauseLock) {
-            paused = false;
-            pauseLock.notifyAll();
-        }
-    }
-
-    @Override
-    public void cancel() {
-
-    }
+    public void stop() { running = false; resume(); }
+    public void pause() { paused = true; }
+    public void resume() { synchronized (pauseLock) { paused = false; pauseLock.notifyAll(); } }
+    @Override public void cancel() { stop(); }
 }

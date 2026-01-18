@@ -98,6 +98,15 @@
             <version>2.5.2</version>
         </dependency>
 
+
+        <!-- Source: https://mvnrepository.com/artifact/com.google.code.gson/gson -->
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>2.10.1</version>
+            <scope>compile</scope>
+        </dependency>
+
     </dependencies>
 
     <build>
@@ -110,6 +119,20 @@
                 <version>3.3.1</version>
                 <configuration>
                     <encoding>UTF-8</encoding>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.graalvm.buildtools</groupId>
+                <artifactId>native-maven-plugin</artifactId>
+                <version>0.9.28</version>
+                <extensions>true</extensions>
+                <configuration>
+                    <buildArgs>
+                        <arg>--gui</arg>
+                        <arg>-H:Name=BitBridge</arg>
+                        <arg>--no-fallback</arg>
+                    </buildArgs>
                 </configuration>
             </plugin>
 

@@ -4,6 +4,7 @@ package org.bitBridge.Client.core;
 import org.bitBridge.Client.ClientInfo;
 import org.bitBridge.Client.network.DiscoveryService;
 import org.bitBridge.Client.services.MessageDispatcher;
+import org.bitBridge.Client.services.ScreenNetworkHandler;
 import org.bitBridge.Client.services.TransferService;
 import org.bitBridge.Observers.HostsObserver;
 import org.bitBridge.Observers.NetObserver;
@@ -11,17 +12,18 @@ import org.bitBridge.Observers.TransferencesObserver;
 import org.bitBridge.controller.TransferenciaController;
 import org.bitBridge.server.ConfiguracionServidor;
 import org.bitBridge.shared.*;
+import org.bitBridge.shared.network.ProtocolService;
 import org.bitBridge.utils.NetworkManager;
+import org.bitBridge.view.core.MainController;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
+import java.awt.*;
+import java.io.*;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -33,8 +35,9 @@ public class Client {
     private String SERVER_ADDRESS;
     private int SERVER_PORT;
     private Socket socket;
-    private ObjectInputStream entrada;
-    private ObjectOutputStream salida;
+    private DataInputStream entrada;
+    private DataOutputStream salida;
+    private String hostName;
     private ExecutorService executorService;
     //private Observer observer;
     private ConfiguracionServidor config =ConfiguracionServidor.getInstancia();
@@ -44,10 +47,19 @@ public class Client {
     private TransferService transferService;
     private MessageDispatcher dispatcher;
     private DiscoveryService discoveryService = new DiscoveryService();
-    public Client(){
+    private ScreenNetworkHandler screenNetworkHandler;
+    private ClientContext context;
+
+    public Client()  {
         this.executorService = Executors.newFixedThreadPool(10); // Usar un pool de hilos para manejar tareas concurrentes
         transferenciaController=new TransferenciaController();
 
+
+        /*try {
+            screenNetworkHandler=new ScreenNetworkHandler(context);
+        } catch (AWTException e) {
+            throw new RuntimeException(e);
+        }*/
     }
 
 
@@ -56,8 +68,9 @@ public class Client {
         this.SERVER_ADDRESS = serverAddress;
         this.SERVER_PORT = serverPort;
 
-        String hostName = InetAddress.getLocalHost().getHostName();
-        ClientContext context = new ClientContext(SERVER_ADDRESS, SERVER_PORT, transferenciaController, executorService);
+        context = new ClientContext(SERVER_ADDRESS, SERVER_PORT, transferenciaController, executorService,this);
+        //hostName = InetAddress.getLocalHost().getHostName()+ new Random().nextInt(1,9999);
+        hostName = InetAddress.getLocalHost().getHostName();
         this.dispatcher = new MessageDispatcher(this, context);
         this.transferService = new TransferService(context);
 
@@ -71,15 +84,14 @@ public class Client {
 
         // 2. IMPORTANTE: El orden debe coincidir con el servidor para evitar Deadlock
         // Primero Salida -> Flush -> Luego Entrada
-        salida = new ObjectOutputStream(socket.getOutputStream());
+        salida = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
         salida.flush();
-
-        entrada = new ObjectInputStream(socket.getInputStream());
+        entrada = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
 
         // 3. Enviar identificación inicial
         Mensaje saludo = new Mensaje(hostName, CommunicationType.MESSAGE);
-        salida.writeObject(saludo);
-        salida.flush();
+        enviarComunicacion(saludo);
+
 
         // 4. Iniciar escucha
         executorService.submit(new ReadMessages(entrada));
@@ -117,11 +129,15 @@ public class Client {
         return SERVER_ADDRESS;
     }
 
+
+
     public void desconect() {
         try {
             // Verificar si la salida y el socket no están ya cerrados
             if (socket != null && !socket.isClosed()) {
-                salida.writeObject(new Mensaje(CommunicationType.DISCONNECT));
+
+                ProtocolService.writeFormattedPayload(salida, new Mensaje(CommunicationType.DISCONNECT));
+
             }
 
             // Solo cerrar el socket y la entrada si no están ya cerrados
@@ -140,6 +156,7 @@ public class Client {
                 //obs.onMessageReceived(msg); // Hilo del Socket
                 obs.onStatusChanged(ServerStatusConnection.DISCONNECTED);
             }
+            Logger.logInfo("Desconectando");
 
         } catch (IOException e) {
             // Manejo de la excepción
@@ -158,7 +175,7 @@ public class Client {
      */
     public void sendFileToHost(ClientInfo recipient, File file) {
         if (file == null || !file.exists()) return;
-        transferService.enqueueFileSend(recipient, file);
+        transferService.enqueueFileSend(recipient, file,hostName);
     }
     /**
      * Envía un directorio de forma agnóstica.
@@ -168,11 +185,14 @@ public class Client {
         transferService.enqueueDirectorySend(recipient, directory);
     }
 
-    public void enviarMensaje(String mensaje) throws IOException {
 
-        salida.writeObject(new Mensaje(mensaje,CommunicationType.MESSAGE));
+    public void enviarMensaje(String mensaje) throws IOException {
+        enviarComunicacion(new Mensaje(mensaje, CommunicationType.MESSAGE));
     }
 
+    public void sendScreenSnapshot(ClientInfo recipient){
+        screenNetworkHandler.sendScreenSnapshot(recipient.getNick(),1f);
+    }
 
     public void addObserver(NetObserver observer) {
         observers.add(observer);
@@ -194,6 +214,12 @@ public class Client {
         for (HostsObserver observer : hostsObservers) {
                     observer.updateAllHosts(hosts);  // Notifica a los observadores con el nuevo mensaje
         }
+        if (observers.isEmpty()){
+            Logger.logInfo("No hay obseradores");
+        }
+        for (NetObserver observer : observers) {
+            observer.onHostListUpdated(hosts);  // Notifica a los observadores con el nuevo mensaje
+        }
     }
 
     public void setTransferencesObserver(TransferencesObserver transferencesObserver){
@@ -208,13 +234,25 @@ public class Client {
     }
 
 
+    public void setHostName(String hostName) {
+        this.hostName = hostName;
+    }
+
+    public String getHostName() {
+        return hostName;
+    }
+
+    public void enviarComunicacion(Communication communication) throws IOException {
+        if (socket != null && !socket.isClosed()) {
+            ProtocolService.writeFormattedPayload(salida, communication);
+        }
+    }
 
     // Hilo que lee los mensajes del servidor
     private class ReadMessages implements Runnable {
-        private final ObjectInputStream entrada;
-        private Communication communication;
+        private final DataInputStream entrada;
 
-        public ReadMessages(ObjectInputStream entrada) {
+        public ReadMessages(DataInputStream entrada) {
             this.entrada = entrada;
         }
 
@@ -223,23 +261,21 @@ public class Client {
             try {
 
 
-                while (socket.isConnected()) {
+                while (!socket.isClosed()) {
 
-                    Object object = entrada.readObject();
+                    Communication comm = ProtocolService.readFormattedPayload(entrada);
 
-
-                    if (object != null) {
-
-                        dispatcher.dispatch(object);
-
-                    }else {
-                        Logger.logInfo("Mensaje nulo");
+                    if (comm != null) {
+                        // Tu dispatcher recibe el objeto reconstruido (Mensaje, ClientList, etc.)
+                        dispatcher.dispatch(comm);
                     }
+
                 }
                 Logger.logInfo("socket cerrado");
 
-            } catch (IOException | ClassNotFoundException e) {
+            } catch (IOException e) {
                 Logger.logInfo("Error leyendo del servidor: " + e.getMessage());
+                //cleanUp();
                 e.printStackTrace();
 
             }catch (Exception e) {
@@ -247,13 +283,13 @@ public class Client {
                     e.printStackTrace();
 
             } finally {
-
                 cleanUp();
             }
         }
 
 
         public void cleanUp() {
+            Logger.logInfo("Limpiando");
             try {
                 if (entrada != null) {
                     entrada.close();
@@ -261,8 +297,9 @@ public class Client {
                 if (socket != null) {
                     socket.close();
                 }
-                notifyHostobserves(new ArrayList<>());
+                //notifyHostobserves(new ArrayList<>());
                 desconect();
+
             } catch (IOException e) {
                 System.out.println("Error al cerrar recursos: " + e.getMessage());
             }
