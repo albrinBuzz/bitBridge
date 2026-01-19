@@ -27,14 +27,14 @@ public class CommunicationDispatcher {
                 return t;
             });
 
-    /*private final ExecutorService fileTransferPool = Executors.newCachedThreadPool(r -> {
+    private final ExecutorService fileTransferPool = Executors.newCachedThreadPool(r -> {
         Thread t = new Thread(r);
 
         t.setName("FT-Pool-" + t.getId());
         return t;
-    });*/
+    });
 
-    private final ExecutorService fileTransferPool = Executors.newVirtualThreadPerTaskExecutor();
+    //private final ExecutorService fileTransferPool = Executors.newVirtualThreadPerTaskExecutor();
 
     private final Map<CommunicationType, ExecutionMode> modes = new ConcurrentHashMap<>();
 

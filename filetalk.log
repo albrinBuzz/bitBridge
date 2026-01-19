@@ -22180,3 +22180,95 @@
 [13:32:38.487] [INFO ] FileTransferManager::confirmarInicioNIO(L:163) - Esperando confirmación mediante ProtocolService...
 [13:32:38.500] [INFO ] FileTransferManager::receiveFiles(L:130) - [RECEPTOR-NIO] Se Confirma el incio de la transaferencia
 [13:32:38.533] [INFO ] FileTransferManager::receiveFiles(L:146) - Archivo Guardado en /home/cris/Filetalk/SerieX.jpeg
+[14:22:02.973] [INFO ] NetworkManager::startServerAnnouncement(L:47) - [mDNS] Nodo creado en interfaz: 192.168.100.163
+[14:22:02.976] [INFO ] NetworkManager::startServerAnnouncement(L:55) - [📡] SERVIDOR ACTIVO: [fedora] | IP: 192.168.100.163 | Puerto: 8080
+[14:22:03.971] [INFO ] Client::conexionAutomatica(L:109) - [Auto] Iniciando descubrimiento mDNS...
+[14:22:03.972] [INFO ] NetworkManager::startLookingForServers(L:77) - [🔍] Iniciando búsqueda de nodos en la red: 192.168.100.163
+[14:22:05.471] [INFO ] MainController::lambda$startAutoDiscovery$4(L:68) - Conexión exitosa
+[14:22:06.980] [INFO ] NetworkManager$1::serviceAdded(L:82) - [+] Servicio detectado: fedora. Resolviendo...
+[14:22:06.981] [INFO ] NetworkManager$1::serviceResolved(L:99) - [✨] NODO RESUELTO: fedora -> 192.168.100.163:8080
+[14:22:06.981] [INFO ] Client::lambda$conexionAutomatica$0(L:121) - [mDNS] Servidor detectado en 192.168.100.163:8080
+[14:22:07.006] [INFO ] NetworkManager$1::serviceResolved(L:99) - [✨] NODO RESUELTO: fedora -> 192.168.100.163:8080
+[14:22:07.006] [INFO ] NetworkManager$1::serviceResolved(L:99) - [✨] NODO RESUELTO: fedora -> 192.168.100.163:8080
+[14:22:07.006] [INFO ] NetworkManager$1::serviceResolved(L:99) - [✨] NODO RESUELTO: fedora -> 192.168.100.163:8080
+[14:22:45.578] [INFO ] FileTransferManager::sendFile(L:53) - [RECEPTOR-NIO] Conectando a 192.168.100.163:8080...
+[14:22:45.579] [INFO ] TransferSessionManager::registerReceptor(L:103) - [SESSION-MGR] Solicitud de registro para sesión: SENDER_8062
+[14:22:45.580] [INFO ] FileTransferManager::waitForHandshakeNIO(L:196) - Iniciando bucle de espera de Handshake (NIO)...
+[14:22:45.610] [INFO ] NetworkClientsPanel$3::done(L:253) - Transferencia exitosa a fedo
+[14:22:47.583] [ERROR] TransferSessionManager::registerReceptor(L:127) - [SESSION-MGR] Sesión no encontrada después de espera: SENDER_8062
+[14:22:47.588] [INFO ] FileTransferService::handleForwardFile(L:45) - [SERV-TRANSFER-27] Generada sesión: FILE_6937 para fedo
+[14:22:47.589] [INFO ] FileTransferService::handleForwardFile(L:51) - [SERV-TRANSFER-27] Notificación SEND_REQUEST enviada al receptor. Esperando conexión de datos...
+[14:22:51.643] [INFO ] TransferSessionManager::registerReceptor(L:103) - [SESSION-MGR] Solicitud de registro para sesión: FILE_6937
+[14:22:51.643] [INFO ] TransferSessionManager::registerReceptor(L:120) - [SESSION-MGR] Entregando socket al hilo de transferencia...
+[14:22:51.643] [INFO ] TransferSessionManager::registerReceptor(L:122) - [SESSION-MGR] Intercambio completado.
+[14:22:51.644] [INFO ] FileTransferService::handleForwardFile(L:61) - [SERV-TRANSFER-27] Fase 1 Exitosa: Receptor (FILE_6937) conectado físicamente.
+[14:22:51.644] [INFO ] FileTransferService::handleForwardFile(L:64) - [SERV-TRANSFER-27] Esperando mensaje ACCEPT_REQUEST del receptor...
+[14:22:51.644] [INFO ] TransferSessionManager::waitForResponseAction(L:82) - [SESSION] Esperando decisión del receptor para sesión: FILE_6937
+[14:22:51.645] [INFO ] CommunicationDispatcher::lambda$new$1(L:50) - [DISPATCHER] Handshake detectado para sesión: FILE_6937
+[14:22:51.645] [INFO ] TransferSessionManager::registerHandshake(L:46) - [SESSION] Registrando handshake para FILE_6937: ACCEPT_REQUEST
+[14:22:51.645] [INFO ] TransferSessionManager::waitForResponseAction(L:87) - [SESSION] Respuesta recuperada para FILE_6937: ACCEPT_REQUEST
+[14:22:51.645] [INFO ] FileTransferService::handleForwardFile(L:68) - [SERV-TRANSFER-27] Fase 2 Exitosa: Acción recibida: ACCEPT. Notificando inicio de transferencia.
+[14:22:51.646] [INFO ] NioServerEngine::unregisterChannel(L:87) - [NIO] Socket extraído del Selector para transferencia directa.
+[14:22:51.646] [INFO ] NioServerEngine::unregisterChannel(L:87) - [NIO] Socket extraído del Selector para transferencia directa.
+[14:22:51.646] [INFO ] FileTransferManager::waitForHandshakeNIO(L:207) - Handshake recibido: START_TRANSFER
+[14:22:51.646] [INFO ] FileTransferManager::sendFile(L:68) - ¡CONEXIÓN EXITOSA! El receptor aceptó. (Envío de bytes Inciado)
+[14:45:58.874] [INFO ] FileTransferManager::sendFile(L:81) - Transferencia completada en 1387.22652557 seg.
+[14:46:01.719] [INFO ] FileTransferService::bridgeSocketChannels(L:148) - Bridge finalizado. Total: 4228642695/4228642695
+[15:08:46.277] [INFO ] TransferSessionManager::registerReceptor(L:103) - [SESSION-MGR] Solicitud de registro para sesión: SENDER_3134
+[15:08:48.282] [ERROR] TransferSessionManager::registerReceptor(L:127) - [SESSION-MGR] Sesión no encontrada después de espera: SENDER_3134
+[15:08:48.283] [INFO ] FileTransferService::handleForwardFile(L:45) - [SERV-TRANSFER-88] Generada sesión: FILE_7081 para fedora
+[15:08:48.284] [INFO ] FileTransferService::handleForwardFile(L:51) - [SERV-TRANSFER-88] Notificación SEND_REQUEST enviada al receptor. Esperando conexión de datos...
+[15:08:48.285] [INFO ] FileTransferManager::receiveFiles(L:96) - [RECEPTOR-NIO] Solicitud recibida. Sesión: FILE_7081 | Archivo: el-senor-de-los-anillos-el-retorno-del-rey-edicion-extendida-1.0.mp4| Longitud: 3,9 GB
+[15:08:49.857] [INFO ] FileTransferManager::receiveFiles(L:109) - [RECEPTOR-NIO] Conectando a 192.168.100.163:8080... Enviando handshake de identificación
+[15:08:49.858] [INFO ] FileTransferManager::receiveFiles(L:114) - [RECEPTOR-NIO] ID de sesión enviado: FILE_7081
+[15:08:49.858] [INFO ] TransferSessionManager::registerReceptor(L:103) - [SESSION-MGR] Solicitud de registro para sesión: FILE_7081
+[15:08:49.858] [INFO ] FileTransferManager::receiveFiles(L:119) - [RECEPTOR-NIO] ACCEPT_REQUEST enviado satisfactoriamente.
+[15:08:49.858] [INFO ] TransferSessionManager::registerReceptor(L:120) - [SESSION-MGR] Entregando socket al hilo de transferencia...
+[15:08:49.858] [INFO ] FileTransferManager::confirmarInicioNIO(L:163) - Esperando confirmación mediante ProtocolService...
+[15:08:49.858] [INFO ] TransferSessionManager::registerReceptor(L:122) - [SESSION-MGR] Intercambio completado.
+[15:08:49.858] [INFO ] FileTransferService::handleForwardFile(L:61) - [SERV-TRANSFER-88] Fase 1 Exitosa: Receptor (FILE_7081) conectado físicamente.
+[15:08:49.859] [INFO ] FileTransferService::handleForwardFile(L:64) - [SERV-TRANSFER-88] Esperando mensaje ACCEPT_REQUEST del receptor...
+[15:08:49.859] [INFO ] CommunicationDispatcher::lambda$new$1(L:50) - [DISPATCHER] Handshake detectado para sesión: FILE_7081
+[15:08:49.859] [INFO ] TransferSessionManager::waitForResponseAction(L:82) - [SESSION] Esperando decisión del receptor para sesión: FILE_7081
+[15:08:49.859] [INFO ] TransferSessionManager::registerHandshake(L:46) - [SESSION] Registrando handshake para FILE_7081: ACCEPT_REQUEST
+[15:08:49.859] [INFO ] TransferSessionManager::waitForResponseAction(L:87) - [SESSION] Respuesta recuperada para FILE_7081: ACCEPT_REQUEST
+[15:08:49.859] [INFO ] FileTransferService::handleForwardFile(L:68) - [SERV-TRANSFER-88] Fase 2 Exitosa: Acción recibida: ACCEPT. Notificando inicio de transferencia.
+[15:08:49.860] [INFO ] NioServerEngine::unregisterChannel(L:87) - [NIO] Socket extraído del Selector para transferencia directa.
+[15:08:49.860] [INFO ] FileTransferManager::receiveFiles(L:130) - [RECEPTOR-NIO] Se Confirma el incio de la transaferencia
+[15:08:49.860] [INFO ] NioServerEngine::unregisterChannel(L:87) - [NIO] Socket extraído del Selector para transferencia directa.
+[15:10:06.748] [WARN ] FileTransferService::bridgeSocketChannels(L:134) - Emisor cerró la conexión antes de terminar.
+[15:10:06.748] [ERROR] NioClientHandler::processRead(L:78) - Error en lectura: Cliente desconectado
+[15:10:06.748] [INFO ] FileTransferService::bridgeSocketChannels(L:148) - Bridge finalizado. Total: 240123904/4228642695
+[15:10:06.749] [INFO ] FileTransferManager::receiveFiles(L:146) - Archivo Guardado en /home/cris/Filetalk/el-senor-de-los-anillos-el-retorno-del-rey-edicion-extendida-1.0.mp4
+[15:18:27.710] [INFO ] NetworkManager::startServerAnnouncement(L:47) - [mDNS] Nodo creado en interfaz: 192.168.100.163
+[15:18:27.712] [INFO ] NetworkManager::startServerAnnouncement(L:55) - [📡] SERVIDOR ACTIVO: [fedora] | IP: 192.168.100.163 | Puerto: 8080
+[15:18:28.567] [INFO ] Client::conexionAutomatica(L:109) - [Auto] Iniciando descubrimiento mDNS...
+[15:18:28.568] [INFO ] NetworkManager::startLookingForServers(L:77) - [🔍] Iniciando búsqueda de nodos en la red: 192.168.100.163
+[15:18:30.066] [INFO ] MainController::lambda$startAutoDiscovery$4(L:68) - Conexión exitosa
+[15:18:31.715] [INFO ] NetworkManager$1::serviceAdded(L:82) - [+] Servicio detectado: fedora. Resolviendo...
+[15:18:31.715] [INFO ] NetworkManager$1::serviceResolved(L:99) - [✨] NODO RESUELTO: fedora -> 192.168.100.163:8080
+[15:18:31.716] [INFO ] Client::lambda$conexionAutomatica$0(L:121) - [mDNS] Servidor detectado en 192.168.100.163:8080
+[15:18:31.735] [INFO ] NetworkManager$1::serviceResolved(L:99) - [✨] NODO RESUELTO: fedora -> 192.168.100.163:8080
+[15:18:31.735] [INFO ] NetworkManager$1::serviceResolved(L:99) - [✨] NODO RESUELTO: fedora -> 192.168.100.163:8080
+[15:18:31.735] [INFO ] NetworkManager$1::serviceResolved(L:99) - [✨] NODO RESUELTO: fedora -> 192.168.100.163:8080
+[15:22:15.988] [INFO ] FileTransferManager::sendFile(L:53) - [RECEPTOR-NIO] Conectando a 192.168.100.163:8080...
+[15:22:15.989] [INFO ] TransferSessionManager::registerReceptor(L:103) - [SESSION-MGR] Solicitud de registro para sesión: SENDER_7229
+[15:22:15.990] [INFO ] FileTransferManager::waitForHandshakeNIO(L:196) - Iniciando bucle de espera de Handshake (NIO)...
+[15:22:16.020] [INFO ] NetworkClientsPanel$3::done(L:253) - Transferencia exitosa a DESKTOP-AQU08V2
+[15:22:17.995] [ERROR] TransferSessionManager::registerReceptor(L:127) - [SESSION-MGR] Sesión no encontrada después de espera: SENDER_7229
+[15:22:17.997] [INFO ] FileTransferService::handleForwardFile(L:45) - [SERV-TRANSFER-5] Generada sesión: FILE_8995 para DESKTOP-AQU08V2
+[15:22:17.998] [INFO ] FileTransferService::handleForwardFile(L:51) - [SERV-TRANSFER-5] Notificación SEND_REQUEST enviada al receptor. Esperando conexión de datos...
+[15:22:21.544] [INFO ] TransferSessionManager::registerReceptor(L:103) - [SESSION-MGR] Solicitud de registro para sesión: FILE_8995
+[15:22:21.544] [INFO ] TransferSessionManager::registerReceptor(L:120) - [SESSION-MGR] Entregando socket al hilo de transferencia...
+[15:22:21.544] [INFO ] TransferSessionManager::registerReceptor(L:122) - [SESSION-MGR] Intercambio completado.
+[15:22:21.545] [INFO ] FileTransferService::handleForwardFile(L:61) - [SERV-TRANSFER-5] Fase 1 Exitosa: Receptor (FILE_8995) conectado físicamente.
+[15:22:21.545] [INFO ] FileTransferService::handleForwardFile(L:64) - [SERV-TRANSFER-5] Esperando mensaje ACCEPT_REQUEST del receptor...
+[15:22:21.545] [INFO ] TransferSessionManager::waitForResponseAction(L:82) - [SESSION] Esperando decisión del receptor para sesión: FILE_8995
+[15:22:21.550] [INFO ] CommunicationDispatcher::lambda$new$2(L:50) - [DISPATCHER] Handshake detectado para sesión: FILE_8995
+[15:22:21.550] [INFO ] TransferSessionManager::registerHandshake(L:46) - [SESSION] Registrando handshake para FILE_8995: ACCEPT_REQUEST
+[15:22:21.550] [INFO ] TransferSessionManager::waitForResponseAction(L:87) - [SESSION] Respuesta recuperada para FILE_8995: ACCEPT_REQUEST
+[15:22:21.550] [INFO ] FileTransferService::handleForwardFile(L:68) - [SERV-TRANSFER-5] Fase 2 Exitosa: Acción recibida: ACCEPT. Notificando inicio de transferencia.
+[15:22:21.551] [INFO ] NioServerEngine::unregisterChannel(L:87) - [NIO] Socket extraído del Selector para transferencia directa.
+[15:22:21.551] [INFO ] FileTransferManager::waitForHandshakeNIO(L:207) - Handshake recibido: START_TRANSFER
+[15:22:21.551] [INFO ] NioServerEngine::unregisterChannel(L:87) - [NIO] Socket extraído del Selector para transferencia directa.
+[15:22:21.551] [INFO ] FileTransferManager::sendFile(L:68) - ¡CONEXIÓN EXITOSA! El receptor aceptó. (Envío de bytes Inciado)

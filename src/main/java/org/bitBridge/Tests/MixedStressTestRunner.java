@@ -17,8 +17,8 @@ public class MixedStressTestRunner {
         final File TEST_FILE = new File("/home/cris/ldr/el-senor-de-los-anillos.mp4");
 
         System.out.println("🔥 INICIANDO ATAQUE MIXTO: Archivos + Mensajes");
-
-        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+        var executor = Executors.newFixedThreadPool(500);
+        try  {
             for (int i = 0; i < TOTAL_CLIENTS; i++) {
                 int clientId = i;
                 executor.submit(() -> {
