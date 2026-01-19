@@ -8,6 +8,8 @@ import org.bitBridge.server.core.Server;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 public class AutomatedTestRunner {
 
@@ -40,10 +42,12 @@ public class AutomatedTestRunner {
             ClientInfo target = new ClientInfo("127.0.0.1", "fedora", port);
 
             // 5. Carpeta de prueba
-            File carpeta = new File("/home/cris/baseDatos/");
+            //File carpeta = new File("/home/cris/baseDatos/");
+            File carpeta = new File("/home/cris/recuerdos/");
+
             //File carpetaArch = new File("/home/cris/baseDatos/oracle/ddlRHH.sql");
-            //File carpetaArch = new File("/home/cris/ldr/el-senor-de-los-anillos-la-comunidad-del-anillo-edicion-extendida-1.0.mp4");
-            File carpetaArch = new File("/home/cris/java/javafx/proyectos/FileTalk/target/FileTalk-Desktop.jar");
+            File carpetaArch = new File("/home/cris/ldr/el-senor-de-los-anillos-la-comunidad-del-anillo-edicion-extendida-1.0.mp4");
+            //File carpetaArch = new File("/home/cris/memoria.c");
             //File carpetaArch = new File("/home/cris/baseDatos/guias.sql");
 
             if (!carpeta.exists()) {
@@ -55,14 +59,42 @@ public class AutomatedTestRunner {
             // En tu AutomatedTestRunner.java
             System.out.println("[TEST] Llamando a sendDirectoryToHost...");
             //emisor.sendDirectoryToHost(target, carpeta);
-            emisor.sendFileToHost(target, carpetaArch);
+            // ... (paso 6)
+            System.out.println("[TEST] Llamando a sendFileToHost...");
+            //emisor.sendFileToHost(target, carpetaArch);
+            emisor.sendDirectoryToHost(target,carpeta);
 
-// IMPORTANTE: No pongas System.exit(0) inmediatamente.
-// Los hilos del ExecutorService son hilos "Daemon" o se cortan si el main muere.
-            //Thread.sleep(20); // Dale 20 segundos para ver los logs
+            // ESPERA CRÍTICA: Dale 1 o 2 segundos para que la red y el disco terminen
+            System.out.println("[TEST] Esperando a que termine la transferencia...");
+            Thread.sleep(2000);
 
+            /*verificarIntegridad(Path.of("/home/cris/ldr/el-senor-de-los-anillos-la-comunidad-del-anillo-edicion-extendida-1.0.mp4"),
+                    Path.of("/home/cris/Filetalk/el-senor-de-los-anillos-la-comunidad-del-anillo-edicion-extendida-1.0.mp4"));*/
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+
+    public static void verificarIntegridad(Path original, Path recibido) throws IOException, InterruptedException {
+        int intentos = 0;
+        while (!Files.exists(recibido) && intentos < 5) {
+            Thread.sleep(1000); // Esperar un segundo si el archivo aún no aparece
+            intentos++;
+        }
+
+        if (!Files.exists(recibido)) {
+            System.err.println("❌ ERROR: El archivo nunca llegó a su destino.");
+            return;
+        }
+
+        /*byte[] f1 = Files.readAllBytes(original);
+        byte[] f2 = Files.readAllBytes(recibido);
+
+        if (java.util.Arrays.equals(f1, f2)) {
+            System.out.println("✅ PRUEBA SUPERADA: Los archivos son idénticos.");
+        } else {
+            System.err.println("❌ PRUEBA FALLIDA: Diferencias encontradas.");
+        }*/
     }
 }

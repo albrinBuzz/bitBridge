@@ -1,7 +1,7 @@
 package org.bitBridge.server;
 
 
-import org.bitBridge.server.client.ClientHandler;
+import org.bitBridge.server.core.client.ClientHandler;
 
 public interface TransferRelay {
     void registerWaitingReceptor(String sessionId, ClientHandler receptor);

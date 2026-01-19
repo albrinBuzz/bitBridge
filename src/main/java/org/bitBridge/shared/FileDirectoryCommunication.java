@@ -4,24 +4,44 @@ import java.io.Serializable;
 
 public class FileDirectoryCommunication extends Communication implements Serializable {
 
-    private String name;            // Nombre del archivo o directorio
-    private long size;              // Tamaño del archivo/directorio en bytes
-    private boolean isDirectory;    // Indicador de si es un archivo o un directorio
-    private int  totalArchivos;
+    private String name;
+    private long size;
+    private boolean isDirectory;
+    private int totalArchivos;
     private String recipient;
+    private String relativePath; // <--- CRÍTICO: Para reconstruir la estructura en NIO
 
+    // Metadatos adicionales
+    private String senderNick;
+    private String hash;
+    private long lastModified;
 
-    // Identificación y Seguridad
-    private String hash;         // Checksum del contenido
-    private String algorithm;    // "SHA-256"
-    private String mimeType;     // "application/pdf", "image/png"
+    // Constructor para Carpeta Principal (Handshake Inicial)
+    public FileDirectoryCommunication(String name, int totalArchivos, String recipient, long size) {
+        super(CommunicationType.DIRECTORY);
+        this.name = name;
+        this.totalArchivos = totalArchivos;
+        this.recipient = recipient;
+        this.size = size;
+        this.isDirectory = true;
+    }
 
-    // Transferencia Avanzada
-    private long lastModified;   // Fecha original del archivo
-    private long creationTime;
-    private long offset;         // Para reanudar descargas (byte de inicio)
-    private String senderNick;   // Quién lo ofrece
-    private String senderIp;     // Ubicación de red
+    // Constructor para Archivos/Subcarpetas durante el flujo NIO
+    public FileDirectoryCommunication(String name, long size, boolean isDirectory, String relativePath) {
+        super(isDirectory ? CommunicationType.DIRECTORY : CommunicationType.FILE);
+        this.name = name;
+        this.size = size;
+        this.isDirectory = isDirectory;
+        this.relativePath = relativePath;
+    }
+
+    // Constructor simplificado (para compatibilidad)
+    public FileDirectoryCommunication(String name, long length) {
+        super(CommunicationType.FILE);
+        this.name = name;
+        this.size = length;
+        this.isDirectory = false;
+    }
 
     // Constructor para archivo
     public FileDirectoryCommunication(String name, long size,String recipient,String senderNick) {
@@ -44,89 +64,26 @@ public class FileDirectoryCommunication extends Communication implements Seriali
         this.recipient=recipient;
     }
 
-    public FileDirectoryCommunication(String name,int totalArchivos,String recipient,long size) {
-        super(CommunicationType.DIRECTORY);
-        this.name = name;
-        this.size = size;
-        this.isDirectory = true;
-        this.totalArchivos=totalArchivos;
-        this.recipient=recipient;
+
+
+    // GETTERS Y SETTERS NECESARIOS
+    public String getRelativePath() { return relativePath; }
+    public void setRelativePath(String relativePath) { this.relativePath = relativePath; }
+
+    public String getName() { return name; }
+    public long getSize() { return size; }
+    public boolean isDirectory() { return isDirectory; }
+    public int getTotalArchivos() { return totalArchivos; }
+    public String getRecipient() { return recipient; }
+    public String getSenderNick() { return senderNick; }
+    public void setSenderNick(String senderNick) { this.senderNick = senderNick; }
+
+    public void setRecipient(String recipient) {
+        this.recipient = recipient;
     }
 
-    public FileDirectoryCommunication(String name, long length) {
-        super(CommunicationType.FILE);  // O puedes usar CommunicationType.DIRECTORY si es un directorio
-        this.name = name;
-        this.size = length;
-        this.isDirectory = false;  // Es un archivo por defecto
-    }
-
-    // Getter para el nombre del archivo/directorio
-    public String getName() {
-        return name;
-    }
-
-    // Getter para el tamaño
-    public long getSize() {
-        return size;
-    }
-
-
-    // Verificar si es un directorio
-    public boolean isDirectory() {
-        return isDirectory;
-    }
-
-    public int getTotalArchivos() {
-        return totalArchivos;
-    }
-
-    public String getRecipient() {
-        return recipient;
-    }
-
-    public String getHash() {
-        return hash;
-    }
-
-    public void setHash(String hash) {
-        this.hash = hash;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public String getSenderNick() {
-        return senderNick;
-    }
-
-    public String getSenderIp() {
-        return senderIp;
-    }
-
-    public void setCreationTime(long creationTime) {
-        this.creationTime = creationTime;
-    }
-
-    public void setLastModified(long lastModified) {
-        this.lastModified = lastModified;
-    }
-
-    public long getCreationTime() {
-        return creationTime;
-    }
-
-    public long getLastModified() {
-        return lastModified;
-    }
-
-    // Representación en cadena (opcional)
     @Override
     public String toString() {
-        return "FileDirectoryCommunication{" +
-                "name='" + name + '\'' +
-                ", size=" + size +
-                ", isDirectory=" + isDirectory +
-                '}';
+        return (isDirectory ? "[DIR] " : "[FILE] ") + name + " (" + size + " bytes) path: " + relativePath;
     }
 }

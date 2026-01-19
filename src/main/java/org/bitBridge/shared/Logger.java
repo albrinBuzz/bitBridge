@@ -53,7 +53,7 @@ public class Logger {
 
         // Estructura: TIME [LEVEL] CLASS::METHOD(L) - MESSAGE
         return String.format("%s%s%s %s%s%s %s%s%s::%s%s%s(%s%d%s) %s %s%s%s",
-                TIME_COLOR, time, RESET,
+                LINE_COLOR, time, RESET,
                 lvl.color, lvl.label, RESET,
                 BOLD + CLASS_COLOR, cls, RESET,
                 METHOD_COLOR, ste.getMethodName(), RESET,

@@ -1,7 +1,5 @@
-package org.bitBridge.server.client;
+package org.bitBridge.server.core.client;
 
-
-import java.util.List;
 
 public class NicknameService {
 

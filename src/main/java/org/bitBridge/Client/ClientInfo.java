@@ -9,16 +9,10 @@ public class ClientInfo implements Serializable {
     private String nick;
     private int port;
 
-    public ClientInfo(Socket socket, String nick,int puerto) {
-        this.address = socket.getInetAddress().toString();
-        this.address=address.substring(1);
-        this.connectionTime = System.currentTimeMillis();
-        this.port=puerto;
-        this.nick=nick;
-    }
+
     // Constructor para pruebas o cuando el socket no está disponible inmediatamente
     public ClientInfo(String address, String nick, int puerto) {
-        this.address = address;
+        this.address=address.substring(1);
         this.nick = nick;
         this.port = puerto;
         this.connectionTime = System.currentTimeMillis();

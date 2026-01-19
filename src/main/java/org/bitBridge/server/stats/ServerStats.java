@@ -5,6 +5,7 @@ import org.bitBridge.utils.Color;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
@@ -22,6 +23,7 @@ public class ServerStats {
 
     // --- MÉTODOS DE COMPATIBILIDAD (Para evitar errores de compilación) ---
     public void recordMessage(String message) { addMessage(message); }
+
     public void setClients(List<ClientInfo> clients) {
         connectedClients.clear();
         connectedClients.addAll(clients);
@@ -101,6 +103,11 @@ public class ServerStats {
 
     public long getTotalBytes() { return totalBytes.get(); }
     public List<String> getMessageHistory() { return messageHistory; }
-    public List<ClientInfo> getConnectedClients() { return connectedClients; }
+
+    // En ServerStats.java, asegúrate de que este método sea así:
+    public List<ClientInfo> getConnectedClients() {
+        return new ArrayList<>(this.connectedClients); // Devuelve una copia para evitar ConcurrentModificationException
+    }
+
     public int getClientCount() { return connectedClients.size(); }
 }

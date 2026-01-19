@@ -112,7 +112,7 @@ public class BitBridgeNioClient implements Runnable {
         }
     }
 
-    private void onMessageReceived(byte[] data) {
+    private void onMessageReceived(byte[] data) throws IOException {
         // Deserializar y enviar al controlador de la UI
         Communication comm = ProtocolService.fromBytes(data);
         System.out.println("Recibido: " + comm.getClass().getSimpleName());

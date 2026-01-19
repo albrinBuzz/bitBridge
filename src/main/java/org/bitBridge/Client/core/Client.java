@@ -11,7 +11,10 @@ import org.bitBridge.Observers.NetObserver;
 import org.bitBridge.Observers.TransferencesObserver;
 import org.bitBridge.controller.TransferenciaController;
 import org.bitBridge.server.ConfiguracionServidor;
+import org.bitBridge.server.core.NioServerEngine;
+import org.bitBridge.server.core.client.NioClientHandler;
 import org.bitBridge.shared.*;
+import org.bitBridge.shared.network.ClientNetworkEngine;
 import org.bitBridge.shared.network.ProtocolService;
 import org.bitBridge.utils.NetworkManager;
 import org.bitBridge.view.core.MainController;
@@ -31,12 +34,8 @@ public class Client {
     private List<NetObserver> observers = new ArrayList<>();
 
     private List<HostsObserver>hostsObservers=new ArrayList<>();
-    private TransferencesObserver transferencesObserver;
     private String SERVER_ADDRESS;
     private int SERVER_PORT;
-    private Socket socket;
-    private DataInputStream entrada;
-    private DataOutputStream salida;
     private String hostName;
     private ExecutorService executorService;
     //private Observer observer;
@@ -46,56 +45,54 @@ public class Client {
     private NetworkManager networkManager = new NetworkManager();
     private TransferService transferService;
     private MessageDispatcher dispatcher;
-    private DiscoveryService discoveryService = new DiscoveryService();
-    private ScreenNetworkHandler screenNetworkHandler;
+
     private ClientContext context;
+    private ClientNetworkEngine networkEngine;
+    private boolean connectando = false; // Flag de control
 
     public Client()  {
         this.executorService = Executors.newFixedThreadPool(10); // Usar un pool de hilos para manejar tareas concurrentes
         transferenciaController=new TransferenciaController();
-
-
-        /*try {
-            screenNetworkHandler=new ScreenNetworkHandler(context);
-        } catch (AWTException e) {
-            throw new RuntimeException(e);
-        }*/
     }
 
 
 
-    public void setConexion(String serverAddress, int serverPort) throws IOException {
+    public synchronized void setConexion(String serverAddress, int serverPort) throws IOException {
+        // 1. Verificación Crítica: Si ya estamos conectados o conectando, abortar.
+        if (networkEngine != null && networkEngine.isActive()) {
+            Logger.logInfo("Conexión abortada: Ya existe una sesión activa.");
+            return;
+        }
+
         this.SERVER_ADDRESS = serverAddress;
         this.SERVER_PORT = serverPort;
 
-        context = new ClientContext(SERVER_ADDRESS, SERVER_PORT, transferenciaController, executorService,this);
-        //hostName = InetAddress.getLocalHost().getHostName()+ new Random().nextInt(1,9999);
+        context = new ClientContext(SERVER_ADDRESS, SERVER_PORT, transferenciaController, executorService, this);
         hostName = InetAddress.getLocalHost().getHostName();
         this.dispatcher = new MessageDispatcher(this, context);
         this.transferService = new TransferService(context);
 
+        // 2. Inicializar el motor NIO SOLO si no existe
+        if (this.networkEngine == null) {
+            this.networkEngine = new NioClientEngine(dispatcher);
+        }
 
-        // 1. Crear Socket con Timeout de conexión (5 segundos)
-        socket = new Socket();
-        socket.connect(new InetSocketAddress(serverAddress, serverPort), 5000);
-        socket.setSoTimeout(0); // Timeout infinito para lectura una vez conectado
+        //Logger.logInfo("Intentando establecer conexión NIO con " + serverAddress + ":" + serverPort);
 
-        Logger.logInfo("Conectando a " + serverAddress + ":" + serverPort + " como: " + hostName);
+        // 3. Conectar
+        try {
+            networkEngine.connect(serverAddress, serverPort);
 
-        // 2. IMPORTANTE: El orden debe coincidir con el servidor para evitar Deadlock
-        // Primero Salida -> Flush -> Luego Entrada
-        salida = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
-        salida.flush();
-        entrada = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
+            // 4. Enviar identificación inicial
+            Mensaje saludo = new Mensaje(hostName, CommunicationType.MESSAGE);
+            enviarComunicacion(saludo);
 
-        // 3. Enviar identificación inicial
-        Mensaje saludo = new Mensaje(hostName, CommunicationType.MESSAGE);
-        enviarComunicacion(saludo);
-
-
-        // 4. Iniciar escucha
-        executorService.submit(new ReadMessages(entrada));
+        } catch (IOException e) {
+            Logger.logError("Fallo al conectar: " + e.getMessage());
+            throw e; // Relanzar para que el llamador sepa que falló
+        }
     }
+
 
     /*public void conexionAutomatica() throws IOException, InterruptedException {
         DiscoveryService.ServerInfo info = discoveryService.discoverServer();
@@ -104,21 +101,35 @@ public class Client {
     }*/
 
     public void conexionAutomatica() {
-        Logger.logInfo("[Auto] Buscando servidores BitBridge en la red...");
+        // 1. Si ya estamos en proceso de conexión o ya conectados, no buscar más
+        if (connectando || (networkEngine != null && networkEngine.isActive())) {
+            return;
+        }
+
+        Logger.logInfo("[Auto] Iniciando descubrimiento mDNS...");
 
         networkManager.startLookingForServers((ip, port) -> {
-            try {
-                // Evitar conectar si ya estamos conectados
-                if (socket == null || socket.isClosed()) {
-                    Logger.logInfo("[Auto] ¡Servidor detectado! Intentando enlace...");
-                    setConexion(ip, port);
+            // El callback de JmDNS puede dispararse muchas veces por segundo
+            synchronized (this) {
+                if (connectando || (networkEngine != null && networkEngine.isActive())) {
+                    return; // Bloqueo de entrada doble
                 }
+                connectando = true;
+            }
+
+            try {
+                Logger.logInfo("[mDNS] Servidor detectado en " + ip + ":" + port);
+                setConexion(ip, port);
             } catch (IOException e) {
-                Logger.logError("Error al conectar automáticamente: " + e.getMessage());
+                Logger.logError("Error en auto-conexión: " + e.getMessage());
+            } finally {
+                // Liberar el flag de intento para permitir futuros descubrimientos si este falló
+                synchronized (this) {
+                    connectando = false;
+                }
             }
         });
     }
-
 
 
     public int getSERVER_PORT() {
@@ -132,37 +143,7 @@ public class Client {
 
 
     public void desconect() {
-        try {
-            // Verificar si la salida y el socket no están ya cerrados
-            if (socket != null && !socket.isClosed()) {
-
-                ProtocolService.writeFormattedPayload(salida, new Mensaje(CommunicationType.DISCONNECT));
-
-            }
-
-            // Solo cerrar el socket y la entrada si no están ya cerrados
-            if (socket != null && !socket.isClosed()) {
-                socket.close();
-            }
-
-            if (entrada != null) {
-                entrada.close();
-            }
-            List<ClientInfo> clientNicks=new ArrayList<>();
-            notifyHostobserves(clientNicks);
-            // Actualización del estado de la conexión en el observador
-            //this.observer.updateServerConnection(ServerStatusConnection.DISCONNECTED);
-            for (NetObserver obs : observers) {
-                //obs.onMessageReceived(msg); // Hilo del Socket
-                obs.onStatusChanged(ServerStatusConnection.DISCONNECTED);
-            }
-            Logger.logInfo("Desconectando");
-
-        } catch (IOException e) {
-            // Manejo de la excepción
-            System.err.println("Error al desconectar: " + e.getMessage());
-            e.printStackTrace();
-        }
+        networkEngine.disconnect();
     }
 
 
@@ -191,7 +172,7 @@ public class Client {
     }
 
     public void sendScreenSnapshot(ClientInfo recipient){
-        screenNetworkHandler.sendScreenSnapshot(recipient.getNick(),1f);
+        //screenNetworkHandler.sendScreenSnapshot(recipient.getNick(),1f);
     }
 
     public void addObserver(NetObserver observer) {
@@ -214,17 +195,15 @@ public class Client {
         for (HostsObserver observer : hostsObservers) {
                     observer.updateAllHosts(hosts);  // Notifica a los observadores con el nuevo mensaje
         }
-        if (observers.isEmpty()){
+        /*if (observers.isEmpty()){
             Logger.logInfo("No hay obseradores");
-        }
+        }*/
         for (NetObserver observer : observers) {
             observer.onHostListUpdated(hosts);  // Notifica a los observadores con el nuevo mensaje
         }
     }
 
-    public void setTransferencesObserver(TransferencesObserver transferencesObserver){
-        this.transferencesObserver=transferencesObserver;
-    }
+
 
 
     // Cuando llega un mensaje nuevo
@@ -243,67 +222,15 @@ public class Client {
     }
 
     public void enviarComunicacion(Communication communication) throws IOException {
-        if (socket != null && !socket.isClosed()) {
-            ProtocolService.writeFormattedPayload(salida, communication);
-        }
-    }
-
-    // Hilo que lee los mensajes del servidor
-    private class ReadMessages implements Runnable {
-        private final DataInputStream entrada;
-
-        public ReadMessages(DataInputStream entrada) {
-            this.entrada = entrada;
-        }
-
-        @Override
-        public void run() {
-            try {
-
-
-                while (!socket.isClosed()) {
-
-                    Communication comm = ProtocolService.readFormattedPayload(entrada);
-
-                    if (comm != null) {
-                        // Tu dispatcher recibe el objeto reconstruido (Mensaje, ClientList, etc.)
-                        dispatcher.dispatch(comm);
-                    }
-
-                }
-                Logger.logInfo("socket cerrado");
-
-            } catch (IOException e) {
-                Logger.logInfo("Error leyendo del servidor: " + e.getMessage());
-                //cleanUp();
-                e.printStackTrace();
-
-            }catch (Exception e) {
-                    Logger.logInfo("Error leyendo del servidor: " + e.getMessage());
-                    e.printStackTrace();
-
-            } finally {
-                cleanUp();
+        networkEngine.send(communication);
+        /*try {
+            if (networkEngine != null && networkEngine.isActive()) {
+                networkEngine.send(communication);
             }
-        }
-
-
-        public void cleanUp() {
-            Logger.logInfo("Limpiando");
-            try {
-                if (entrada != null) {
-                    entrada.close();
-                }
-                if (socket != null) {
-                    socket.close();
-                }
-                //notifyHostobserves(new ArrayList<>());
-                desconect();
-
-            } catch (IOException e) {
-                System.out.println("Error al cerrar recursos: " + e.getMessage());
-            }
-        }
+        } catch (IOException e) {
+            Logger.logError("Fallo en el envío: " + e.getMessage());
+            //disconnect();
+        }*/
     }
 
 

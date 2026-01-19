@@ -1,6 +1,5 @@
-package org.bitBridge.server.client;
+package org.bitBridge.server.core.client;
 
-import org.bitBridge.server.core.ServerContext;
 import org.bitBridge.shared.Communication;
 import org.bitBridge.shared.Mensaje;
 
@@ -14,7 +13,7 @@ public class MessageHandler implements CommunicationHandler{
         Mensaje m = (Mensaje) message;
         var client=exchange.getSender();
         var context=exchange.getContext();
-        context.server().broadcastMessage("[" + client.getNick() + "] => " + m.getContenido(), client);
-        context.server().addMessageHistory("[" + client.getNick() + "] => " + m.getContenido());
+        context.getServer().broadcastMessage("[" + client.getNick() + "] => " + m.getContenido(), client);
+        context.getServer().addMessageHistory("[" + client.getNick() + "] => " + m.getContenido());
     }
 }

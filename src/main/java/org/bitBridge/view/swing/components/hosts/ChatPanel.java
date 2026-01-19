@@ -143,7 +143,7 @@ public class ChatPanel extends JPanel implements NetObserver {
 
     @Override
     public void onHostListUpdated(List<ClientInfo> hosts) {
-        Logger.logInfo(hosts.toString());
+        //Logger.logInfo(hosts.toString());
         SwingUtilities.invokeLater(() -> {
             listModel.clear();
             for (ClientInfo info : hosts) {

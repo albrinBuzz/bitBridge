@@ -1,4 +1,4 @@
-package org.bitBridge.server.client;
+package org.bitBridge.server.core.client;
 
 
 import org.bitBridge.shared.Communication;

@@ -1,9 +1,7 @@
 package org.bitBridge.Tests.nio;
 
 import com.google.gson.Gson;
-import org.bitBridge.shared.Communication;
-import org.bitBridge.shared.CommunicationType;
-import org.bitBridge.shared.Mensaje;
+import org.bitBridge.shared.*;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -32,10 +30,10 @@ public class ProtocolService {
         return deserialize(new String(data, StandardCharsets.UTF_8));
     }
 
-    public static Communication fromBytes(byte[] data) {
+    /*public static Communication fromBytes(byte[] data) {
         String json = new String(data, StandardCharsets.UTF_8);
         return gson.fromJson(json, Communication.class);
-    }
+    }*/
 
     // --- IMPLEMENTACIÓN NIO (Nueva) ---
     /**
@@ -64,7 +62,7 @@ public class ProtocolService {
         return deserialize(new String(data, StandardCharsets.UTF_8));
     }
 
-    public static void writeNIO(SocketChannel channel, Communication comm) throws IOException {
+    /*public static void writeNIO(SocketChannel channel, Communication comm) throws IOException {
         String json = gson.toJson(comm);
         byte[] data = json.getBytes(StandardCharsets.UTF_8);
 
@@ -76,10 +74,65 @@ public class ProtocolService {
         while(buffer.hasRemaining()) {
             channel.write(buffer);
         }
-    }
+    }*/
 
     private static Communication deserialize(String json) {
         // Tu lógica actual de GSON para detectar el tipo de objeto
         return gson.fromJson(json, Communication.class);
+    }
+
+    public static void writeNIO(SocketChannel channel, Communication comm) throws IOException {
+        ByteBuffer buffer;
+
+        if (comm instanceof Mensaje m) {
+            byte[] content = m.getContenido().getBytes(StandardCharsets.UTF_8);
+            // 1 (tipo) + 4 (longitud) + contenido
+            buffer = ByteBuffer.allocate(5 + content.length);
+            buffer.put(CommunicationType.MESSAGE.id);
+            buffer.putInt(content.length);
+            buffer.put(content);
+        }
+        else if (comm instanceof FileHandshakeCommunication handshake) {
+            byte[] sessionId = handshake.getSessionId().getBytes(StandardCharsets.UTF_8);
+            // 1 (tipo) + 4 (longitud) + 1 (acción) + sesión
+            buffer = ByteBuffer.allocate(6 + sessionId.length);
+            buffer.put(CommunicationType.NOTIFICATION.id);
+            buffer.putInt(sessionId.length + 1);
+            buffer.put((byte) handshake.getAction().ordinal());
+            buffer.put(sessionId);
+        }
+        else {
+            // Si no está optimizado, podemos seguir usando JSON para tipos raros
+            // pero con un prefijo especial (ej. ID 99)
+            return;
+        }
+
+        buffer.flip();
+        while(buffer.hasRemaining()) channel.write(buffer);
+    }
+
+    public static Communication fromBytes(byte[] data) throws IOException {
+        ByteBuffer buffer = ByteBuffer.wrap(data);
+        byte typeId = buffer.get();
+        int payloadLen = buffer.getInt();
+        CommunicationType type = CommunicationType.fromId(typeId);
+
+        return switch (type) {
+            case MESSAGE -> {
+                byte[] content = new byte[payloadLen];
+                buffer.get(content);
+                yield new Mensaje(new String(content, StandardCharsets.UTF_8), type);
+            }
+            case NOTIFICATION -> {
+                int actionIdx = buffer.get();
+                byte[] sessionBytes = new byte[payloadLen - 1];
+                buffer.get(sessionBytes);
+                yield new FileHandshakeCommunication(
+                        FileHandshakeAction.values()[actionIdx],
+                        new String(sessionBytes, StandardCharsets.UTF_8)
+                );
+            }
+            default -> throw new IOException("Tipo binario no soportado");
+        };
     }
 }

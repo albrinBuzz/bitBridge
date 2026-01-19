@@ -2,7 +2,8 @@ package org.bitBridge.server.transfer;
 
 
 
-import org.bitBridge.server.client.ClientHandler;
+import org.bitBridge.server.core.client.BitBridgeClient;
+import org.bitBridge.server.core.client.ClientHandler;
 import org.bitBridge.shared.FileHandshakeAction;
 import org.bitBridge.shared.FileHandshakeCommunication;
 import org.bitBridge.shared.Logger;
@@ -11,7 +12,7 @@ import java.util.concurrent.*;
 
 public class TransferSessionManager {
     // Movemos el mapa aquí
-    private final ConcurrentHashMap<String, Exchanger<ClientHandler>> transferSessions = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Exchanger<BitBridgeClient>> transferSessions = new ConcurrentHashMap<>();
 
     private final ConcurrentHashMap<String, FileHandshakeCommunication>handshakeCom=new ConcurrentHashMap<>();
     // Promesas para la decisión del handshake (Aceptar/Rechazar)
@@ -23,8 +24,8 @@ public class TransferSessionManager {
                 nick.startsWith("DIR_"));
     }
 
-    public ClientHandler waitForReceptor(String sessionId, int timeoutSeconds) {
-        Exchanger<ClientHandler> exchanger = new Exchanger<>();
+    public BitBridgeClient waitForReceptor(String sessionId, int timeoutSeconds) {
+        Exchanger<BitBridgeClient> exchanger = new Exchanger<>();
         transferSessions.put(sessionId, exchanger);
         try {
             return exchanger.exchange(null, timeoutSeconds, TimeUnit.SECONDS);
@@ -40,18 +41,23 @@ public class TransferSessionManager {
         Logger.logInfo(sessionId+" "+communication.getAction().name());
         handshakeCom.put(sessionId, communication);
     }
+
     public void registerHandshake(String sessionId, FileHandshakeCommunication communication) {
-        Logger.logInfo("Registrando handshake para " + sessionId + ": " + communication.getAction());
+        Logger.logInfo("[SESSION] Registrando handshake para " + sessionId + ": " + communication.getAction());
 
-        // Obtenemos el future existente o creamos uno nuevo si el receptor llegó antes que el emisor
-        //CompletableFuture<FileHandshakeCommunication> future = handshakeFutures.computeIfAbsent(sessionId, k -> new CompletableFuture<>());
-
-        // IMPORTANTE: Esto libera al hilo que está bloqueado en .get()
-        //future.complete(communication);
-
-        // Obtenemos la promesa y la completamos. Si no existe, la creamos ya completada.
-        handshakeFutures.computeIfAbsent(sessionId, k -> new CompletableFuture<>())
-                .complete(communication);
+        // Usamos compute para manejar el caso donde el receptor llega antes que el emisor
+        handshakeFutures.compute(sessionId, (id, existingFuture) -> {
+            if (existingFuture == null) {
+                // El receptor se adelantó al emisor. Creamos un future ya completado.
+                CompletableFuture<FileHandshakeCommunication> f = new CompletableFuture<>();
+                f.complete(communication);
+                return f;
+            } else {
+                // El emisor ya estaba bloqueado en .get(). Lo liberamos.
+                existingFuture.complete(communication);
+                return existingFuture;
+            }
+        });
     }
 
     public FileHandshakeAction responseAction(String sessionId){
@@ -67,36 +73,62 @@ public class TransferSessionManager {
      * El emisor llama a esto y SE BLOQUEA hasta que el receptor responda o pase el tiempo
      */
     public FileHandshakeAction waitForResponseAction(String sessionId, int timeoutSeconds) {
-        // Obtenemos o creamos la promesa para esta sesión
+        // Si el receptor ya registró su handshake, esto nos devuelve el future completado.
+        // Si no, crea uno nuevo donde nos bloquearemos.
         CompletableFuture<FileHandshakeCommunication> future =
                 handshakeFutures.computeIfAbsent(sessionId, k -> new CompletableFuture<>());
 
         try {
-            Logger.logInfo("Esperando decisión del receptor para sesión: " + sessionId);
-            // Bloquea aquí hasta que registerHandshake sea llamado
+            Logger.logInfo("[SESSION] Esperando decisión del receptor para sesión: " + sessionId);
+
+            // Bloqueo controlado
             FileHandshakeCommunication com = future.get(timeoutSeconds, TimeUnit.SECONDS);
-            Logger.logInfo("Respuesta recibida para " + sessionId + ": " + com.getAction());
+
+            Logger.logInfo("[SESSION] Respuesta recuperada para " + sessionId + ": " + com.getAction());
             return com.getAction();
         } catch (TimeoutException e) {
-            Logger.logError("Timeout: El receptor no respondió al handshake en " + sessionId);
+            Logger.logError("[SESSION] Timeout: Nadie respondió al handshake en " + sessionId);
             return FileHandshakeAction.ERROR_TIMEOUT;
         } catch (InterruptedException | ExecutionException e) {
-            Logger.logError("Error esperando respuesta de handshake: " + e.getMessage());
+            Logger.logError("[SESSION] Error esperando respuesta: " + e.getMessage());
             return FileHandshakeAction.DECLINE_REQUEST;
         } finally {
-            // Limpieza vital para evitar fugas de memoria
+            // Limpiamos siempre para evitar memory leaks
             handshakeFutures.remove(sessionId);
         }
     }
 
-    public void registerReceptor(String sessionId, ClientHandler receptor) {
-        Exchanger<ClientHandler> exchanger = transferSessions.get(sessionId);
-        if (exchanger != null) {
-            try {
-                exchanger.exchange(receptor);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
+
+    public void registerReceptor(String sessionId, BitBridgeClient receptor) {
+        Logger.logInfo("[SESSION-MGR] Solicitud de registro para sesión: " + sessionId);
+
+        // Intentamos obtener el exchanger. Si no existe aún, el receptor llegó
+        // ligeramente antes de que el hilo del emisor creara la entrada.
+        // Usamos un bucle pequeño de reintento o simplemente esperamos a que aparezca.
+        long startTime = System.currentTimeMillis();
+        Exchanger<BitBridgeClient> exchanger = null;
+
+        while (exchanger == null && (System.currentTimeMillis() - startTime) < 2000) {
+            exchanger = transferSessions.get(sessionId);
+            if (exchanger == null) {
+                try { Thread.sleep(50); } catch (InterruptedException e) { break; }
             }
         }
+
+        if (exchanger != null) {
+            try {
+                Logger.logInfo("[SESSION-MGR] Entregando socket al hilo de transferencia...");
+                exchanger.exchange(receptor, 2, TimeUnit.SECONDS);
+                Logger.logInfo("[SESSION-MGR] Intercambio completado.");
+            } catch (Exception e) {
+                Logger.logError("[SESSION-MGR] Fallo en intercambio: " + e.getMessage());
+            }
+        } else {
+            Logger.logError("[SESSION-MGR] Sesión no encontrada después de espera: " + sessionId);
+        }
+    }
+
+    public void removeSession(String nick) {
+        transferSessions.remove(nick);
     }
 }

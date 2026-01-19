@@ -121,7 +121,7 @@ public class DirectoryTransferManager implements TransferManager {
         // Manejo de carpetas vacías
         if (files.length == 0) {
             rutaCopia = archivo.getCanonicalPath().substring(archivo.getAbsolutePath().indexOf(carpeta));
-            ProtocolService.writeFormattedPayload(out, new FileDirectoryCommunication(archivo.getName(), 0, recipient));
+            //ProtocolService.writeFormattedPayload(out, new FileDirectoryCommunication(archivo.getName(), 0, recipient));
             out.writeUTF(rutaCopia);
             out.flush();
             return;

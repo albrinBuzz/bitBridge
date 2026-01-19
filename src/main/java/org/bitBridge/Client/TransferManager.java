@@ -5,5 +5,7 @@ public interface TransferManager {
     void pause();
     void resume();
 
+    void stop();
+
     void cancel();
 }

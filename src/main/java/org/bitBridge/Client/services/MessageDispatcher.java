@@ -2,6 +2,7 @@ package org.bitBridge.Client.services;
 
 import org.bitBridge.Client.DirectoryTransferManager;
 import org.bitBridge.Client.FileTransferManager;
+import org.bitBridge.Client.NioDirectoryTransferManager;
 import org.bitBridge.Client.core.Client;
 import org.bitBridge.Client.core.ClientActionHandler;
 import org.bitBridge.Client.core.ClientContext;
@@ -43,6 +44,7 @@ public class MessageDispatcher {
 
         // 1. Manejo de lista de clientes
         register(ClientListMessage.class, (data, cl, ctx) -> {
+
             cl.notifyHostobserves(((ClientListMessage) data).getClientNicks());
         });
 
@@ -140,8 +142,8 @@ public class MessageDispatcher {
                     new FileTransferManager(context.transferController())
                             .receiveFiles(context.serverAddress(), String.valueOf(context.serverPort()), handshake);
                 } else {
-                    new DirectoryTransferManager(context.transferController())
-                            .receiveDirectory(context.serverAddress(), String.valueOf(context.serverPort()), handshake);
+                    new NioDirectoryTransferManager(context.transferController())
+                            .receiveDirectory(context.serverAddress(), context.serverPort(), handshake);
                 }
             } catch (Exception e) {
                 e.printStackTrace();

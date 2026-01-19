@@ -3,7 +3,7 @@ package org.bitBridge.server;
 
 
 import org.bitBridge.Client.ClientInfo;
-import org.bitBridge.server.client.ClientHandler;
+import org.bitBridge.server.core.client.ClientHandler;
 import org.bitBridge.shared.ClientListMessage;
 import org.bitBridge.shared.Communication;
 import org.bitBridge.shared.CommunicationType;
@@ -14,6 +14,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
 public class ClientRegistry {
+
     private final List<ClientHandler> clientPool = new CopyOnWriteArrayList<>();
 
     public void addClient(ClientHandler handler) {
@@ -51,10 +52,6 @@ public class ClientRegistry {
     }
 
     public void updateAllClients() {
-        var infoList = clientPool.stream()
-                .map(c -> new ClientInfo(c.getClientSocket(), c.nick, 0))
-                .collect(Collectors.toList());
 
-        broadcast(new ClientListMessage(CommunicationType.UPDATE, infoList), null);
     }
 }

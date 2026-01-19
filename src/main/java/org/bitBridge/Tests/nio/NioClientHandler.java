@@ -58,6 +58,7 @@ public class NioClientHandler {
             }
         } catch (IOException e) {
             closeConnection();
+
         }
     }
 
@@ -94,6 +95,8 @@ public class NioClientHandler {
     private void closeConnection() {
         try {
             channel.close();
+            //context.getRegistry().removeClient(this);
+            context.getServer().updateClient();
         } catch (IOException ignored) {}
     }
 }

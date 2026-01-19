@@ -4,6 +4,7 @@ package org.bitBridge.Client.services;
 import org.bitBridge.Client.ClientInfo;
 import org.bitBridge.Client.DirectoryTransferManager;
 import org.bitBridge.Client.FileTransferManager;
+import org.bitBridge.Client.NioDirectoryTransferManager;
 import org.bitBridge.Client.core.ClientContext;
 import org.bitBridge.shared.FileDirectoryCommunication;
 import org.bitBridge.shared.Logger;
@@ -13,13 +14,15 @@ import java.io.File;
 public class TransferService {
     private final ClientContext context;
     private final FileTransferManager fileManager;
-    private final DirectoryTransferManager dirManager;
-
+    //private final DirectoryTransferManager dirManager;
+    private final NioDirectoryTransferManager dirManager;
     public TransferService(ClientContext context) {
         this.context = context;
         // Reutilizamos los managers
         this.fileManager = new FileTransferManager(context.transferController());
-        this.dirManager = new DirectoryTransferManager(context.transferController());
+        //this.dirManager = new DirectoryTransferManager(context.transferController());
+        this.dirManager=new NioDirectoryTransferManager(context.transferController());
+
     }
 
     public void enqueueFileSend(ClientInfo recipient, File file,String sender) {

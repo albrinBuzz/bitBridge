@@ -5,13 +5,14 @@ import org.bitBridge.shared.*;
 import org.bitBridge.shared.network.ProtocolService;
 
 import java.io.*;
+import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.nio.channels.Channels;
-import java.nio.channels.FileChannel;
-import java.nio.channels.ReadableByteChannel;
-import java.nio.channels.WritableByteChannel;
+import java.net.StandardSocketOptions;
+import java.nio.ByteBuffer;
+import java.nio.channels.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributeView;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
@@ -34,303 +35,199 @@ public class FileTransferManager implements TransferManager {
         this.transferenciaController = transferenciaController;
     }
 
+
     public void sendFile(FileDirectoryCommunication com, File file, String SERVER_ADDRESS, int port) {
         String sessionId = "SENDER_" + new Random().nextInt(10000);
 
 
 
-        // Uso de try-with-resources para asegurar que el socket y los streams se cierren SIEMPRE
-        try (Socket socket = new Socket(SERVER_ADDRESS, port)) {
+        try (SocketChannel socketChannel = SocketChannel.open()) {
+            socketChannel.configureBlocking(true); // Bloqueante para transferencia de archivos es más simple y rápido
+            socketChannel.setOption(StandardSocketOptions.TCP_NODELAY, true);
+            socketChannel.setOption(StandardSocketOptions.SO_SNDBUF, 4*1024 * 1024);
+            socketChannel.setOption(StandardSocketOptions.SO_RCVBUF, 4 * 1024 * 1024);
+            socketChannel.connect(new InetSocketAddress(SERVER_ADDRESS, port));
 
-            configurarSocket(socket);
 
-            try (DataOutputStream salida = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
-                 DataInputStream entrada = new DataInputStream(new BufferedInputStream(socket.getInputStream()))) {
-                salida.flush();
+            if (socketChannel.isConnected()) {
+                Logger.logInfo("[RECEPTOR-NIO] Conectando a " + SERVER_ADDRESS + ":" + port + "...");
 
-                // Ejemplo de cómo obtener los atributos en el origen
-                Path path = file.toPath();
-                BasicFileAttributes attr = Files.readAttributes(path, BasicFileAttributes.class);
+                // Configuración de alto rendimiento
 
-                // Estos valores (en milisegundos o FileTime) deben viajar en tu objeto 'com'
-                com.setCreationTime(attr.creationTime().toMillis());
-                com.setLastModified(attr.lastModifiedTime().toMillis());
 
-                // 2. Identificación técnica inicial (Protocolo JSON)
-                // Enviamos el ID de sesión para que el servidor sepa que es una conexión de datos
-                ProtocolService.writeFormattedPayload(salida, new Mensaje(sessionId, CommunicationType.MESSAGE));
+                // 1. Enviar Identificación y Metadatos (Protocolo JSON con los 6 bytes de cabecera)
+                ProtocolService.writeNIO(socketChannel, new Mensaje(sessionId, CommunicationType.MESSAGE));
 
-                // Enviamos los metadatos del archivo (JSON)
-                ProtocolService.writeFormattedPayload(salida, com);
-                salida.flush();
 
-                FileHandshakeCommunication respuesta = waitForHandshake(entrada);
-                Logger.logInfo("Handshake recibido: " + respuesta.getAction());
+                ProtocolService.writeNIO(socketChannel, com);
 
-                if (respuesta.getAction() == FileHandshakeAction.START_TRANSFER) {
-                    // Registro en la interfaz
-                    String idTransfe = transferenciaController.addTransference(
-                            FileTransferState.SENDING.name(),
-                            com.getRecipient(),
-                            com.getRecipient(),
-                            file.getName(),
-                            this,
-                            file.length()
-                    );
+                // 2. Esperar Handshake (Usando la lógica de lectura NIO que ya tienes)
+                FileHandshakeCommunication respuesta = waitForHandshakeNIO(socketChannel);
+
+                if (respuesta != null && respuesta.getAction() == FileHandshakeAction.START_TRANSFER) {
+                    Logger.logInfo("¡CONEXIÓN EXITOSA! El receptor aceptó. (Envío de bytes Inciado)");
+
+                String idTransfe = transferenciaController.addTransference(
+                        FileTransferState.SENDING.name(), com.getRecipient(), com.getRecipient(),
+                        file.getName(), this, file.length());
+
                     long startNIO = System.nanoTime();
-                    transferData(file, salida, idTransfe);
+
+                    // --- ZERO COPY SEND ---
+                    transferDataNIO(file, socketChannel, idTransfe);
+
                     long endNIO = System.nanoTime();
-
-                    double segundosNIO = (endNIO - startNIO) / 1_000_000_000.0;
-                    double mbSize =file.length() / (1024.0 * 1024.0);
-
-
-                    Logger.logInfo("NIO Zero-Copy: "+(mbSize / segundosNIO)+"MB/s"+"("+segundosNIO+" seg)");
-                    //Logger.logInfo("IO Copy: "+(mbSize / segundosNIO)+"MB/s"+"("+segundosNIO+" seg)");
-
-                } else if (respuesta.getAction() == FileHandshakeAction.DECLINE_REQUEST) {
-                    transferenciaController.notifyTranference(respuesta.getAction());
+                    double segundos = (endNIO - startNIO) / 1_000_000_000.0;
+                    Logger.logInfo("Transferencia completada en " + segundos + " seg.");
                 }
 
-                // Pequeña espera para asegurar que el buffer se vacíe antes de cerrar
-                TimeUnit.MILLISECONDS.sleep(200);
             }
+
         } catch (Exception e) {
-            Logger.logError("Error en sendFile: " + e.getMessage());
+            Logger.logError("Error en sendFile NIO: " + e.getMessage());
         }
     }
 
     public void receiveFiles(String SERVER_ADDRESS, String port, FileHandshakeCommunication handshakeCommunication) {
         String sessionId = handshakeCommunication.getSessionId();
         var info = handshakeCommunication.getFileInfo();
-        long size= info.getSize();;
+        long fileSize = info.getSize();
 
-        try (Socket socket = new Socket(SERVER_ADDRESS, Integer.parseInt(port))) {
-            configurarSocket(socket);
+        Logger.logInfo("[RECEPTOR-NIO] Solicitud recibida. Sesión: " + sessionId + " | Archivo: " + info.getName()
+        +"| Longitud: "+ formatSize(info.getSize()));
 
-            try (DataOutputStream salida = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
-                 DataInputStream entrada = new DataInputStream(new BufferedInputStream(socket.getInputStream()))) {
+        try (SocketChannel socketChannel = SocketChannel.open()) {
+            socketChannel.configureBlocking(true); // Bloqueante para transferencia de archivos es más simple y rápido
+            socketChannel.setOption(StandardSocketOptions.TCP_NODELAY, true);
+            socketChannel.setOption(StandardSocketOptions.SO_SNDBUF, 4 * 1024 * 1024);
+            socketChannel.setOption(StandardSocketOptions.SO_RCVBUF, 4 * 1024 * 1024);
+            if (transferenciaController.notifyTranference(handshakeCommunication)) {
 
-                salida.flush();
+            socketChannel.connect(new InetSocketAddress(SERVER_ADDRESS, Integer.parseInt(port)));
+
+            if (socketChannel.isConnected()) {
+                    Logger.logInfo("[RECEPTOR-NIO] Conectando a " + SERVER_ADDRESS + ":" + port + "... Enviando handshake de identificación");
+
+                    // 1. Identificación
+                    Mensaje idMsg = new Mensaje(sessionId, CommunicationType.MESSAGE);
+                    ProtocolService.writeNIO(socketChannel, idMsg);
+                    Logger.logInfo("[RECEPTOR-NIO] ID de sesión enviado: " + sessionId);
+
+                    // 2. Enviar Aceptación
+                    FileHandshakeCommunication accept = new FileHandshakeCommunication(FileHandshakeAction.ACCEPT_REQUEST, sessionId);
+                    ProtocolService.writeNIO(socketChannel, accept);
+                    Logger.logInfo("[RECEPTOR-NIO] ACCEPT_REQUEST enviado satisfactoriamente.");
 
 
-                if (transferenciaController.notifyTranference(handshakeCommunication)) {
+                    String rutaFull = configCliente.obtener("cliente.directorio_descargas") + info.getName();
 
-                    // 1. Identificación Inicial (JSON)
-                    ProtocolService.writeFormattedPayload(salida, new Mensaje(sessionId, CommunicationType.MESSAGE));
+
+                if (confirmarInicioNIO(socketChannel, sessionId)) {
 
                     String idTrans = transferenciaController.addTransference(
-                            FileTransferState.RECEIVING.name(), info.getRecipient(), info.getRecipient(), info.getName(), this,size);
+                            FileTransferState.RECEIVING.name(), info.getRecipient(), info.getRecipient(), info.getName(), this,fileSize);
 
-                    // 2. Aceptar la petición (JSON)
-                    ProtocolService.writeFormattedPayload(salida, new FileHandshakeCommunication(FileHandshakeAction.ACCEPT_REQUEST, sessionId));
+                    Logger.logInfo("[RECEPTOR-NIO] Se Confirma el incio de la transaferencia");
+                    // --- ZERO COPY RECEIVE ---
+                    try (FileChannel fileChannel = FileChannel.open(Path.of(rutaFull),
+                            StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
 
-                    // Esperar confirmación START_TRANSFER
-                    if (confirmarInicio(entrada, sessionId)) {
-                        String rutaFull = configCliente.obtener("cliente.directorio_descargas") + info.getName();
-                        long startNIO = System.nanoTime();
-                        long fileSize = info.getSize();
+                        long totalRead = 0;
+                        while (totalRead < fileSize && running) {
+                            // Transferimos de 2MB en 2MB para poder actualizar la UI y pausar
+                            long bytesToRead = Math.min(4 * 1024 * 1024, fileSize - totalRead);
+                            long read = fileChannel.transferFrom(socketChannel, totalRead, bytesToRead);
 
-                        try (FileOutputStream fos = new FileOutputStream(rutaFull);
-                             BufferedOutputStream bos = new BufferedOutputStream(fos)) {
-
-                            byte[] buffer = new byte[BUFFER_SIZE];
-                            long totalRead = 0;
-
-                            while (totalRead < fileSize && running) {
-                                int read = entrada.read(buffer);
-                                if (read == -1) break;
-                                bos.write(buffer, 0, read);
-                                totalRead += read;
-
-                                transferenciaController.updateProgressMetrics(FileTransferState.RECEIVING, idTrans, totalRead, fileSize);
-                            }
-                            bos.flush();
-                        }
-
-                        /*try (FileOutputStream fos = new FileOutputStream(rutaFull);
-                             FileChannel fileChannel = fos.getChannel();
-                             ReadableByteChannel socketChannel = Channels.newChannel(entrada)) {
-
-                            long totalRead = 0;
-
-                            while (totalRead < fileSize && running) {
-                                // transferFrom es altamente eficiente para escribir de socket a disco
-                                long read = fileChannel.transferFrom(socketChannel, totalRead, fileSize - totalRead);
-                                if (read <= 0) break;
-
-                                totalRead += read;
-                                transferenciaController.updateProgressMetrics(FileTransferState.RECEIVING, idTrans, totalRead, fileSize);
-                            }
-                        }*/
-
-
-
-                        /*try (FileOutputStream fos = new FileOutputStream(rutaFull);
-                             FileChannel fileChannel = fos.getChannel();
-                             ReadableByteChannel socketChannel = Channels.newChannel(entrada)) {
-
-                            long totalRead = 0;
-
-                            // Definimos un tamaño de fragmento (ej: 512KB o 1MB) para forzar actualizaciones
-                            //long chunkSize = 2 * 1024 * 1024;
-                            long chunkSize = 2048 * 1024;
-
-                            while (totalRead < fileSize && running) {
-                                // Calculamos cuánto falta, pero no pedimos más del tamaño del fragmento
-                                long remaining = fileSize - totalRead;
-                                long bytesToTransfer = Math.min(chunkSize, remaining);
-
-                                // transferFrom ahora leerá máximo 1MB por iteración
-                                long read = fileChannel.transferFrom(socketChannel, totalRead, bytesToTransfer);
-
-                                if (read <= 0) break;
-
-                                totalRead += read;
-
-                                // Ahora esto se ejecutará después de cada fragmento de 1MB
-                                transferenciaController.updateProgressMetrics(
-                                        FileTransferState.RECEIVING,
-                                        idTrans,
-                                        totalRead,
-                                        fileSize
-                                );
-                            }
-                        }*/
-
-                        long endNIO = System.nanoTime();
-
-                        double segundosNIO = (endNIO - startNIO) / 1_000_000_000.0;
-                        double mbSize =fileSize / (1024.0 * 1024.0);
-
-                        Logger.logInfo("NIO Zero-Copy: "+(mbSize / segundosNIO)+"MB/s"+"("+segundosNIO+" seg)");
-                        // 2. SEGUNDO: Aplicar metadatos con el archivo ya cerrado
-                        try {
-                            Path destino = Path.of(rutaFull);
-                            FileTime creationTime = FileTime.fromMillis(info.getCreationTime());
-                            FileTime lastModifiedTime = FileTime.fromMillis(info.getLastModified());
-
-                            // Cambiar los atributos en el sistema de archivos
-                            //Files.setAttribute(destino, "basic:creationTime", creationTime);
-
-                            //Files.setAttribute(destino, "creationTime", creationTime);
-                            //Files.setLastModifiedTime(destino, lastModifiedTime);
-                            BasicFileAttributeView attributes = Files.getFileAttributeView(destino, BasicFileAttributeView.class);
-
-                            // setTimes(lastModifiedTime, lastAccessTime, createTime)
-                            attributes.setTimes(lastModifiedTime, lastModifiedTime, creationTime);
-
-                            Logger.logInfo(creationTime.toString()+" "+lastModifiedTime.toString());
-                            Logger.logInfo("Fecha de creacion-> "+creationTime.toString()+" Fecha De Modificacion :"+lastModifiedTime.toString());
-                            Logger.logInfo("Metadatos restaurados para: " + info.getName());
-
-                            Logger.logInfo("Atributos aplicados: Modificado=" + lastModifiedTime + " Creado=" + creationTime);
-                        } catch (IOException e) {
-                            Logger.logError("Error al restaurar metadatos: " + e.getMessage());
+                            if (read <= 0) break;
+                            totalRead += read;
+                            transferenciaController.updateProgressMetrics(FileTransferState.RECEIVING, idTrans, totalRead, fileSize);
                         }
                     }
-                } else {
-                    ProtocolService.writeFormattedPayload(salida, new Mensaje(sessionId, CommunicationType.MESSAGE));
-                    ProtocolService.writeFormattedPayload(salida, new FileHandshakeCommunication(FileHandshakeAction.DECLINE_REQUEST, sessionId));
+                    Logger.logInfo("Archivo Guardado en "+rutaFull);
                 }
+                //restaurarMetadatos(rutaFull, info);
             }
+        }
         } catch (Exception e) {
-            Logger.logError("Error en receiveFiles: " + e.getMessage());
+            Logger.logError("Error en receiveFiles NIO: " + e.getMessage());
         }
     }
 
-    private void transferData(File file, DataOutputStream salida, String idTrans) throws IOException, InterruptedException {
-        long length = file.length();
-        long totalSent = 0;
-        byte[] buffer = new byte[BUFFER_SIZE];
-
-        try (FileInputStream fis = new FileInputStream(file);
-             BufferedInputStream bis = new BufferedInputStream(fis)) {
-
-            int bytesRead;
-            while (running && (bytesRead = bis.read(buffer)) != -1) {
-                checkPaused();
-                salida.write(buffer, 0, bytesRead);
-                totalSent += bytesRead;
-
-                transferenciaController.updateProgressMetrics(FileTransferState.SENDING, idTrans, totalSent, length);
-            }
-            salida.flush();
-        }
+    private String formatSize(long v) {
+        if (v < 1024) return v + " B";
+        int z = (63 - Long.numberOfLeadingZeros(v)) / 10;
+        return String.format("%.1f %sB", (double)v / (1L << (z * 10)), " KMGTPE".charAt(z));
     }
 
-    /*private void transferData(File file, DataOutputStream salida, String idTrans) throws IOException {
-        long length = file.length();
-        long totalSent = 0;
-
-        try (RandomAccessFile raf = new RandomAccessFile(file, "r");
-             FileChannel fileChannel = raf.getChannel();
-             // Obtenemos el canal del socket subyacente
-             WritableByteChannel socketChannel = Channels.newChannel(salida)) {
-
-            while (totalSent < length && running) {
-                checkPaused();
-                // Transfiere hasta 8MB por iteración para no bloquear el hilo demasiado tiempo
-                long transferred = fileChannel.transferTo(totalSent, Math.min(8 * 1024 * 1024, length - totalSent), socketChannel);
-                totalSent += transferred;
-
-                transferenciaController.updateProgressMetrics(FileTransferState.SENDING, idTrans, totalSent, length);
-            }
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-    }*/
-
-    // Mejora: Centraliza la configuración del socket
-    private void configurarSocket(Socket socket) throws IOException {
-        socket.setTcpNoDelay(true); // Desactiva algoritmo de Nagle para mayor fluidez
-        socket.setSendBufferSize(2 * 1024 * 1024);
-        socket.setReceiveBufferSize(2 * 1024 * 1024);
-    }
-
-    // Mejora: Evita duplicidad de código en el bucle de lectura de objetos
-    private boolean confirmarInicio(DataInputStream entrada, String sessionId) throws Exception {
+    private boolean confirmarInicioNIO(SocketChannel channel, String sessionId) throws Exception {
+        Logger.logInfo("Esperando confirmación mediante ProtocolService...");
         while (true) {
-            // Leemos el mensaje formateado en JSON
-            Communication comm = ProtocolService.readFormattedPayload(entrada);
+            // Delegación total al protocolo
+            Communication comm = ProtocolService.readNIO(channel);
 
             if (comm instanceof FileHandshakeCommunication f) {
-                return f.getAction() == FileHandshakeAction.START_TRANSFER && f.getSessionId().equals(sessionId);
+                if (f.getAction() == FileHandshakeAction.START_TRANSFER && sessionId.equals(f.getSessionId())) {
+                    return true;
+                }
             }
-
-            if (comm == null) return false;
-            // Si llega un mensaje de texto (notificación), seguimos esperando el handshake
+            Logger.logError("Handshake inválido recibido");
+            return false;
         }
     }
 
-    private FileHandshakeCommunication waitForHandshake(DataInputStream entrada) throws Exception {
-        while (true) {
-            // Leemos usando el nuevo protocolo JSON
-            Communication comm = ProtocolService.readFormattedPayload(entrada);
+    private void transferDataNIO(File file, SocketChannel socketChannel, String idTrans) throws IOException, InterruptedException {
+        try (FileChannel fileChannel = FileChannel.open(file.toPath(), StandardOpenOption.READ)) {
+            long size = fileChannel.size();
+            long position = 0;
 
-            if (comm == null) throw new IOException("Conexión cerrada inesperadamente por el servidor.");
+            while (position < size && running) {
+                checkPaused();
+                // Transferimos en trozos para actualizar la barra de progreso
+                long transferred = fileChannel.transferTo(position, Math.min(4 * 1024 * 1024, size - position), socketChannel);
+                if (transferred <= 0) break;
 
-            // Si llega un mensaje de texto plano, lo logueamos pero no cortamos la espera
-            if (comm instanceof Mensaje m) {
-                Logger.logInfo("Notificación del servidor durante handshake: " + m.getContenido());
-                continue;
+                position += transferred;
+                transferenciaController.updateProgressMetrics(FileTransferState.SENDING, idTrans, position, size);
             }
+        }
+    }
 
-            // Si es el objeto de Handshake que esperamos, lo devolvemos
+    private FileHandshakeCommunication waitForHandshakeNIO(SocketChannel channel) throws Exception {
+        Logger.logInfo("Iniciando bucle de espera de Handshake (NIO)...");
+
+        // El bucle continuará hasta que recibamos el handshake o se corte la conexión
+        while (running) {
+            // Delegación total de la lectura física al ProtocolService
+            Communication comm = ProtocolService.readNIO(channel);
+
+            if (comm == null) continue;
+
+            // Si es el objeto de Handshake que buscamos, lo devolvemos y rompemos el bucle
             if (comm instanceof FileHandshakeCommunication handshake) {
+                Logger.logInfo("Handshake recibido: " + handshake.getAction());
                 return handshake;
             }
 
-            // Si llega otra cosa que no esperamos, decidimos si ignorar o lanzar error
-            Logger.logInfo("Tipo inesperado recibido: " + comm.getType());
+            // Si llega una notificación o un mensaje de texto, lo logueamos
+            // pero seguimos esperando en el bucle (no cortamos la transferencia)
+            if (comm instanceof Mensaje m) {
+                Logger.logInfo("Mensaje del servidor recibido durante la espera: " + m.getContenido());
+            } else {
+                Logger.logInfo("Paquete de tipo " + comm.getType() + " ignorado, esperando Handshake...");
+            }
         }
+
+        throw new IOException("Se detuvo la espera del handshake porque el manager ya no está activo.");
     }
+
 
     private void checkPaused() throws InterruptedException {
         synchronized (pauseLock) {
             while (paused) pauseLock.wait();
         }
     }
+
+
 
     public void stop() { running = false; resume(); }
     public void pause() { paused = true; }

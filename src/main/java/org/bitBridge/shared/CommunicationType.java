@@ -1,18 +1,30 @@
 package org.bitBridge.shared;
 
 public enum CommunicationType {
-    MESSAGE,       // Mensaje general
-    PRIVATE_MESSAGE, // Mensaje directo (privado)
-    SYSTEM_MESSAGE,  // Mensaje del sistema
-    ERROR_MESSAGE,
-    FILE,           // Transferencia de archivos
-    DIRECTORY,
-    COMMAND,        // Comandos o peticiones del cliente
-    NOTIFICATION,   // Notificaciones generales
-    ALERT,   // Mensaje de error
-    UPDATE,
-    DISCONNECT,
-    SCREEN_CAPTURE,
-    AUDIO_STREAM
+    MESSAGE((byte) 1),
+    PRIVATE_MESSAGE((byte) 2),
+    SYSTEM_MESSAGE((byte) 3),
+    ERROR_MESSAGE((byte) 4),
+    FILE((byte) 5),
+    DIRECTORY((byte) 6),
+    COMMAND((byte) 7),
+    NOTIFICATION((byte) 8),
+    ALERT((byte) 9),
+    UPDATE((byte) 10),
+    DISCONNECT((byte) 11),
+    SCREEN_CAPTURE((byte) 12),
+    AUDIO_STREAM((byte) 13);
 
+    public final byte id;
+
+    CommunicationType(byte id) {
+        this.id = id;
+    }
+
+    public static CommunicationType fromId(byte id) {
+        for (CommunicationType type : values()) {
+            if (type.id == id) return type;
+        }
+        return MESSAGE; // Default por seguridad
+    }
 }

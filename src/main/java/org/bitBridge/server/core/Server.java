@@ -4,17 +4,13 @@ import java.io.*;
 import java.net.*;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicLong;
 
 
 import org.bitBridge.Client.ClientInfo;
 import org.bitBridge.Observers.ServerObserver;
 import org.bitBridge.server.ConfiguracionServidor;
 import org.bitBridge.server.NetworkServer;
-import org.bitBridge.server.client.ClientHandler;
-import org.bitBridge.server.client.ClientRegistry;
-import org.bitBridge.server.client.CommunicationDispatcher;
-import org.bitBridge.server.client.NicknameService;
+import org.bitBridge.server.core.client.*;
 import org.bitBridge.server.console.ConsoleView;
 import org.bitBridge.server.network.NetworkUtils;
 import org.bitBridge.server.stats.ServerStats;
@@ -24,6 +20,7 @@ import org.bitBridge.shared.CommunicationType;
 import org.bitBridge.shared.Logger;
 import org.bitBridge.shared.Mensaje;
 
+import org.bitBridge.shared.network.ServerNetworkEngine;
 import org.bitBridge.utils.NetworkManager;
 import org.bitBridge.utils.UPnPManager;
 import org.springframework.context.ConfigurableApplicationContext;
@@ -51,13 +48,13 @@ public class Server {
     private ConfiguracionServidor config = ConfiguracionServidor.getInstancia();
     private  int PORT;
 
-    private ServerSocket serverSocket;
     private ConfigurableApplicationContext springContext;
     public boolean isRunning;
 
     private final ConsoleView consoleView;
     // Constructor vacío del servidor
     private NetworkServer network;
+    private ServerNetworkEngine networkEngine;
     // El Contexto que une a todos
     private final ServerContext context;
 
@@ -66,16 +63,16 @@ public class Server {
         this.PORT = Integer.parseInt(ConfiguracionServidor.getInstancia().obtener("servidor.puerto"));
         this.consoleView = new ConsoleView(stats, PORT);
         this.dispatcher = new CommunicationDispatcher();
-        this.context = new ServerContext(registry, nicknameService, transferManager, stats, this,dispatcher);
 
+        // 1. Crear contexto sin el motor de red todavía
+        this.context = new ServerContext(registry, nicknameService, transferManager, stats, this, dispatcher);
 
+        // 2. Crear el motor de red pasándole el contexto (que ya existe)
+        this.networkEngine = new NioServerEngine(context);
 
-
-
+        // 3. "Cerrar el círculo": Inyectar el motor de red de vuelta al contexto
+        this.context.setNetworkEngine(this.networkEngine);
     }
-
-    // Método que inicia el servidor y maneja las conexiones de los clientes
-    private int actualPort; // Cambia PORT por una variable para saber cuál quedó activo
 
     public void startServer() throws IOException {
 
@@ -87,20 +84,11 @@ public class Server {
 
         try {
 
-
-            // Intentar enlazar el socket
-            serverSocket = new ServerSocket(PORT);
-            //serverSocket = new ServerSocket(25565, 50, InetAddress.getByName("0.0.0.0"));
-            serverSocket.setReuseAddress(true); // Permite reiniciar la app sin esperar a que el puerto se libere
-            this.isRunning = true;
-            // Obtener la dirección local para el log
-            //String localAddress = serverSocket.getInetAddress().getHostAddress();
-            String localAddress = NetworkManager.getLocalIp();
-            int localPort = serverSocket.getLocalPort();
+            networkEngine.start(PORT);
 
             startBackgroundServices();
 
-            new Thread(() -> {
+            /*new Thread(() -> {
                 while (isRunning) {
                     try {
                         Socket clientSocket = serverSocket.accept();
@@ -112,7 +100,7 @@ public class Server {
                 }
             }, "Network-Acceptor").start();
 
-            Logger.logInfo("Servidor P2P escuchando en " + localAddress + ":" + localPort);
+            Logger.logInfo("Servidor P2P escuchando en " + localAddress + ":" + localPort);*/
 
         } catch (BindException e) {
             String sugerencia = (PORT < 1024) ?
@@ -140,10 +128,7 @@ public class Server {
         }
     }
 
-    // Método útil para que la UI sepa qué puerto se asignó finalmente
-    public int getActualPort() {
-        return actualPort;
-    }
+
 
     private void startBackgroundServices() throws UnknownHostException {
         ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2);
@@ -153,14 +138,14 @@ public class Server {
         String nickname = ConfiguracionServidor.getInstancia().obtener("usuario.nickname");
         //String host=serverSocket.getInetAddress().getHostName();
         String hostName = InetAddress.getLocalHost().getHostName();
-        int puertoReal = serverSocket.getLocalPort();
+        //int puertoReal = serverSocket.getLocalPort();
 
         //upnpManager.openPort(puertoReal);
 
-        networkManager.startServerAnnouncement(puertoReal, hostName);
+        networkManager.startServerAnnouncement(PORT, hostName);
 
         // IMPORTANTE: Cambio de MILISEGUNDOS a SEGUNDOS
-        scheduler.scheduleAtFixedRate(this::updateStatus, 0, 1, TimeUnit.SECONDS);
+        //scheduler.scheduleAtFixedRate(this::updateStatus, 0, 1, TimeUnit.SECONDS);
     }
 
 
@@ -180,22 +165,10 @@ public class Server {
 
 
     public void stopServer() {
-        if (!isRunning) return;
-
         try {
-            Logger.logInfo("Deteniendo servidor...");
-            isRunning = false;
-
-            registry.shutDown();
-
-            // 2. Cerrar el socket principal
-            if (serverSocket != null && !serverSocket.isClosed()) {
-                serverSocket.close();
-            }
-
-            Logger.logInfo("Servidor detenido correctamente.");
+            networkEngine.stop();
         } catch (IOException e) {
-            Logger.logError("Error crítico al cerrar el servidor: " + e.getMessage());
+            throw new RuntimeException(e);
         }
     }
 
@@ -233,7 +206,7 @@ public class Server {
     }
 
     // Obtener la lista de clientes conectados
-    public List<ClientHandler> getClientPool() {
+    public List<BitBridgeClient> getClientPool() {
 
         return registry.getAllHandlers();
     }
@@ -242,10 +215,10 @@ public class Server {
     /**
      * Registra un cliente en el pool oficial.
      */
-    public void registerClient(ClientHandler handler, int puerto) {
+    public void registerClient(BitBridgeClient handler, int puerto) throws IOException {
         // 1. Delegar decisión de transferencia al manager
-        if (transferManager.isTransferSession(handler.nick)) {
-            transferManager.registerReceptor(handler.nick, handler);
+        if (transferManager.isTransferSession(handler.getNick())) {
+            transferManager.registerReceptor(handler.getNick(), handler);
             return;
         }
 
@@ -255,7 +228,7 @@ public class Server {
         // 3. Notificar a servicios satélites (Stats y UI)
         stats.addClient(info);
         notifyObservers();
-        updateClient(); // Broadcast a los demás clientes
+        updateClient();
     }
 
     private void notifyObservers() {
@@ -267,25 +240,11 @@ public class Server {
     /**
      * El emisor llama a este método para esperar al receptor de forma eficiente.
      */
-    public ClientHandler waitForDataClient(String sessionId, int timeoutSeconds) {
+    public BitBridgeClient waitForDataClient(String sessionId, int timeoutSeconds) {
         return transferManager.waitForReceptor(sessionId, timeoutSeconds);
     }
 
-    /**
-     * Este método lo llama el hilo del RECEPTOR cuando se conecta
-     * con un Nick que es en realidad un SessionID.
-     */
-    public void registerDataClient(String sessionId, ClientHandler receptorHandler) {
-        // 1. Buscamos si hay un emisor esperando en ese "punto de encuentro"
-        transferManager.registerReceptor(sessionId, receptorHandler);
 
-    }
-    /**
-     * Busca un cliente por su nombre de usuario.
-     */
-    public ClientHandler findClientByNick(String nick) {
-       return registry.findByNick(nick);
-    }
 
 
 
@@ -306,30 +265,35 @@ public class Server {
 
 
     // Método sincronizado para enviar un mensaje a todos los clientes, excepto uno
-    public synchronized void broadcastMessage(String message, ClientHandler excludeClient) {
+    // ELIMINA el synchronized. El registry ya usa CopyOnWriteArrayList, que es segura.
+    public void broadcastMessage(String message, BitBridgeClient excludeClient) {
         Mensaje msg = new Mensaje(message, CommunicationType.MESSAGE);
         stats.addMessage(message);
 
-        // Usamos el registry para obtener a quién enviar
+        // No bloqueamos todo el servidor mientras iteramos
         registry.getHandlersExcept(excludeClient).forEach(client -> {
+            // Importante: sendComunicacion ya tiene su propio synchronized interno por cliente
             client.sendComunicacion(msg);
         });
     }
 
-    // Actualizar la lista de clientes conectados
-    public void updateClient(String nick) {
-        List<ClientInfo> currentClients = registry.getAllClientInfos();
-        ClientListMessage updateMsg = new ClientListMessage(CommunicationType.UPDATE, currentClients);
 
-        registry.getAllHandlers().forEach(h -> h.sendComunicacion(updateMsg));
-    }
 
     public void updateClient() {
+        // Obtenemos la lista DESPUÉS de que el registry haya eliminado al cliente
         List<ClientInfo> currentClients = registry.getAllClientInfos();
         ClientListMessage updateMsg = new ClientListMessage(CommunicationType.UPDATE, currentClients);
 
-        registry.getAllHandlers().forEach(h -> h.sendComunicacion(updateMsg));
-        stats.setClients(currentClients);
+        // Usamos getAllHandlers() para asegurarnos de no enviar a clientes ya cerrados
+        registry.getAllHandlers().forEach(h -> {
+            try {
+                h.sendComunicacion(updateMsg);
+            } catch (Exception e) {
+                // Si falla un envío aquí, no pasa nada, ese cliente probablemente se está cerrando también
+            }
+        });
+
+        if (stats != null) stats.setClients(currentClients);
     }
 
     public ServerStats getStats() {
