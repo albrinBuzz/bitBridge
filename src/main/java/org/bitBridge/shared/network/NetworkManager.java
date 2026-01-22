@@ -119,7 +119,7 @@ public class NetworkManager {
                 jmdns.close();
                 jmdns = null;
                 isScanning.set(false);
-                System.out.println("[🧹] Servicios de red detenidos y puertos liberados.");
+                Logger.logInfo("[🧹] Servicios de red detenidos y puertos liberados.");
             } catch (IOException e) {
                 e.printStackTrace();
             }

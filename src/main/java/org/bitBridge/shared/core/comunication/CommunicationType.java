@@ -25,6 +25,6 @@ public enum CommunicationType {
         for (CommunicationType type : values()) {
             if (type.id == id) return type;
         }
-        return MESSAGE; // Default por seguridad
+        return MESSAGE;
     }
 }
