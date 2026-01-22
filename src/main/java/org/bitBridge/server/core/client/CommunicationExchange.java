@@ -2,7 +2,7 @@ package org.bitBridge.server.core.client;
 
 
 import org.bitBridge.server.core.ServerContext;
-import org.bitBridge.shared.Communication;
+import org.bitBridge.shared.core.comunication.Communication;
 
 public class CommunicationExchange {
     private final BitBridgeClient sender;

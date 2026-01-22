@@ -3,222 +3,345 @@ package org.bitBridge.view.swing.components.server;
 import org.bitBridge.Client.ClientInfo;
 import org.bitBridge.server.core.Server;
 import org.bitBridge.server.stats.ServerStats;
-import org.bitBridge.utils.NetworkManager;
+import org.bitBridge.shared.network.NetworkManager;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
-import javax.swing.border.TitledBorder;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import java.lang.management.ManagementFactory;
+import java.lang.management.RuntimeMXBean;
 import java.util.List;
 import java.util.Map;
 
 public class ServerDashboard extends JFrame {
+    private static final Color BG_DARK = new Color(13, 15, 18);
+    private static final Color PANEL_DARK = new Color(25, 30, 35);
+    private static final Color NEON_PURPLE = new Color(162, 155, 254);
+    private static final Color NEON_CYAN = new Color(0, 206, 201);
+    private static final Color NEON_GREEN = new Color(0, 184, 148);
+    private static final Color NEON_YELLOW = new Color(253, 203, 110);
+    private static final Color DANGER_RED = new Color(231, 76, 60);
+
     private final ServerStats stats;
     private final int port;
     private final String localIp;
-    private final String startTimeStr;
 
-    // Métricas
-    private JLabel lblClientCount, lblMsgCount, lblRAM, lblBytes, lblThreads, lblActiveTransfers;
-    private DefaultTableModel tableModel;
-    private DefaultTableModel threadModel;
-    private JTextArea txtHistory;
+    private JLabel lblHardwareLeft, lblHardwareRight, lblSoftwareBlock, lblNetworkBlock;
+    private JProgressBar ramBar;
+    private DefaultTableModel threadModel, clientTableModel;
+    private JTextArea txtTelemetry;
     private Timer guiTimer;
 
     public ServerDashboard(Server server) {
         this.stats = server.getStats();
         this.port = server.getPORT();
         this.localIp = NetworkManager.getLocalIp();
-        this.startTimeStr = new java.util.Date().toString();
 
-        setTitle("BitBridge | Server Management Console");
-        setSize(1200, 850);
+        setTitle("BitBridge | HUB OPERATOR PRO [v4.0]");
+        setSize(1500, 950);
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         setLocationRelativeTo(null);
-        getContentPane().setBackground(new Color(15, 18, 22));
-        setLayout(new BorderLayout(10, 10));
+        getContentPane().setBackground(BG_DARK);
+        setLayout(new BorderLayout(15, 15));
 
         initUI();
         startMonitoring();
     }
 
     private void initUI() {
-        // --- 1. PANEL NORTE: HEADER & CONEXIÓN ---
-        JPanel headerPanel = new JPanel(new BorderLayout(20, 0));
-        headerPanel.setOpaque(false);
-        headerPanel.setBorder(new EmptyBorder(20, 20, 10, 20));
+        // --- HEADER ---
+        JPanel header = new JPanel(new BorderLayout());
+        header.setOpaque(false);
+        header.setBorder(new EmptyBorder(20, 25, 10, 25));
 
-        JPanel connInfo = new JPanel(new FlowLayout(FlowLayout.LEFT, 20, 10));
-        connInfo.setBackground(new Color(25, 30, 35));
-        connInfo.setBorder(new LineBorder(new Color(45, 50, 60), 1));
+        JLabel title = new JLabel("<html>BITBRIDGE <font color='#a29bfe'>OPERATOR COMMAND</font></html>");
+        title.setFont(new Font("Monospaced", Font.BOLD, 28));
+        title.setForeground(Color.WHITE);
 
-        connInfo.add(createDetailLabel("IP SERVIDOR", localIp, "#00FF7F"));
-        connInfo.add(createDetailLabel("PUERTO", String.valueOf(port), "#FFD700"));
-        connInfo.add(createDetailLabel("ESTADO", "ONLINE", "#00BFFF"));
+        JPanel infoHeader = new JPanel(new FlowLayout(FlowLayout.RIGHT, 30, 0));
+        infoHeader.setOpaque(false);
+        infoHeader.add(createHeaderMetric("CORE ENGINE", "v4.0.2-STABLE", NEON_PURPLE));
+        infoHeader.add(createHeaderMetric("UPTIME", stats.getUptime(), NEON_GREEN));
+        header.add(title, BorderLayout.WEST);
+        header.add(infoHeader, BorderLayout.EAST);
+        add(header, BorderLayout.NORTH);
 
-        headerPanel.add(connInfo, BorderLayout.WEST);
-        headerPanel.add(new JLabel("<html><font color='gray'>JVM: " + System.getProperty("java.version") + "<br>Iniciado: " + startTimeStr + "</font></html>"), BorderLayout.EAST);
-
-        // --- 2. PANEL SUR: MÉTRICAS RÁPIDAS ---
-        JPanel metricsPanel = new JPanel(new GridLayout(1, 6, 10, 0));
-        metricsPanel.setOpaque(false);
-        metricsPanel.setBorder(new EmptyBorder(10, 20, 20, 20));
-
-        lblClientCount = createMetricCard("Nodos");
-        lblMsgCount = createMetricCard("Mensajes");
-        lblRAM = createMetricCard("Uso RAM");
-        lblBytes = createMetricCard("Tráfico");
-        lblThreads = createMetricCard("Hilos");
-        lblActiveTransfers = createMetricCard("Transferencias");
-
-        metricsPanel.add(lblClientCount); metricsPanel.add(lblMsgCount); metricsPanel.add(lblRAM);
-        metricsPanel.add(lblBytes); metricsPanel.add(lblThreads); metricsPanel.add(lblActiveTransfers);
-
-        // --- 3. PANEL CENTRAL: TABLAS E INSPECTOR ---
-        JPanel mainGrid = new JPanel(new GridLayout(2, 2, 15, 15));
+        // --- MAIN GRID ---
+        JPanel mainGrid = new JPanel(new GridBagLayout());
         mainGrid.setOpaque(false);
-        mainGrid.setBorder(new EmptyBorder(0, 20, 0, 20));
+        mainGrid.setBorder(new EmptyBorder(0, 25, 20, 25));
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.fill = GridBagConstraints.BOTH;
+        gbc.insets = new Insets(8, 8, 8, 8);
 
-        // A. Tabla de Clientes
-        // En initUI, cambia la forma en que creas la tabla de clientes:
-        tableModel = new DefaultTableModel(new String[]{"IP", "Uptime", "Nick", "Role"}, 0);
-        JTable clientTable = new JTable(tableModel); // Creamos la tabla explícitamente con el modelo
-        mainGrid.add(createTablePanel(clientTable, " CLIENTES ACTIVOS ")); // Usamos el helper de JTable
+        // FILA 1: HARDWARE & SOFTWARE (Top Level)
+        gbc.gridx = 0; gbc.gridy = 0; gbc.weightx = 0.6; gbc.weighty = 0.35;
+        mainGrid.add(createExtendedHardwarePanel(), gbc);
 
-        // B. Inspector de Hilos (NUEVO)
-        threadModel = new DefaultTableModel(new String[]{"Nombre del Hilo", "Estado", "Tipo"}, 0);
-        JTable tTable = new JTable(threadModel);
-        tTable.setDefaultRenderer(Object.class, new ThreadStatusRenderer()); // Colores!
-        mainGrid.add(createTablePanel(tTable, " MONITOR DE HILOS (JVM) "));
+        gbc.gridx = 1; gbc.gridy = 0; gbc.weightx = 0.4;
+        mainGrid.add(createSoftwareNetworkPanel(), gbc);
 
-        // C. Log de Actividad
-        txtHistory = new JTextArea();
-        txtHistory.setEditable(false);
-        txtHistory.setBackground(new Color(10, 12, 14));
-        txtHistory.setForeground(new Color(0, 255, 65));
-        txtHistory.setFont(new Font("Monospaced", Font.PLAIN, 12));
-        mainGrid.add(new JScrollPane(txtHistory) {{
-            setBorder(createTitledBorder(" LOG DE EVENTOS CRÍTICOS "));
-        }});
+        // FILA 2: THREADS & NODES
+        gbc.gridx = 0; gbc.gridy = 1; gbc.weighty = 0.65;
+        mainGrid.add(createThreadInspectorPanel(), gbc);
 
-        // D. Quick Actions / System Stats
-        JPanel actionsPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 40));
-        actionsPanel.setOpaque(false);
-        JButton btnGC = new JButton("FORZAR GC (Limpiar Memoria)");
-        btnGC.addActionListener(e -> System.gc());
-        actionsPanel.add(btnGC);
-        mainGrid.add(actionsPanel);
+        gbc.gridx = 1; gbc.gridy = 1;
+        mainGrid.add(createRightPanel(), gbc);
 
-        add(headerPanel, BorderLayout.NORTH);
         add(mainGrid, BorderLayout.CENTER);
-        add(metricsPanel, BorderLayout.SOUTH);
     }
 
-    // --- HELPER UI METHODS ---
+    private JPanel createExtendedHardwarePanel() {
+        JPanel p = new JPanel(new BorderLayout(15, 15));
+        p.setBackground(PANEL_DARK);
+        p.setBorder(BorderFactory.createCompoundBorder(new LineBorder(NEON_YELLOW, 1), new EmptyBorder(15, 15, 15, 15)));
 
-    private JPanel createTablePanel(DefaultTableModel model, String title) {
-        return createTablePanel(new JTable(model), title);
-    }
+        JPanel grid = new JPanel(new GridLayout(1, 2, 20, 0));
+        grid.setOpaque(false);
 
-    private JPanel createTablePanel(JTable table, String title) {
-        table.setBackground(new Color(30, 35, 40));
-        table.setForeground(Color.WHITE);
-        table.setGridColor(Color.DARK_GRAY);
-        table.setRowHeight(25);
+        lblHardwareLeft = new JLabel();
+        lblHardwareRight = new JLabel();
+        grid.add(lblHardwareLeft);
+        grid.add(lblHardwareRight);
 
-        JScrollPane scroll = new JScrollPane(table);
-        scroll.setBorder(createTitledBorder(title));
+        // RAM Meter
+        ramBar = new JProgressBar(0, 100);
+        ramBar.setStringPainted(true);
+        ramBar.setPreferredSize(new Dimension(0, 28));
+        ramBar.setBackground(new Color(30, 35, 40));
+        ramBar.setForeground(NEON_GREEN);
+        ramBar.setBorder(new LineBorder(BG_DARK, 1));
 
-        JPanel p = new JPanel(new BorderLayout());
-        p.setOpaque(false);
-        p.add(scroll);
+        p.add(grid, BorderLayout.CENTER);
+        p.add(ramBar, BorderLayout.SOUTH);
         return p;
     }
 
-    private TitledBorder createTitledBorder(String title) {
-        return BorderFactory.createTitledBorder(new LineBorder(Color.DARK_GRAY), title, TitledBorder.LEFT, TitledBorder.TOP, null, Color.GRAY);
+    private JPanel createSoftwareNetworkPanel() {
+        JPanel p = new JPanel(new GridLayout(2, 1, 0, 10));
+        p.setOpaque(false);
+
+        lblSoftwareBlock = createInfoLabel(NEON_PURPLE, "SOFTWARE ENVIRONMENT");
+        lblNetworkBlock = createInfoLabel(NEON_CYAN, "NETWORK FLOW");
+
+        p.add(lblSoftwareBlock);
+        p.add(lblNetworkBlock);
+        return p;
     }
 
-    private JLabel createDetailLabel(String title, String val, String hex) {
-        return new JLabel("<html><center><font color='gray' size='3'>" + title + "</font><br>" +
-                "<font color='" + hex + "' size='5'><b>" + val + "</b></font></center></html>");
+    private JLabel createInfoLabel(Color accent, String title) {
+        JLabel lbl = new JLabel();
+        lbl.setOpaque(true);
+        lbl.setBackground(PANEL_DARK);
+        lbl.setVerticalAlignment(SwingConstants.TOP);
+        lbl.setBorder(BorderFactory.createCompoundBorder(new LineBorder(accent, 1), new EmptyBorder(10, 12, 10, 12)));
+        return lbl;
     }
 
-    private JLabel createMetricCard(String title) {
-        JLabel label = new JLabel();
-        label.setOpaque(true);
-        label.setBackground(new Color(25, 30, 35));
-        label.setBorder(new LineBorder(new Color(45, 50, 60)));
-        label.setHorizontalAlignment(SwingConstants.CENTER);
-        return label;
+    private JPanel createThreadInspectorPanel() {
+        JPanel p = new JPanel(new BorderLayout());
+        p.setBackground(PANEL_DARK);
+        p.setBorder(BorderFactory.createTitledBorder(new LineBorder(NEON_GREEN, 1), " JVM CORE THREADS ", 0, 0, null, NEON_GREEN));
+
+        threadModel = new DefaultTableModel(new String[]{"ID", "IDENTIFICADOR", "ESTADO", "PRIO", "DAEMON"}, 0);
+        JTable table = new JTable(threadModel);
+        styleTable(table);
+        table.getColumnModel().getColumn(2).setCellRenderer(new ThreadStatusRenderer());
+        p.add(new JScrollPane(table), BorderLayout.CENTER);
+        return p;
     }
 
-    private void updateMetricText(JLabel label, String title, String value, Color color) {
+    private JPanel createRightPanel() {
+        JPanel p = new JPanel(new GridLayout(2, 1, 0, 10));
+        p.setOpaque(false);
+
+        txtTelemetry = new JTextArea();
+        txtTelemetry.setBackground(BG_DARK);
+        txtTelemetry.setForeground(NEON_PURPLE);
+        txtTelemetry.setFont(new Font("Monospaced", Font.PLAIN, 12));
+
+        JScrollPane scrollTele = new JScrollPane(txtTelemetry);
+        scrollTele.setBorder(BorderFactory.createTitledBorder(new LineBorder(NEON_PURPLE, 1), " TELEMETRY LOG ", 0, 0, null, NEON_PURPLE));
+
+        clientTableModel = new DefaultTableModel(new String[]{"ADDR", "SESSION", "NICK", "STATUS"}, 0);
+        JTable nodeTable = new JTable(clientTableModel);
+        styleTable(nodeTable);
+        JScrollPane scrollNodes = new JScrollPane(nodeTable);
+        scrollNodes.setBorder(BorderFactory.createTitledBorder(new LineBorder(NEON_CYAN, 1), " ACTIVE NODES ", 0, 0, null, NEON_CYAN));
+
+        p.add(scrollTele);
+        p.add(scrollNodes);
+        return p;
+    }
+
+    private void styleTable(JTable table) {
+        table.setBackground(PANEL_DARK);
+        table.setForeground(Color.WHITE);
+        table.setRowHeight(25);
+        table.setGridColor(new Color(40, 45, 50));
+        table.setFont(new Font("Monospaced", Font.PLAIN, 11));
+        table.getTableHeader().setBackground(new Color(30, 35, 40));
+        table.getTableHeader().setForeground(NEON_CYAN);
+    }
+
+    private JLabel createHeaderMetric(String title, String val, Color color) {
         String hex = String.format("#%02x%02x%02x", color.getRed(), color.getGreen(), color.getBlue());
-        label.setText("<html><center><font color='#adb5bd'>" + title + "</font><br>" +
-                "<font color='" + hex + "' size='5'><b>" + value + "</b></font></center></html>");
+        return new JLabel("<html><div style='text-align: right;'><font color='gray' size='2'>" + title + "</font><br>" +
+                "<font color='" + hex + "' size='4'><b>" + val + "</b></font></div></html>");
     }
-
-    // --- MONITORING LOGIC ---
-
     private void refreshData() {
-
-
-
-        // 1. Métricas Base
-        updateMetricText(lblClientCount, "Nodos", String.valueOf(stats.getClientCount()), Color.WHITE);
-        updateMetricText(lblMsgCount, "Mensajes", String.valueOf(stats.getTotalMessages()), Color.WHITE);
-        updateMetricText(lblRAM, "RAM", stats.getMemoryUsageFormat(), new Color(255, 105, 180));
-        updateMetricText(lblBytes, "Tráfico", stats.formatBytes(stats.getTotalBytes()), Color.CYAN);
-
-        // 2. Lógica de Hilos
+        Runtime r = Runtime.getRuntime();
+        RuntimeMXBean rb = ManagementFactory.getRuntimeMXBean();
         Map<Thread, StackTraceElement[]> allThreads = Thread.getAllStackTraces();
+        long usedMem = r.totalMemory() - r.freeMemory();
+        int ramPercent = (int) ((usedMem * 100) / r.maxMemory());
+        int clients = stats.getClientCount();
+        //int totalThreads = Thread.activeCount();
+        int totalThreads= allThreads.size();
+        // --- LÓGICA DE SALUD ---
+        String healthText;
+        String healthColor;
+        if (clients > totalThreads * 0.8) {
+            healthText = "ESTRESADO";
+            healthColor = "#e74c3c"; // DANGER_RED
+        } else {
+            healthText = "ESTABLE";
+            healthColor = "#55efc4"; // NEON_GREEN
+        }
+
+        // --- CÁLCULO DE CARGA DE HILOS ---
+        // Definimos un límite teórico basado en cores (ej. 200 hilos por core)
+        int maxExpectedThreads = r.availableProcessors() * 200;
+        double threadLoad = (totalThreads * 100.0) / maxExpectedThreads;
+        String loadColor = (threadLoad > 70) ? "#fdcb6e" : (threadLoad > 90 ? "#e74c3c" : "#55efc4");
+
+        // 1. HARDWARE ASSETS (Izquierda) - Agregamos Carga y Total
+        lblHardwareLeft.setText(String.format(
+                "<html><font color='#fdcb6e'><b>HARDWARE ASSETS & SYSTEM</b></font><br>" +
+                        "<table style='color:white; font-family:Sans-Serif; font-size:10px;'>" +
+                        "<tr><td>MODELO ARCH:</td><td><b color='white'>%s (%s bits)</b></td></tr>" +
+                        "<tr><td>CPU CORES:</td><td><b color='#00cec9'>%d</b> Lógicos</td></tr>" +
+                        "<tr><td>CARGA HILOS:</td><td><b color='%s'>%.1f%%</b></td></tr>" + // <-- NUEVO
+                        "<tr><td>VM TOTAL:</td><td>%s</td></tr>" +
+                        "<tr><td>VM LÍMITE:</td><td><b color='#e74c3c'>%s</b></td></tr>" +
+                        "<tr><td>MEM. LIBRE:</td><td><b color='#55efc4'>%s</b></td></tr>" +
+                        "<tr><td>USER:</td><td>%s</td></tr>" +
+                        "</table></html>",
+                System.getProperty("os.arch"), System.getProperty("sun.arch.data.model"),
+                r.availableProcessors(), loadColor, threadLoad,
+                stats.formatBytes(r.totalMemory()),
+                stats.getMaxMemoryFormat(),
+                stats.formatBytes(r.freeMemory()),
+                System.getProperty("user.name")
+        ));
+
+        // 2. PROCESS MONITOR (Derecha) - Agregamos desglose de hilos totales
+        int bitBridgeThreads = 0;
+        int daemonThreads = 0;
+
         threadModel.setRowCount(0);
-        int msgThreads = 0;
-        int fileThreads = 0;
 
         for (Thread t : allThreads.keySet()) {
+            if (t.isDaemon()) daemonThreads++;
             String name = t.getName();
-            // Contamos solo los que están realmente trabajando (RUNNABLE)
-            if (name.startsWith("MSG-Worker") && t.getState() == Thread.State.RUNNABLE) {
-                msgThreads++;
-            } else if (name.startsWith("FT-Pool") && t.getState() == Thread.State.RUNNABLE) {
-                fileThreads++;
+            if (name.contains("Worker") || name.contains("BitBridge") || name.contains("FT-Pool")) {
+                bitBridgeThreads++;
             }
-
-            threadModel.addRow(new Object[]{ name, t.getState().toString(), t.isDaemon() ? "SYSTEM" : "USER" });
+            threadModel.addRow(new Object[]{
+                    t.getId(),
+                    name.toUpperCase(),
+                    t.getState(),
+                    t.getPriority(),
+                    t.isDaemon() ? "DAEMON" : "USER"
+            });
         }
 
-// Actualizar etiquetas individuales en la UI
-        updateMetricText(lblMsgCount, "Mensajeros Activos", String.valueOf(msgThreads), Color.WHITE);
-        updateMetricText(lblActiveTransfers, "Archivos en Curso", String.valueOf(fileThreads), new Color(0, 255, 127));
-        updateMetricText(lblThreads, "Hilos JVM", String.valueOf(allThreads.size()), Color.ORANGE);
+        lblHardwareRight.setText(String.format(
+                "<html><font color='#fdcb6e'><b>PROCESS & RUNTIME</b></font><br>" +
+                        "<table style='color:white; font-family:Sans-Serif; font-size:10px;'>" +
+                        "<tr><td>BITBRIDGE WK:</td><td><b color='#55efc4'>%d ACTIVOS</b></td></tr>" +
+                        "<tr><td>TOTAL HILOS:</td><td><b color='#00cec9'>%d</b></td></tr>" + // <-- NUEVO
+                        "<tr><td>TIPO HILOS:</td><td>D: %d / U: %d</td></tr>" +
+                        "<tr><td>HOST IP:</td><td><b color='#a29bfe'>%s</b></td></tr>" +
+                        "<tr><td>OS VERSION:</td><td>%s</td></tr>" +
+                        "<tr><td>JAVA HOME:</td><td>.../%s</td></tr>" +
+                        "<tr><td>ESTADO:</td><td><b color='#55efc4'>SINCRONIZADO</b></td></tr>" +
+                        "</table></html>",
+                bitBridgeThreads,
+                totalThreads, daemonThreads, (totalThreads - daemonThreads),
+                localIp,
+                System.getProperty("os.version"),
+                new java.io.File(System.getProperty("java.home")).getName()
+        ));
 
-        // 3. Tabla de Clientes
-        tableModel.setRowCount(0);
-        // Actualizar tabla de clientes
-        List<ClientInfo> clients = stats.getConnectedClients();
-        if (tableModel.getRowCount() != clients.size()) { // Solo refrescar si el conteo cambió
-            tableModel.setRowCount(0);
-            for (ClientInfo client : clients) {
-                tableModel.addRow(new Object[]{
-                        client.getAddress(),
-                        stats.formatUptime(client.getConnectionTime()),
-                        client.getNick(),
-                        "ACTIVE"
-                });
-            }
-        }
+        // 3. SOFTWARE BLOCK (Sin cambios, manteniendo estética)
+        lblSoftwareBlock.setText("<html><font color='#a29bfe'><b>SOFTWARE ENVIRONMENT</b></font><br>" +
+                "<font color='white' size='3'>JVM: " + System.getProperty("java.vendor") + "</font><br>" +
+                "<font color='gray' size='2'>VER: " + System.getProperty("java.version") + " (" + rb.getVmVersion() + ")</font><br>" +
+                "<font color='gray' size='2'>SPEC: " + rb.getSpecName() + "</font></html>");
 
-        // 4. Log
-        txtHistory.setText("");
-        List<String> history = stats.getMessageHistory();
-        int start = Math.max(0, history.size() - 15);
-        for (int i = start; i < history.size(); i++) {
-            txtHistory.append(" [SYSTEM] > " + history.get(i) + "\n");
+        // 4. NETWORK BLOCK (Manteniendo tu estructura de tabla avanzada)
+        String netHTML = String.format(
+                "<html>" +
+                        "<div style='margin-bottom: 5px;'><font color='#00cec9' size='4'><b>MÉTRICAS DE RED Y FLUJO</b></font></div>" +
+                        "<table style='color: white; font-family: Monospaced; font-size: 11px;'>" +
+                        "<tr>" +
+                        "<td><font color='gray'>PUNTO ACCESO :</font></td>" +
+                        "<td><b color='#55efc4'>%s:%d</b></td>" +
+                        "<td style='padding-left:15px;'><font color='gray'>INTERFAZ :</font></td>" +
+                        "<td><font color='#fdcb6e'>%s</font></td>" +
+                        "</tr>" +
+                        "<tr>" +
+                        "<td><font color='gray'>DIRECCIÓN IP :</font></td>" +
+                        "<td>%s</td>" +
+                        "<td style='padding-left:15px;'><font color='gray'>PUERTO   :</font></td>" +
+                        "<td><font color='#fdcb6e'>%d</font></td>" +
+                        "</tr>" +
+                        "<tr>" +
+                        "<td><font color='gray'>ESTADÍSTICA  :</font></td>" +
+                        "<td>MSG: <font color='#00cec9'>%d</font></td>" +
+                        "<td style='padding-left:15px;'><font color='gray'>SALUD    :</font></td>" +
+                        "<td><b color='%s'>%s</b></td>" +
+                        "</tr>" +
+                        "<tr>" +
+                        "<td><font color='gray'>RENDIMIENTO  :</font></td>" +
+                        "<td>UP: <font color='#a29bfe'>%s</font></td>" +
+                        "<td style='padding-left:15px;'><font color='gray'>TOTAL    :</font></td>" +
+                        "<td><font color='#a29bfe'>%s</font></td>" +
+                        "</tr>" +
+                        "<tr>" +
+                        "<td><font color='gray'>CONEXIONES   :</font></td>" +
+                        "<td><b color='#a29bfe'>%d NODOS</b></td>" +
+                        "<td style='padding-left:15px;'><font color='gray'>MTU      :</font></td>" +
+                        "<td>1500 (Auto)</td>" +
+                        "</tr>" +
+                        "</table>" +
+                        "</html>",
+                localIp, port, getActiveInterface(),
+                localIp, port,
+                stats.getTotalMessages(), healthColor, healthText,
+                stats.getUptime(), stats.formatBytes(stats.getTotalBytes()),
+                clients
+        );
+        lblNetworkBlock.setText(netHTML);
+
+        // 5. RAM BAR
+        ramBar.setValue(ramPercent);
+        ramBar.setString("HEAP USAGE: " + ramPercent + "% (" + stats.formatBytes(usedMem) + ")");
+        if (ramPercent > 80) ramBar.setForeground(DANGER_RED); else ramBar.setForeground(NEON_GREEN);
+
+        // Logs & Nodes
+        txtTelemetry.setText("");
+        List<String> logs = stats.getMessageHistory();
+        int start = Math.max(0, logs.size() - 10);
+        for (int i = start; i < logs.size(); i++) txtTelemetry.append(" > " + logs.get(i) + "\n");
+
+        clientTableModel.setRowCount(0);
+        for (ClientInfo c : stats.getConnectedClients()) {
+            clientTableModel.addRow(new Object[]{c.getAddress(), "ACT", c.getNick().toUpperCase(), "ONLINE"});
         }
     }
 
@@ -227,22 +350,20 @@ public class ServerDashboard extends JFrame {
         guiTimer.start();
     }
 
-    // --- RENDERER PARA COLOREAR HILOS ---
+    private String getActiveInterface() {
+        // Retorna el nombre de la interfaz (ej. eth0, wlan0, enp4s0)
+        // Si ya tienes un NetworkManager, úsalo aquí.
+        return "enp4s0"; // Placeholder basado en tu imagen
+    }
+
     static class ThreadStatusRenderer extends DefaultTableCellRenderer {
         @Override
         public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
             Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
-            String state = table.getValueAt(row, 1).toString();
-            String name = table.getValueAt(row, 0).toString();
-
-            if (state.equals("RUNNABLE")) c.setForeground(new Color(0, 255, 127));
-            else if (state.startsWith("WAITING") || state.contains("TIMED")) c.setForeground(Color.YELLOW);
-            else if (state.equals("BLOCKED")) c.setForeground(Color.RED);
+            String state = value != null ? value.toString() : "";
+            if (state.equals("RUNNABLE")) c.setForeground(NEON_GREEN);
+            else if (state.contains("WAITING")) c.setForeground(NEON_YELLOW);
             else c.setForeground(Color.GRAY);
-
-            if (name.startsWith("FT-Pool")) setFont(getFont().deriveFont(Font.BOLD));
-            else setFont(getFont().deriveFont(Font.PLAIN));
-
             return c;
         }
     }

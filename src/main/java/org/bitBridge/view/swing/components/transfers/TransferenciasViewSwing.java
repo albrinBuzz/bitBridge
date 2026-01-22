@@ -7,6 +7,8 @@ import org.bitBridge.Observers.TransferencesObserver;
 import org.bitBridge.models.TransferProgress;
 import org.bitBridge.models.Transferencia;
 import org.bitBridge.shared.*;
+import org.bitBridge.shared.core.comunication.FileHandshakeAction;
+import org.bitBridge.shared.core.comunication.FileHandshakeCommunication;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;

@@ -4,15 +4,29 @@ package org.bitBridge.shared.network;
 import com.google.gson.Gson;
 import org.bitBridge.server.core.client.BitBridgeClient;
 import org.bitBridge.shared.*;
+import org.bitBridge.shared.core.comunication.*;
+
 import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
+import java.util.EnumMap;
+import java.util.Map;
 
 public class ProtocolService {
     private static final Gson gson = new Gson();
+
+    private static final Map<CommunicationType, Class<? extends Communication>> typeRegistry = new EnumMap<>(CommunicationType.class);
+
+    static {
+        typeRegistry.put(CommunicationType.MESSAGE, Mensaje.class);
+        typeRegistry.put(CommunicationType.FILE, FileDirectoryCommunication.class);
+        typeRegistry.put(CommunicationType.DIRECTORY, FileDirectoryCommunication.class);
+        typeRegistry.put(CommunicationType.UPDATE, ClientListMessage.class);
+        typeRegistry.put(CommunicationType.NOTIFICATION, FileHandshakeCommunication.class);
+        typeRegistry.put(CommunicationType.ACK, MessageAck.class);
+    }
 
     /**
      * Escribe un objeto Communication en el stream usando el formato:
@@ -26,6 +40,14 @@ public class ProtocolService {
         out.writeUTF(comm.getType().name());    // Nombre del Enum
         out.write(payload);                     // El JSON crudo
         out.flush();
+    }
+
+    /**
+     * Permite registrar nuevos tipos desde cualquier parte del proyecto
+     * (Incluso desde módulos externos o plugins)
+     */
+    public static void registerType(CommunicationType type, Class<? extends Communication> clazz) {
+        typeRegistry.put(type, clazz);
     }
 
     /**
@@ -162,6 +184,21 @@ public class ProtocolService {
 
     private static Communication deserializeByType(String json, CommunicationType type) throws IOException {
         try {
+            Class<? extends Communication> clazz = typeRegistry.get(type);
+
+            if (clazz == null) {
+                Logger.logWarn("Tipo desconocido: " + type + ". Usando clase base Communication.");
+                return gson.fromJson(json, Communication.class);
+            }
+
+            return gson.fromJson(json, clazz);
+        } catch (Exception e) {
+            throw new IOException("Error deserializando " + type + ": " + e.getMessage());
+        }
+    }
+
+    /*private static Communication deserializeByType(String json, CommunicationType type) throws IOException {
+        try {
             return switch (type) {
                 case MESSAGE -> gson.fromJson(json, Mensaje.class);
                 case FILE, DIRECTORY -> gson.fromJson(json, FileDirectoryCommunication.class);
@@ -172,7 +209,7 @@ public class ProtocolService {
         } catch (Exception e) {
             throw new IOException("Error en JSON para " + type + ": " + e.getMessage());
         }
-    }
+    }*/
 
     /**
      * ESCRIBIR PARA NIO: Debe replicar exactamente el formato de DataOutputStream

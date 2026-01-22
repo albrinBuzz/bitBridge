@@ -3,7 +3,7 @@ package org.bitBridge.Client.services;
 
 
 import org.bitBridge.Client.core.ClientContext;
-import org.bitBridge.shared.ScreenCaptureMessage;
+import org.bitBridge.shared.core.comunication.ScreenCaptureMessage;
 import org.bitBridge.shared.Logger;
 import java.awt.AWTException;
 import java.io.IOException;

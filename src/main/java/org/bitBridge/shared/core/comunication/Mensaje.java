@@ -1,11 +1,11 @@
-package org.bitBridge.shared;
+package org.bitBridge.shared.core.comunication;
 
 
 public class Mensaje extends Communication {
 
     private String contenido;
 
-    public Mensaje( String contenido,CommunicationType type) {
+    public Mensaje(String contenido, CommunicationType type) {
         super(type);
         this.contenido = contenido;
     }

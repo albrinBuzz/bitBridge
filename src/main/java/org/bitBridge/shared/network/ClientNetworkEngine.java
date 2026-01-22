@@ -1,8 +1,7 @@
 package org.bitBridge.shared.network;
 
-import org.bitBridge.shared.Communication;
+import org.bitBridge.shared.core.comunication.Communication;
 
-import java.io.File;
 import java.io.IOException;
 
 public interface ClientNetworkEngine extends NetworkEngine {
@@ -11,4 +10,5 @@ public interface ClientNetworkEngine extends NetworkEngine {
     String getStatus();
     String getHostName();
     void disconnect();
+    boolean isActive();
 }

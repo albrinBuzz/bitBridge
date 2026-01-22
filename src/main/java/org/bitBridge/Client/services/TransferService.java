@@ -2,11 +2,10 @@ package org.bitBridge.Client.services;
 
 
 import org.bitBridge.Client.ClientInfo;
-import org.bitBridge.Client.DirectoryTransferManager;
 import org.bitBridge.Client.FileTransferManager;
 import org.bitBridge.Client.NioDirectoryTransferManager;
 import org.bitBridge.Client.core.ClientContext;
-import org.bitBridge.shared.FileDirectoryCommunication;
+import org.bitBridge.shared.core.comunication.FileDirectoryCommunication;
 import org.bitBridge.shared.Logger;
 
 import java.io.File;

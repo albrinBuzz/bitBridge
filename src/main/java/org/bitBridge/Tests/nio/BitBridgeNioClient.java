@@ -2,7 +2,7 @@ package org.bitBridge.Tests.nio;
 
 
 
-import org.bitBridge.shared.Communication;
+import org.bitBridge.shared.core.comunication.Communication;
 
 import org.bitBridge.shared.Logger;
 import java.io.IOException;

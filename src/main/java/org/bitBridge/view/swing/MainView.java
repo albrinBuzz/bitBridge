@@ -17,6 +17,7 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableCellRenderer;
+import javax.swing.text.DefaultCaret;
 import java.awt.*;
 
 public class MainView extends JFrame implements IMainView {
@@ -41,7 +42,7 @@ public class MainView extends JFrame implements IMainView {
     private TransferPanel transferPanel;
     private NetworkClientsPanel clientsPanel;
     ChatPanel chatPanel;
-
+    private JTextArea logArea;
     public MainView() {
 
         setupTheme();
@@ -109,13 +110,18 @@ public class MainView extends JFrame implements IMainView {
         mainTabs.addTab("📈 Rendimiento Servidor", createServerPerformancePanel());
         // 3. SECCIÓN INFERIOR (LOGS Y STATUS)
         JPanel southPanel = new JPanel(new BorderLayout());
-        southPanel.add(createLogConsole(), BorderLayout.CENTER);
+        // 1. Llamas al método. Dentro de este, logArea deja de ser null.
+        JScrollPane logScroll = createLogConsole();
+
         statusBar = new StatusBarPanel();
         statusBar.updateNetworkStats(12.5, 1.2, 2233);
-        add(statusBar, BorderLayout.SOUTH);
-        //southPanel.add(createStatusBar(), BorderLayout.SOUTH);
+        statusBar.setConsole(logArea);
+
+        southPanel.add(logScroll, BorderLayout.CENTER);
+        southPanel.add(statusBar, BorderLayout.SOUTH);
 
         JSplitPane mainSplit = new JSplitPane(JSplitPane.VERTICAL_SPLIT, mainTabs, southPanel);
+
         mainSplit.setDividerLocation(580);
         mainSplit.setResizeWeight(1.0);
         mainSplit.setBorder(null);
@@ -147,16 +153,29 @@ public class MainView extends JFrame implements IMainView {
     @Override
     public void updateServerUI(ServerState state, String errorMessage) {
         SwingUtilities.invokeLater(() -> {
+            // 1. Actualizar el panel de encabezado
             headerPanel.updateServerStatus(state, errorMessage);
-            if (errorMessage != null) {
-                showAlert("Error del Servidor", errorMessage);
+
+            // 2. Si hay error, mostrar alerta y registrar en el log visual
+            if (state == ServerState.ERROR && errorMessage != null) {
+                // Registrar en la StatusBar que creamos antes
+                statusBar.addLog("FALLO AL INICIAR: " + errorMessage, StatusBarPanel.LogType.ERROR);
+
+                // Mostrar ventana emergente
+                showAlert("Error Crítico de Red", errorMessage);
             }
         });
     }
 
     @Override
     public void showAlert(String title, String content) {
-
+        // Usamos el diálogo estándar de Swing estilizado por FlatLaf
+        JOptionPane.showMessageDialog(
+                this,             // El componente padre (tu JFrame/JPanel)
+                content,          // El mensaje (errorMessage)
+                title,            // El título ("Error del Servidor")
+                JOptionPane.ERROR_MESSAGE
+        );
     }
 
     @Override
@@ -169,6 +188,11 @@ public class MainView extends JFrame implements IMainView {
         SwingUtilities.invokeLater(() -> {
             headerPanel.updateConnectionStatus(state, detail);
         });
+    }
+
+    @Override
+    public void addLog(String log) {
+        statusBar.addLog(log, StatusBarPanel.LogType.INFO);
     }
 
 
@@ -209,17 +233,23 @@ public class MainView extends JFrame implements IMainView {
 
 
     private JScrollPane createLogConsole() {
-        JTextArea log = new JTextArea();
-        log.setBackground(BG_DARKER);
-        log.setForeground(new Color(180, 180, 180));
-        log.setFont(new Font("Monospaced", Font.PLAIN, 11));
-        log.setEditable(false);
-        log.setText(" 13/01/26 16:18:54 BitBridge Node Iniciado...\n 13/01/26 16:20:10 Escaneo de carpetas locales finalizado.\n 13/01/26 16:21:05 Conectado a 'Fedora-PC' vía P2P.");
-        JScrollPane scroll = new JScrollPane(log);
-        scroll.setPreferredSize(new Dimension(0, 100));
+        // Inicializamos el atributo de clase
+        logArea = new JTextArea();
+        logArea.setBackground(new Color(25, 25, 25));
+        logArea.setForeground(new Color(180, 180, 180));
+        logArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
+        logArea.setEditable(false);
+
+        // Autoscroll para que siempre se vea el último mensaje
+        DefaultCaret caret = (DefaultCaret) logArea.getCaret();
+        caret.setUpdatePolicy(DefaultCaret.ALWAYS_UPDATE);
+
+        JScrollPane scroll = new JScrollPane(logArea);
+        scroll.setPreferredSize(new Dimension(0, 120));
+        scroll.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(45, 45, 45)));
+
         return scroll;
     }
-
     /*private JPanel createStatusBar() {
         JPanel status = new JPanel(new BorderLayout());
         status.setBorder(new EmptyBorder(5, 10, 5, 10));

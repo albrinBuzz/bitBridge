@@ -2,7 +2,7 @@ package org.bitBridge.Observers;
 
 
 import org.bitBridge.Client.ClientInfo;
-import org.bitBridge.shared.ServerStatusConnection;
+import org.bitBridge.shared.core.comunication.ServerStatusConnection;
 
 import java.util.List;
 

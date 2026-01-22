@@ -246,6 +246,11 @@ public class MainViewSwingMock extends JFrame implements IMainView {
         });
     }
 
+    @Override
+    public void addLog(String log) {
+
+    }
+
     private void exitApp() { if(JOptionPane.showConfirmDialog(this, "¿Salir?") == 0) System.exit(0); }
 
     private void setupShutdownHook() {

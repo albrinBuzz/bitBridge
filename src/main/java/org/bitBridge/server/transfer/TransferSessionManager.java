@@ -3,9 +3,8 @@ package org.bitBridge.server.transfer;
 
 
 import org.bitBridge.server.core.client.BitBridgeClient;
-import org.bitBridge.server.core.client.ClientHandler;
-import org.bitBridge.shared.FileHandshakeAction;
-import org.bitBridge.shared.FileHandshakeCommunication;
+import org.bitBridge.shared.core.comunication.FileHandshakeAction;
+import org.bitBridge.shared.core.comunication.FileHandshakeCommunication;
 import org.bitBridge.shared.Logger;
 
 import java.util.concurrent.*;
@@ -43,7 +42,6 @@ public class TransferSessionManager {
     }
 
     public void registerHandshake(String sessionId, FileHandshakeCommunication communication) {
-        Logger.logInfo("[SESSION] Registrando handshake para " + sessionId + ": " + communication.getAction());
 
         // Usamos compute para manejar el caso donde el receptor llega antes que el emisor
         handshakeFutures.compute(sessionId, (id, existingFuture) -> {
@@ -79,12 +77,10 @@ public class TransferSessionManager {
                 handshakeFutures.computeIfAbsent(sessionId, k -> new CompletableFuture<>());
 
         try {
-            Logger.logInfo("[SESSION] Esperando decisión del receptor para sesión: " + sessionId);
 
             // Bloqueo controlado
             FileHandshakeCommunication com = future.get(timeoutSeconds, TimeUnit.SECONDS);
 
-            Logger.logInfo("[SESSION] Respuesta recuperada para " + sessionId + ": " + com.getAction());
             return com.getAction();
         } catch (TimeoutException e) {
             Logger.logError("[SESSION] Timeout: Nadie respondió al handshake en " + sessionId);
@@ -100,7 +96,6 @@ public class TransferSessionManager {
 
 
     public void registerReceptor(String sessionId, BitBridgeClient receptor) {
-        Logger.logInfo("[SESSION-MGR] Solicitud de registro para sesión: " + sessionId);
 
         // Intentamos obtener el exchanger. Si no existe aún, el receptor llegó
         // ligeramente antes de que el hilo del emisor creara la entrada.
@@ -117,9 +112,7 @@ public class TransferSessionManager {
 
         if (exchanger != null) {
             try {
-                Logger.logInfo("[SESSION-MGR] Entregando socket al hilo de transferencia...");
                 exchanger.exchange(receptor, 2, TimeUnit.SECONDS);
-                Logger.logInfo("[SESSION-MGR] Intercambio completado.");
             } catch (Exception e) {
                 Logger.logError("[SESSION-MGR] Fallo en intercambio: " + e.getMessage());
             }

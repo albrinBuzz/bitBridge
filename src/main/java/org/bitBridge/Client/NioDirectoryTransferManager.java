@@ -2,6 +2,7 @@ package org.bitBridge.Client;
 
 import org.bitBridge.controller.TransferenciaController;
 import org.bitBridge.shared.*;
+import org.bitBridge.shared.core.comunication.*;
 import org.bitBridge.shared.network.ProtocolService;
 
 import java.io.*;
@@ -10,7 +11,6 @@ import java.net.StandardSocketOptions;
 import java.nio.channels.FileChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.file.*;
-import java.util.Arrays;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;

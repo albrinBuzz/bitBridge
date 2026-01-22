@@ -15,13 +15,13 @@ import org.bitBridge.server.console.ConsoleView;
 import org.bitBridge.server.network.NetworkUtils;
 import org.bitBridge.server.stats.ServerStats;
 import org.bitBridge.server.transfer.TransferSessionManager;
-import org.bitBridge.shared.ClientListMessage;
-import org.bitBridge.shared.CommunicationType;
+import org.bitBridge.shared.core.comunication.ClientListMessage;
+import org.bitBridge.shared.core.comunication.CommunicationType;
 import org.bitBridge.shared.Logger;
-import org.bitBridge.shared.Mensaje;
+import org.bitBridge.shared.core.comunication.Mensaje;
 
 import org.bitBridge.shared.network.ServerNetworkEngine;
-import org.bitBridge.utils.NetworkManager;
+import org.bitBridge.shared.network.NetworkManager;
 import org.bitBridge.utils.UPnPManager;
 import org.springframework.context.ConfigurableApplicationContext;
 
@@ -74,8 +74,55 @@ public class Server {
         this.context.setNetworkEngine(this.networkEngine);
     }
 
-    public void startServer() throws IOException {
 
+
+    public CompletableFuture<Void> startServer() {
+        CompletableFuture<Void> promise = new CompletableFuture<>();
+
+        // 1. Validación de rango antes de intentar abrir el socket
+        if (PORT < 0 || PORT > 65535) {
+            promise.completeExceptionally(new IllegalArgumentException("Puerto inválido: " + PORT + ". Debe estar entre 0 y 65535."));
+        }
+
+        try {
+
+            networkEngine.start(PORT);
+            promise.complete(null);
+            //startBackgroundServices();
+
+        } catch (BindException e) {
+            String sugerencia = (PORT < 1024) ?
+                    " (Nota: Los puertos < 1024 son para el sistema)" :
+                    " (Verifica si otra instancia de FileTalk está abierta)";
+
+            String errorMsg = String.format("Error: El puerto %d ya está en uso.%s", PORT, sugerencia);
+            //Logger.logError(errorMsg);
+            //throw new BindException(errorMsg);
+            promise.completeExceptionally(new BindException(errorMsg));
+
+        } catch (SecurityException e) {
+            String errorMsg = String.format("Permiso denegado: El sistema operativo no permite abrir el puerto %d.", PORT);
+            Logger.logError(errorMsg);
+            //throw new SecurityException(errorMsg);
+            promise.completeExceptionally(new SecurityException(errorMsg));
+
+        } catch (SocketException e) {
+            String errorMsg = "Fallo de hardware o protocolo de red en puerto " + PORT + ": " + e.getMessage();
+            Logger.logError(errorMsg);
+            //throw new SocketException(errorMsg);
+            promise.completeExceptionally(new SocketException(errorMsg));
+
+        } catch (IOException e) {
+            String errorMsg = "Error crítico de E/S al iniciar en puerto " + PORT + ": " + e.getMessage();
+            Logger.logError(errorMsg);
+            promise.completeExceptionally(new IOException(errorMsg));
+            //throw new IOException(errorMsg);
+        }
+
+        return promise;
+    }
+
+    /*public void startServer() throws IOException {
 
         // 1. Validación de rango antes de intentar abrir el socket
         if (PORT < 0 || PORT > 65535) {
@@ -87,20 +134,6 @@ public class Server {
             networkEngine.start(PORT);
 
             startBackgroundServices();
-
-            /*new Thread(() -> {
-                while (isRunning) {
-                    try {
-                        Socket clientSocket = serverSocket.accept();
-                        ClientHandler handler = new ClientHandler(clientSocket, context);
-                        new Thread(handler).start();
-                    } catch (IOException e) {
-                        if (isRunning) Logger.logError("Error al aceptar conexión: " + e.getMessage());
-                    }
-                }
-            }, "Network-Acceptor").start();
-
-            Logger.logInfo("Servidor P2P escuchando en " + localAddress + ":" + localPort);*/
 
         } catch (BindException e) {
             String sugerencia = (PORT < 1024) ?
@@ -126,12 +159,12 @@ public class Server {
             Logger.logError(errorMsg);
             throw new IOException(errorMsg);
         }
-    }
+    }*/
 
 
 
     private void startBackgroundServices() throws UnknownHostException {
-        ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2);
+        //ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2);
 
         // Broadcast cada 2 segundos es suficiente
         //scheduler.scheduleAtFixedRate(this::brocastServer, 0, 2, TimeUnit.SECONDS);
@@ -159,14 +192,16 @@ public class Server {
     public  void starServerCLI() throws IOException {
 
 
-        new Thread(consoleView, "Console-Monitor").start();
+        //new Thread(consoleView, "Console-Monitor").start();
         startServer();
     }
 
 
     public void stopServer() {
         try {
+            registry.shutDown();
             networkEngine.stop();
+            networkManager.stopAll();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

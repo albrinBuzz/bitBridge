@@ -5,7 +5,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
 public class BufferPool {
-    private static final int BUFFER_SIZE = 65536; // 64KB
+    private static final int BUFFER_SIZE = 128 * 1024; // 64KB
     private static final int POOL_SIZE = 1000;    // Mantener 1000 buffers listos
     private static final BlockingQueue<ByteBuffer> pool = new ArrayBlockingQueue<>(POOL_SIZE);
 

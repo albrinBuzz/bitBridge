@@ -8,6 +8,8 @@ import org.bitBridge.Observers.TransferencesObserver;
 import org.bitBridge.models.TransferProgress;
 import org.bitBridge.models.Transferencia;
 import org.bitBridge.shared.*;
+import org.bitBridge.shared.core.comunication.FileHandshakeAction;
+import org.bitBridge.shared.core.comunication.FileHandshakeCommunication;
 
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioSystem;
@@ -85,21 +87,8 @@ public class TransferPanel extends JPanel implements TransferencesObserver {
                 1, // Grosor
                 20 // ESTE ES EL ARC (Redondeo)
         ));
-        //scroll.putClientProperty(FlatClientProperties.STYLE, "arc: 20");
+
         add(scroll, BorderLayout.CENTER);
-    }
-
-    private JPanel createTransferToolbar() {
-
-        JPanel tb = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        tb.add(new JButton("▶ Iniciar"));
-        tb.add(new JButton("⏸ Pausar"));
-        tb.add(new JButton("⏹ Detener"));
-        tb.add(new JSeparator(SwingConstants.VERTICAL));
-        tb.add(new JLabel("Límite Global:"));
-        tb.add(new JSpinner(new SpinnerNumberModel(100, 0, 10000, 10)));
-        tb.add(new JLabel("MB/s"));
-        return tb;
     }
 
     public void setTransferCountListener(GenericCountListener<TransferPanel> listener) {
@@ -146,7 +135,45 @@ public class TransferPanel extends JPanel implements TransferencesObserver {
             }
         };
 
-        for (int i = 1; i < 5; i++) table.getColumnModel().getColumn(i).setCellRenderer(textRenderer);
+
+        table.getColumnModel().getColumn(2).setCellRenderer(new DefaultTableCellRenderer() {
+            // Definimos los colores como constantes para mejor rendimiento
+            private final Color COLOR_SEND = new Color(0, 191, 255);      // Deep Sky Blue (Más brillante)
+            private final Color COLOR_RECEIVE = new Color(187, 134, 252); // Soft Purple (Estilo Material Design)
+            private final Color COLOR_TEXT_BASE = new Color(220, 220, 220);
+
+            @Override
+            public Component getTableCellRendererComponent(JTable t, Object v, boolean isS, boolean hasF, int r, int c) {
+                JLabel l = (JLabel) super.getTableCellRendererComponent(t, v, isS, hasF, r, c);
+                l.setBorder(new EmptyBorder(0, 15, 0, 15));
+                l.setFont(l.getFont().deriveFont(Font.BOLD, 12f));
+
+                String val = String.valueOf(v).toUpperCase();
+
+                if (val.contains("ENVIANDO")) {
+                    l.setForeground(COLOR_SEND);
+                } else if (val.contains("RECIBIENDO")) {
+                    l.setForeground(COLOR_RECEIVE);
+                } else {
+                    l.setForeground(COLOR_TEXT_BASE);
+                }
+
+                // Si la fila está seleccionada, mantenemos un contraste legible
+                if (isS) {
+                    l.setForeground(Color.WHITE);
+                }
+
+                return l;
+            }
+        });
+
+
+
+        // Elimina el índice 2 del bucle para no sobrescribir tu TypeRenderer personalizado
+        for (int i = 1; i < 5; i++) {
+            if (i == 2) continue; // ¡IMPORTANTE! Saltamos la columna TIPO
+            table.getColumnModel().getColumn(i).setCellRenderer(textRenderer);
+        }
 
         table.getColumnModel().getColumn(6).setCellRenderer(textRenderer);
 
@@ -178,29 +205,38 @@ public class TransferPanel extends JPanel implements TransferencesObserver {
         // --- COLUMNA DE ACCIONES (Botones) ---
         ActionCellHandler actionHandler = new ActionCellHandler();
         table.getColumnModel().getColumn(7).setCellRenderer(actionHandler);
-        table.getColumnModel().getColumn(7).setCellEditor(actionHandler);
+       table.getColumnModel().getColumn(7).setCellEditor(actionHandler);
         table.getColumnModel().getColumn(7).setPreferredWidth(120);
     }
 
     // --- LÓGICA DEL OBSERVER (Igual a la clase anterior) ---
+    private int getRowById(String id) {
+        for (int i = 0; i < model.getRowCount(); i++) {
+            if (model.getValueAt(i, 0).equals(id)) return i;
+        }
+        return -1;
+    }
 
     @Override
     public void addTransference(String mode, Transferencia t, TransferManager manager) {
         SwingUtilities.invokeLater(() -> {
+            // Usamos constantes o variables para que el código sea más legible
+            boolean isSending = mode.toUpperCase().contains("SEND");
+            //String tipoTexto = isSending ? "📤 ENVIANDO" : "📥 RECIBIENDO";
+            String tipoTexto = isSending ? "ENVIANDO" : "RECIBIENDO";
+            // El ID debe registrarse antes de añadir la fila para evitar inconsistencias
             rowMap.put(t.getId(), model.getRowCount());
             managerMap.put(t.getId(), manager);
+
             model.addRow(new Object[]{
-                    t.getId(),
-                    t.getFileName().toUpperCase(),
-                    mode.contains("SEND") ? "📤 Enviando" : "📥 Recibiendo",
-                    "PENDIENTE",
-                    "0.0 MB/s",
-                    0,
-                    //formatSize(t.getTamano()),
-                    formatSize(t.getTamano()),
-                    t.getId() // Pasamos el ID a la celda de acciones
-
-
+                    t.getId(),                               // 0: ID (Oculto)
+                    t.getFileName().toUpperCase(),           // 1: ARCHIVO
+                    tipoTexto,                               // 2: TIPO (Con Icono)
+                    "CONECTANDO...",                         // 3: ESTADO (Más descriptivo que Pendiente)
+                    "---",                                   // 4: VELOCIDAD
+                    0,                                       // 5: PROGRESO (Integer)
+                    formatSize(t.getTamano()),               // 6: TAMAÑO
+                    t.getId()                                // 7: ACCIONES (Editor/Renderer)
             });
 
             updateCount();
@@ -210,6 +246,7 @@ public class TransferPanel extends JPanel implements TransferencesObserver {
     // Sustituye tu método updateTransferenceFull por este:
     @Override
     public void updateTransferenceFull(TransferProgress p) {
+
 
         Integer modelRowIndex = rowMap.get(p.id());
         if (modelRowIndex == null) return;
@@ -507,77 +544,121 @@ public class TransferPanel extends JPanel implements TransferencesObserver {
 
     // --- HANDLER PARA BOTONES EN LA TABLA ---
     private class ActionCellHandler extends AbstractCellEditor implements TableCellRenderer, TableCellEditor {
-        private final JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 5, 2));
-        private final JButton btnPause = new JButton("⏸");
-        private final JButton btnResume = new JButton("▶");
-        private final JButton btnCancel = new JButton("✕");
-        private String editingId; // ID específico para la celda en edición
+
+        private  JLabel lblCompleted = new JLabel("✔");
+
+        private String editingId; // ID de la transferencia actual
 
         public ActionCellHandler() {
-            panel.setOpaque(false);
-            setupBtn(btnPause, "#d97706");
-            setupBtn(btnResume, "#16a34a");
-            setupBtn(btnCancel, "#ef4444");
 
-            btnPause.addActionListener(e -> handleAction("PAUSE"));
-            btnResume.addActionListener(e -> handleAction("RESUME"));
-            btnCancel.addActionListener(e -> handleAction("CANCEL"));
+            lblCompleted.setForeground(new Color(46, 204, 113));
+            lblCompleted.setFont(new Font("Segoe UI", Font.BOLD, 14));
 
-            panel.add(btnPause);
-            panel.add(btnResume);
-            panel.add(btnCancel);
         }
 
-        private void handleAction(String action) {
-            TransferManager m = managerMap.get(editingId);
-            if (m != null) {
-                switch (action) {
-                    case "PAUSE" -> m.pause();
-                    case "RESUME" -> m.resume();
-                    case "CANCEL" -> m.cancel();
-                }
-
-                // Forzar actualización visual inmediata del estado en el modelo
-                // Usamos rowMap para encontrar la fila correcta de forma segura
-                Integer modelRow = rowMap.get(editingId);
-                if (modelRow != null) {
-                    model.setValueAt(action.equals("PAUSE") ? "PAUSADO" : "EN CURSO", modelRow, 3);
-                }
+        private void handleAction(String action, String id) {
+            // 1. Bloqueamos el ID actual para evitar que cambie durante el proceso
+            TransferManager m = managerMap.get(id);
+            if (m == null) {
+                fireEditingStopped(); // Si no hay manager, cerramos edición y salimos
+                return;
             }
-            // CRÍTICO: Detener la edición para que la tabla repinte los botones correctamente
-            fireEditingStopped();
+
+            // 2. Ejecutar acción de red
+            executeTransferAction(m, action);
+
+            // 3. Actualizar UI de forma atómica
+            SwingUtilities.invokeLater(() -> {
+                //Integer modelRow = rowMap.get(currentId);
+                int modelRow = getRowById(id);
+                if (modelRow != -1) {
+                    updateModelStatus(modelRow, action);
+                    fireEditingStopped();
+                    model.fireTableCellUpdated(modelRow, 3);
+                    model.fireTableCellUpdated(modelRow, 7);
+                }
+            });
         }
 
-        private void setupBtn(JButton b, String colorHex) {
-            b.putClientProperty(FlatClientProperties.STYLE,
-                    "arc: 10; " +
-                            "background: " + colorHex + "; " +
-                            "foreground: #ffffff; " +
-                            "borderPainted: false; " +
-                            "focusWidth: 0; " +
-                            "hoverBackground: darken(" + colorHex + ", 10%)");
-            b.setPreferredSize(new Dimension(30, 26));
-            b.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        private void executeTransferAction(TransferManager m, String action) {
+            switch (action) {
+                case "PAUSE" -> m.pause();
+                case "RESUME" -> m.resume();
+
+            }
+        }
+
+        private void updateModelStatus(int modelRow, String action) {
+            String nuevoEstado = switch (action) {
+                case "PAUSE" -> "PAUSADO";
+                case "RESUME" -> "EN CURSO";
+                case "CANCEL" -> "CANCELADO";
+                default -> (String) model.getValueAt(modelRow, 3);
+            };
+            model.setValueAt(nuevoEstado, modelRow, 3);
+        }
+
+        private Component updatePanel(JTable table, int row, boolean isSelected, String id) {
+            // Creamos un panel nuevo para esta celda específica en este momento
+            JPanel renderPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 5, 2));
+            renderPanel.setOpaque(isSelected);
+            if (isSelected) renderPanel.setBackground(table.getSelectionBackground());
+
+            int modelRow = table.convertRowIndexToModel(row);
+            String estado = model.getValueAt(modelRow, 3).toString();
+            int progreso = (int) model.getValueAt(modelRow, 5);
+
+            if (progreso >= 100 || "FINALIZADO".equals(estado)) {
+                JLabel lbl = new JLabel("✔");
+                lbl.setForeground(new Color(46, 204, 113));
+                lbl.setFont(new Font("Segoe UI", Font.BOLD, 14));
+                renderPanel.add(lbl);
+            } else {
+                // Creamos los botones necesarios para ESTA celda
+                if ("PAUSADO".equals(estado)) {
+                    JButton resume = createBtn("▶", "#16a34a", "Reanudar");
+                    resume.addActionListener(e -> handleAction("RESUME", id));
+                    renderPanel.add(resume);
+                } else {
+                    JButton pause = createBtn("⏸", "#d97706", "Pausar");
+                    pause.addActionListener(e -> handleAction("PAUSE", id));
+                    renderPanel.add(pause);
+                }
+
+                JButton cancel = createBtn("✕", "#ef4444", "Cancelar");
+                cancel.addActionListener(e -> handleAction("CANCEL", id));
+                renderPanel.add(cancel);
+            }
+
+            return renderPanel;
         }
 
         @Override
         public Component getTableCellRendererComponent(JTable t, Object v, boolean isS, boolean hasF, int r, int c) {
-            int modelRow = t.convertRowIndexToModel(r);
-            int progress = (int) model.getValueAt(modelRow, 5);
-            btnPause.setEnabled(progress < 100);
-            btnResume.setEnabled(progress < 100);
-            return panel;
+            return updatePanel(t, r, isS, (String) v);
         }
-
-
 
         @Override
         public Component getTableCellEditorComponent(JTable t, Object v, boolean isS, int r, int c) {
             this.editingId = (String) v;
-            return panel;
+            return updatePanel(t, r, true, this.editingId);
         }
 
         @Override public Object getCellEditorValue() { return editingId; }
+
+        private JButton createBtn(String icon, String color, String tip) {
+            JButton b = new JButton(icon);
+            b.setToolTipText(tip);
+            setupBtn(b, color);
+            return b;
+        }
+
+        private void setupBtn(JButton b, String colorHex) {
+            b.putClientProperty(FlatClientProperties.STYLE,
+                    "arc: 10; background: " + colorHex + "; foreground: #ffffff; borderPainted: false; focusWidth: 0");
+            b.setPreferredSize(new Dimension(30, 26));
+            b.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        }
     }
 
     private static class ProgressRenderer extends JProgressBar implements TableCellRenderer {

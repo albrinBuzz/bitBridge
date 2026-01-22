@@ -1,4 +1,4 @@
-package org.bitBridge.shared;
+package org.bitBridge.shared.core.comunication;
 
 public enum CommunicationType {
     MESSAGE((byte) 1),
@@ -13,8 +13,8 @@ public enum CommunicationType {
     UPDATE((byte) 10),
     DISCONNECT((byte) 11),
     SCREEN_CAPTURE((byte) 12),
-    AUDIO_STREAM((byte) 13);
-
+    AUDIO_STREAM((byte) 13),
+    ACK((byte) 14);
     public final byte id;
 
     CommunicationType(byte id) {

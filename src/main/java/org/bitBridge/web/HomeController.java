@@ -4,9 +4,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 
 import org.bitBridge.Client.core.Client;
-import org.bitBridge.shared.CommunicationType;
+import org.bitBridge.shared.core.comunication.CommunicationType;
 import org.bitBridge.shared.Logger;
-import org.bitBridge.shared.Mensaje;
+import org.bitBridge.shared.core.comunication.Mensaje;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;

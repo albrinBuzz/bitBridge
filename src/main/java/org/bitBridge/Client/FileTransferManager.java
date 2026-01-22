@@ -2,22 +2,17 @@ package org.bitBridge.Client;
 
 import org.bitBridge.controller.TransferenciaController;
 import org.bitBridge.shared.*;
+import org.bitBridge.shared.core.comunication.*;
+import org.bitBridge.shared.network.NetworkConfig;
 import org.bitBridge.shared.network.ProtocolService;
 
 import java.io.*;
 import java.net.InetSocketAddress;
-import java.net.Socket;
 import java.net.StandardSocketOptions;
-import java.nio.ByteBuffer;
 import java.nio.channels.*;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import java.nio.file.attribute.BasicFileAttributeView;
-import java.nio.file.attribute.BasicFileAttributes;
-import java.nio.file.attribute.FileTime;
 import java.util.Random;
-import java.util.concurrent.TimeUnit;
 
 public class FileTransferManager implements TransferManager {
     private volatile boolean running = true;
@@ -42,15 +37,16 @@ public class FileTransferManager implements TransferManager {
 
 
         try (SocketChannel socketChannel = SocketChannel.open()) {
-            socketChannel.configureBlocking(true); // Bloqueante para transferencia de archivos es más simple y rápido
-            socketChannel.setOption(StandardSocketOptions.TCP_NODELAY, true);
-            socketChannel.setOption(StandardSocketOptions.SO_SNDBUF, 4*1024 * 1024);
-            socketChannel.setOption(StandardSocketOptions.SO_RCVBUF, 4 * 1024 * 1024);
+            NetworkConfig.optimizeSocket(socketChannel);
+            //socketChannel.configureBlocking(true); // Bloqueante para transferencia de archivos es más simple y rápido
+            //socketChannel.setOption(StandardSocketOptions.TCP_NODELAY, true);
+            //socketChannel.setOption(StandardSocketOptions.SO_SNDBUF, BUFFER_SIZE);
+            //socketChannel.setOption(StandardSocketOptions.SO_RCVBUF, BUFFER_SIZE);
             socketChannel.connect(new InetSocketAddress(SERVER_ADDRESS, port));
 
 
             if (socketChannel.isConnected()) {
-                Logger.logInfo("[RECEPTOR-NIO] Conectando a " + SERVER_ADDRESS + ":" + port + "...");
+
 
                 // Configuración de alto rendimiento
 
@@ -65,7 +61,7 @@ public class FileTransferManager implements TransferManager {
                 FileHandshakeCommunication respuesta = waitForHandshakeNIO(socketChannel);
 
                 if (respuesta != null && respuesta.getAction() == FileHandshakeAction.START_TRANSFER) {
-                    Logger.logInfo("¡CONEXIÓN EXITOSA! El receptor aceptó. (Envío de bytes Inciado)");
+
 
                 String idTransfe = transferenciaController.addTransference(
                         FileTransferState.SENDING.name(), com.getRecipient(), com.getRecipient(),
@@ -93,30 +89,26 @@ public class FileTransferManager implements TransferManager {
         var info = handshakeCommunication.getFileInfo();
         long fileSize = info.getSize();
 
-        Logger.logInfo("[RECEPTOR-NIO] Solicitud recibida. Sesión: " + sessionId + " | Archivo: " + info.getName()
-        +"| Longitud: "+ formatSize(info.getSize()));
+
 
         try (SocketChannel socketChannel = SocketChannel.open()) {
             socketChannel.configureBlocking(true); // Bloqueante para transferencia de archivos es más simple y rápido
             socketChannel.setOption(StandardSocketOptions.TCP_NODELAY, true);
-            socketChannel.setOption(StandardSocketOptions.SO_SNDBUF, 4 * 1024 * 1024);
-            socketChannel.setOption(StandardSocketOptions.SO_RCVBUF, 4 * 1024 * 1024);
+            socketChannel.setOption(StandardSocketOptions.SO_SNDBUF, BUFFER_SIZE);
+            socketChannel.setOption(StandardSocketOptions.SO_RCVBUF, BUFFER_SIZE);
             if (transferenciaController.notifyTranference(handshakeCommunication)) {
 
             socketChannel.connect(new InetSocketAddress(SERVER_ADDRESS, Integer.parseInt(port)));
 
             if (socketChannel.isConnected()) {
-                    Logger.logInfo("[RECEPTOR-NIO] Conectando a " + SERVER_ADDRESS + ":" + port + "... Enviando handshake de identificación");
 
                     // 1. Identificación
                     Mensaje idMsg = new Mensaje(sessionId, CommunicationType.MESSAGE);
                     ProtocolService.writeNIO(socketChannel, idMsg);
-                    Logger.logInfo("[RECEPTOR-NIO] ID de sesión enviado: " + sessionId);
 
                     // 2. Enviar Aceptación
                     FileHandshakeCommunication accept = new FileHandshakeCommunication(FileHandshakeAction.ACCEPT_REQUEST, sessionId);
                     ProtocolService.writeNIO(socketChannel, accept);
-                    Logger.logInfo("[RECEPTOR-NIO] ACCEPT_REQUEST enviado satisfactoriamente.");
 
 
                     String rutaFull = configCliente.obtener("cliente.directorio_descargas") + info.getName();
@@ -127,15 +119,15 @@ public class FileTransferManager implements TransferManager {
                     String idTrans = transferenciaController.addTransference(
                             FileTransferState.RECEIVING.name(), info.getRecipient(), info.getRecipient(), info.getName(), this,fileSize);
 
-                    Logger.logInfo("[RECEPTOR-NIO] Se Confirma el incio de la transaferencia");
                     // --- ZERO COPY RECEIVE ---
                     try (FileChannel fileChannel = FileChannel.open(Path.of(rutaFull),
                             StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
 
+
                         long totalRead = 0;
                         while (totalRead < fileSize && running) {
                             // Transferimos de 2MB en 2MB para poder actualizar la UI y pausar
-                            long bytesToRead = Math.min(4 * 1024 * 1024, fileSize - totalRead);
+                            long bytesToRead = Math.min(BUFFER_SIZE, fileSize - totalRead);
                             long read = fileChannel.transferFrom(socketChannel, totalRead, bytesToRead);
 
                             if (read <= 0) break;
@@ -160,7 +152,7 @@ public class FileTransferManager implements TransferManager {
     }
 
     private boolean confirmarInicioNIO(SocketChannel channel, String sessionId) throws Exception {
-        Logger.logInfo("Esperando confirmación mediante ProtocolService...");
+
         while (true) {
             // Delegación total al protocolo
             Communication comm = ProtocolService.readNIO(channel);
@@ -183,7 +175,7 @@ public class FileTransferManager implements TransferManager {
             while (position < size && running) {
                 checkPaused();
                 // Transferimos en trozos para actualizar la barra de progreso
-                long transferred = fileChannel.transferTo(position, Math.min(4 * 1024 * 1024, size - position), socketChannel);
+                long transferred = fileChannel.transferTo(position, Math.min(BUFFER_SIZE, size - position), socketChannel);
                 if (transferred <= 0) break;
 
                 position += transferred;
@@ -193,7 +185,7 @@ public class FileTransferManager implements TransferManager {
     }
 
     private FileHandshakeCommunication waitForHandshakeNIO(SocketChannel channel) throws Exception {
-        Logger.logInfo("Iniciando bucle de espera de Handshake (NIO)...");
+
 
         // El bucle continuará hasta que recibamos el handshake o se corte la conexión
         while (running) {
@@ -204,7 +196,7 @@ public class FileTransferManager implements TransferManager {
 
             // Si es el objeto de Handshake que buscamos, lo devolvemos y rompemos el bucle
             if (comm instanceof FileHandshakeCommunication handshake) {
-                Logger.logInfo("Handshake recibido: " + handshake.getAction());
+
                 return handshake;
             }
 
@@ -234,4 +226,15 @@ public class FileTransferManager implements TransferManager {
     public void resume() { synchronized (pauseLock) { paused = false; pauseLock.notifyAll(); } }
 
     @Override public void cancel() { stop(); }
+
+    @Override
+    public String toString() {
+        return "FileTransferManager{" +
+                "running=" + running +
+                ", paused=" + paused +
+                ", pauseLock=" + pauseLock +
+                ", configCliente=" + configCliente +
+                ", transferenciaController=" + transferenciaController +
+                '}';
+    }
 }

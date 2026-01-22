@@ -7,6 +7,8 @@ import org.bitBridge.Observers.TransferencesObserver;
 import org.bitBridge.models.TransferProgress;
 import org.bitBridge.models.Transferencia;
 import org.bitBridge.shared.*;
+import org.bitBridge.shared.core.comunication.FileHandshakeAction;
+import org.bitBridge.shared.core.comunication.FileHandshakeCommunication;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -158,7 +160,7 @@ public class TransferenciaController {
             if (startTime == null) motivo.append("[StartTime no registrado (cronómetro no iniciado)] ");
             if (totalBytes <= 0) motivo.append("[Tamaño total inválido o cero: ").append(totalBytes).append("] ");
 
-            Logger.logWarn(motivo.toString());
+            ///Logger.logWarn(motivo.toString());
         }
     }
 

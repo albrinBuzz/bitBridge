@@ -1,11 +1,9 @@
 package org.bitBridge.Client.core;
 import org.bitBridge.Client.services.MessageDispatcher;
-import org.bitBridge.Tests.nio.NioClientHandler;
 
-import org.bitBridge.shared.Communication;
+import org.bitBridge.shared.core.comunication.Communication;
 import org.bitBridge.shared.Logger;
 import org.bitBridge.shared.network.ClientNetworkEngine;
-import org.bitBridge.shared.network.NetworkTransport;
 import org.bitBridge.shared.network.ProtocolService;
 
 import java.io.IOException;
@@ -13,7 +11,6 @@ import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
-import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.Iterator;
 
@@ -77,8 +74,15 @@ public class NioClientEngine implements ClientNetworkEngine, Runnable {
     }
 
     private void readIncomingData() throws IOException {
+        int read;
         if (readingHeader) {
-            socketChannel.read(headerBuffer);
+            //socketChannel.read(headerBuffer);
+            read = socketChannel.read(headerBuffer);
+            if (read == -1) {
+                handleServerDisconnection();
+                return;
+            }
+
             if (!headerBuffer.hasRemaining()) {
                 headerBuffer.flip();
                 int jsonSize = headerBuffer.getInt();
@@ -96,7 +100,13 @@ public class NioClientEngine implements ClientNetworkEngine, Runnable {
         }
 
         if (!readingHeader) {
-            socketChannel.read(payloadBuffer);
+            //socketChannel.read(payloadBuffer);
+            read = socketChannel.read(payloadBuffer);
+            if (read == -1) {
+                handleServerDisconnection();
+                return;
+            }
+
             if (!payloadBuffer.hasRemaining()) {
                 payloadBuffer.flip();
                 byte[] data = payloadBuffer.array();
@@ -114,9 +124,7 @@ public class NioClientEngine implements ClientNetworkEngine, Runnable {
 
     @Override
     public void send(Communication payload) throws IOException {
-
             ProtocolService.writeNIO(socketChannel,payload);
-
     }
 
     public void setDispatcher(MessageDispatcher dispatcher) {
@@ -137,12 +145,30 @@ public class NioClientEngine implements ClientNetworkEngine, Runnable {
     public void disconnect() {
 
     }
+    private void handleServerDisconnection() throws IOException {
+        Logger.logWarn("[CLIENTE] El servidor ha cerrado la conexión.");
+        stop(); // Limpia sockets y para el hilo
+
+        // NOTIFICACIÓN CRÍTICA: Informar al Dispatcher o Controller
+        // para que la UI cambie de estado (ej: poner iconos en rojo)
+        if (dispatcher != null) {
+            dispatcher.onDisconnect();
+        }
+    }
 
     @Override
     public void stop() throws IOException {
         this.running = false;
-        if (socketChannel != null) socketChannel.close();
-        if (selector != null) selector.close();
+        if (selector != null && selector.isOpen()) {
+            selector.wakeup(); // Despierta al hilo si está bloqueado en select(1000)
+        }
+        if (socketChannel != null) {
+            socketChannel.close();
+        }
+        if (selector != null) {
+            selector.close();
+        }
+        Logger.logInfo("NioClientEngine detenido correctamente.");
     }
 
     @Override

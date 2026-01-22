@@ -3,24 +3,25 @@ package org.bitBridge.server.core.client;
 
 
 import org.bitBridge.Client.ClientInfo;
+import org.bitBridge.server.core.NioServerEngine;
 import org.bitBridge.server.core.ServerContext;
-import org.bitBridge.shared.Communication;
-import org.bitBridge.shared.CommunicationType;
+import org.bitBridge.shared.core.comunication.Communication;
+import org.bitBridge.shared.core.comunication.CommunicationType;
 import org.bitBridge.shared.Logger;
-import org.bitBridge.shared.Mensaje;
+import org.bitBridge.shared.core.comunication.Mensaje;
 import org.bitBridge.shared.network.ProtocolService;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.WritableByteChannel;
 
 public class NioClientHandler implements BitBridgeClient {
     private final SocketChannel channel;
     private final ServerContext context;
+    private SelectionKey selectionKey;
 
     // Buffers de lectura de estado
     private ByteBuffer payloadBuffer = null;
@@ -37,7 +38,60 @@ public class NioClientHandler implements BitBridgeClient {
         this.context = context;
     }
 
+    public void setSelectionKey(SelectionKey key) {
+        this.selectionKey = key;
+    }
     public void processRead() {
+        try {
+            if (readingHeader) {
+                if (channel.read(headerBuffer) == -1) throw new IOException("End of stream");
+
+                if (!headerBuffer.hasRemaining()) {
+                    headerBuffer.flip();
+                    int jsonSize = headerBuffer.getInt();
+                    short typeSize = headerBuffer.getShort();
+
+                    // Protección contra ataques de memoria
+                    if (jsonSize <= 0 || jsonSize > 2 * 1024 * 1024) {
+                        throw new IOException("Paquete inválido o demasiado grande: " + jsonSize);
+                    }
+
+                    payloadBuffer = ByteBuffer.allocate(6 + typeSize + jsonSize);
+                    headerBuffer.rewind();
+                    payloadBuffer.put(headerBuffer);
+                    readingHeader = false;
+                }
+            }
+
+            if (!readingHeader) {
+                if (channel.read(payloadBuffer) == -1) throw new IOException("End of stream");
+
+                if (!payloadBuffer.hasRemaining()) {
+                    // --- PUNTO CRÍTICO: CAMBIO A HILO VIRTUAL ---
+                    byte[] fullData = payloadBuffer.array();
+
+                    // 1. Pausamos la lectura para este cliente para no saturar el Worker
+                    if (selectionKey != null) selectionKey.interestOps(0);
+
+                    Thread.ofVirtual().start(() -> {
+                        try {
+                            onMessageComplete(fullData);
+                        } finally {
+                            // 2. Reactivamos la lectura al terminar el proceso lógico
+                            resumeSelection();
+                        }
+                    });
+
+                    resetBuffers();
+                }
+            }
+        } catch (IOException e) {
+            shutDown();
+        }
+    }
+
+    /*public void processRead() {
+        //Logger.logInfo(Thread.currentThread().getName());
         try {
             if (readingHeader) {
                 int read = channel.read(headerBuffer);
@@ -78,7 +132,7 @@ public class NioClientHandler implements BitBridgeClient {
             Logger.logError("Error en lectura: " + e.getMessage());
             shutDown();
         }
-    }
+    }*/
 
     private void resetBuffers() {
         headerBuffer.clear();
@@ -86,18 +140,15 @@ public class NioClientHandler implements BitBridgeClient {
         readingHeader = true;
     }
 
-    private void handleIncomingPacket(byte[] data) {
-        try {
-            // Aquí usamos tu lógica de GSON pero desde bytes
-            Communication comm = ProtocolService.fromBytes(data);
-            //context.dispatcher().dispatch(this, comm, context);
-        } catch (Exception e) {
-            System.err.println("Error procesando paquete: " + e.getMessage());
+    private void resumeSelection() {
+        if (!isShuttingDown && selectionKey != null && selectionKey.isValid()) {
+            selectionKey.interestOps(SelectionKey.OP_READ);
+            selectionKey.selector().wakeup(); // Despierta al SubReactor para que vea el cambio
         }
     }
 
     private void onMessageComplete(byte[] data) {
-
+        //Logger.logInfo(Thread.currentThread().getName());
         try {
             Communication comm = ProtocolService.fromBytes(data);
             if (!authenticated) {
@@ -133,7 +184,7 @@ public class NioClientHandler implements BitBridgeClient {
 
 
 
-    public synchronized void sendComunicacion(Communication comm) {
+    public  void sendComunicacion(Communication comm) {
         if (isShuttingDown) return;
         try {
             ProtocolService.writeNIO(channel, comm);
@@ -161,9 +212,16 @@ public class NioClientHandler implements BitBridgeClient {
         }
     }
 
-    private void closeConnection() {
+    // En NioClientHandler.java al cerrar
+    public void closeConnection() {
         try {
-            channel.close();
+            if (context.getNetworkEngine() instanceof NioServerEngine engine) {
+
+                engine.unregisterChannel(channel);
+            }
+            if (channel.isOpen()) {
+                channel.close();
+            }
         } catch (IOException ignored) {}
     }
 

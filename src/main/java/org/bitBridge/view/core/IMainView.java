@@ -5,5 +5,5 @@ public interface IMainView {
     void showAlert(String title, String content);
     void updateTheme(String themeName);
     void updateConnectionUI(ConnectionState state, String detail);
-
+    void addLog(String log);
 }

@@ -109,5 +109,9 @@ public class ServerStats {
         return new ArrayList<>(this.connectedClients); // Devuelve una copia para evitar ConcurrentModificationException
     }
 
+    public long getStartTime() {
+        return startTime;
+    }
+
     public int getClientCount() { return connectedClients.size(); }
 }

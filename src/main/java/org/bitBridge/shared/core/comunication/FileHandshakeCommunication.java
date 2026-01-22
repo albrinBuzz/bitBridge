@@ -1,4 +1,4 @@
-package org.bitBridge.shared;
+package org.bitBridge.shared.core.comunication;
 
 
 public class FileHandshakeCommunication extends Communication {

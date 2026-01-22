@@ -19,13 +19,7 @@ public class Captura {
         try {
             // 1. Iniciar Servidor
             Server servidor = Server.getInstance();
-            new Thread(() -> {
-                try {
-                    servidor.startServer();
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-            }).start();
+            new Thread(servidor::startServer).start();
             Thread.sleep(100);
 
 

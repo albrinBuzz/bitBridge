@@ -247,7 +247,7 @@ public class HeaderPanel extends JPanel {
     }
 
     private void handleServerAction() {
-        if (btnStartHub.getText().equals("ENCENDER HUB")) {
+        if (btnStartHub.getText().equals("ENCENDER HUB")||btnStartHub.getText().equals("REINTENTAR")) {
             btnStartHub.setEnabled(false);
             controller.startServer();
 
@@ -274,7 +274,10 @@ public class HeaderPanel extends JPanel {
                 btnConnect.setText("Desconectar");
                 btnConnect.setBackground(DANGER_RED);
                 toggleInputs(false);
-                discoveryProgress.setVisible(false);
+                Timer fadeOut = new Timer(300, e -> discoveryProgress.setVisible(false));
+                fadeOut.setRepeats(false);
+                fadeOut.start();
+
             }
             case DISCONNECTED, CONNECTION_ERROR -> {
                 lblConnectionStatus.setText(state == ConnectionState.CONNECTION_ERROR ? "● ERROR" : "● OFF");
@@ -306,23 +309,46 @@ public class HeaderPanel extends JPanel {
         JOptionPane.showMessageDialog(this, detail, title, messageType);
     }
 
-    
-    public void updateServerStatus(ServerState state, String errorMessage) {
-        btnStartHub.setEnabled(state != ServerState.STARTING);
-        boolean isRunning = (state == ServerState.RUNNING);
 
-        if (isRunning) {
-            btnStartHub.setText("HUB ACTIVO");
-            btnStartHub.setBackground(SUCCESS_GREEN.darker());
-            btnStartHub.setForeground(Color.WHITE);
-            lblHubStatus.setText("Estado HUB: ");
-            lblHubStatus.setForeground(SUCCESS_GREEN);
-        } else {
-            btnStartHub.setText("ENCENDER HUB");
-            btnStartHub.setBackground(new Color(45, 45, 45));
-            btnStartHub.setForeground(Color.LIGHT_GRAY);
-            lblHubStatus.setText("Estado HUB: OFF");
-            lblHubStatus.setForeground(Color.GRAY);
+    public void updateServerStatus(ServerState state, String errorMessage) {
+        // Rehabilitar el botón a menos que esté en proceso de inicio
+        btnStartHub.setEnabled(state != ServerState.STARTING);
+
+        switch (state) {
+            case RUNNING -> {
+                btnStartHub.setText("APAGAR HUB");
+                btnStartHub.setBackground(SUCCESS_GREEN.darker());
+                btnStartHub.setForeground(Color.WHITE);
+                lblHubStatus.setText("ESTADO HUB: ACTIVO");
+                lblHubStatus.setForeground(SUCCESS_GREEN);
+                // Si quieres usar el estilo FlatLaf dinámicamente:
+                btnStartHub.putClientProperty(FlatClientProperties.STYLE, "background: #27ae60; foreground: #ffffff");
+            }
+            case ERROR -> {
+                btnStartHub.setText("REINTENTAR");
+                btnStartHub.setBackground(DANGER_RED.darker());
+                btnStartHub.setForeground(Color.WHITE);
+                lblHubStatus.setText("HUB: ERROR DE PUERTO");
+                lblHubStatus.setForeground(DANGER_RED);
+
+                // Opcional: mostrar un tooltip con el mensaje de error específico
+                if (errorMessage != null) {
+                    btnStartHub.setToolTipText(errorMessage);
+                }
+            }
+            case STARTING -> {
+                btnStartHub.setText("INICIANDO...");
+                lblHubStatus.setText("HUB: CARGANDO...");
+                lblHubStatus.setForeground(COLOR_WARNING);
+            }
+            default -> { // STOPPED / OFF
+                btnStartHub.setText("ENCENDER HUB");
+                btnStartHub.setBackground(new Color(45, 45, 45));
+                btnStartHub.setForeground(Color.LIGHT_GRAY);
+                lblHubStatus.setText("ESTADO HUB: OFF");
+                lblHubStatus.setForeground(Color.GRAY);
+                btnStartHub.setToolTipText("Iniciar el servidor local");
+            }
         }
     }
 

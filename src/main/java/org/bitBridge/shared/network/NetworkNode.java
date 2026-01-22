@@ -1,6 +1,6 @@
 package org.bitBridge.shared.network;
 
-import org.bitBridge.shared.Communication;
+import org.bitBridge.shared.core.comunication.Communication;
 
 import java.io.IOException;
 

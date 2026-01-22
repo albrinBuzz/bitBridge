@@ -7,8 +7,9 @@ import org.bitBridge.Client.core.Client;
 import org.bitBridge.Observers.NetObserver;
 import org.bitBridge.server.core.Server;
 import org.bitBridge.shared.Logger;
-import org.bitBridge.shared.ServerStatusConnection;
+import org.bitBridge.shared.core.comunication.ServerStatusConnection;
 
+import javax.swing.*;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -29,49 +30,69 @@ public class MainController implements NetObserver {
     public void startServer() {
         view.updateServerUI(ServerState.STARTING, null);
 
-        CompletableFuture.runAsync(() -> {
+        server.startServer().thenRun(() -> {
+            view.updateServerUI(ServerState.RUNNING, null); // Cambiado a RUNNING para que el Label sea Verde
+            //addLog("¡Servidor iniciado en puerto " + config.obtener("servidor.puerto") + "!");
+        }).exceptionally(ex -> {
+            // Extraer la causa real (BindException) de la CompletionException
+            Throwable cause = (ex instanceof CompletionException) ? ex.getCause() : ex;
+            String friendlyMessage = cause.getMessage();
+
+            Logger.logError("Error crítico: " + friendlyMessage);
+
+            // Forzar actualización de UI con el error
+            SwingUtilities.invokeLater(() -> {
+                view.updateServerUI(ServerState.ERROR, friendlyMessage);
+
+            });
+            return null;
+        });
+
+        /*CompletableFuture.runAsync(() -> {
             try {
-                server.startServer();
+
             } catch (Exception e) {
                 throw new CompletionException(e);
             }
         }).thenRun(() -> {
             view.updateServerUI(ServerState.RUNNING, null);
+
         }).exceptionally(ex -> {
             Logger.logError("Error crítico: " + ex.getMessage());
             view.updateServerUI(ServerState.ERROR, ex.getMessage());
             return null;
-        });
+        });*/
     }
 
     public void startAutoDiscovery() {
-        // 1. Notificar inicio inmediatamente
-        view.updateConnectionUI(ConnectionState.CONNECTING, "Buscando servidor en la red local...");
+        view.updateConnectionUI(ConnectionState.CONNECTING, "Buscando servidor...");
 
-        CompletableFuture.runAsync(() -> {
-            long startTime = System.currentTimeMillis();
-            try {
-                // Realizar la conexión real
-                client.conexionAutomatica();
+        long startTime = System.currentTimeMillis();
 
-                // --- TRUCO DE UX: Retardo mínimo ---
-                // Si la conexión tardó menos de 1500ms, esperamos la diferencia
-                long duration = System.currentTimeMillis() - startTime;
-                if (duration < 1500) {
-                    Thread.sleep(1500 - duration);
-                }
-
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        }).thenRun(() -> {
-            Logger.logInfo("Conexión exitosa");
-            view.updateConnectionUI(ConnectionState.CONNECTED, "Conectado");
-        }).exceptionally(ex -> {
-            Throwable cause = (ex.getCause() != null) ? ex.getCause() : ex;
-            view.updateConnectionUI(ConnectionState.CONNECTION_ERROR, cause.getMessage());
-            return null;
-        });
+        // Llamamos al método que ahora devuelve la promesa de conexión real
+        client.conexionAutomatica()
+                .thenCompose(v -> {
+                    // Aplicamos el truco de UX (esperar al menos 1.5s)
+                    long duration = System.currentTimeMillis() - startTime;
+                    if (duration < 1500) {
+                        return CompletableFuture.runAsync(() -> {
+                            try { Thread.sleep(1500 - duration); } catch (InterruptedException ignored) {}
+                        });
+                    }
+                    return CompletableFuture.completedFuture(null);
+                })
+                .thenRun(() -> {
+                    // Esto solo se ejecutará si promise.complete(null) fue llamado
+                    Logger.logInfo("¡Conexión exitosa confirmada!");
+                    view.updateConnectionUI(ConnectionState.CONNECTED, "Conectado");
+                    addLog("¡Conexión exitosa confirmada!");
+                })
+                .exceptionally(ex -> {
+                    // Esto se ejecuta si hubo un error o el timeout de 10s expiró
+                    Logger.logError("Error de descubrimiento: " + ex.getMessage());
+                    view.updateConnectionUI(ConnectionState.CONNECTION_ERROR, "No se encontró el servidor");
+                    return null;
+                });
     }
 
     public void connectServer(String ip, String portStr) {
@@ -114,9 +135,7 @@ public class MainController implements NetObserver {
     }
 
     public void stopServer() {
-        CompletableFuture.runAsync(() -> {
-            server.stopServer();
-        }).thenRun(() -> {
+        CompletableFuture.runAsync(server::stopServer).thenRun(() -> {
             view.updateServerUI(ServerState.STOPPED, null);
         });
     }
@@ -128,6 +147,9 @@ public class MainController implements NetObserver {
         }).start();
     }
 
+    public void addLog(String log){
+        this.view.addLog(log);
+    }
 
 
     @Override

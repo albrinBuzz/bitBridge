@@ -3,6 +3,7 @@ package org.bitBridge.server.core.client;
 import org.bitBridge.Client.ClientInfo;
 import org.bitBridge.server.core.ServerContext;
 import org.bitBridge.shared.*;
+import org.bitBridge.shared.core.comunication.*;
 import org.bitBridge.shared.network.ProtocolService;
 
 import java.io.*;

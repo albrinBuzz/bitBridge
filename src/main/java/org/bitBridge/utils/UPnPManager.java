@@ -1,6 +1,7 @@
 package org.bitBridge.utils;
 
 import org.bitBridge.shared.Logger;
+import org.bitBridge.shared.network.NetworkManager;
 import org.jupnp.UpnpService;
 import org.jupnp.UpnpServiceImpl;
 import org.jupnp.support.igd.PortMappingListener;

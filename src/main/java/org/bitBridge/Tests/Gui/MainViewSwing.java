@@ -3,6 +3,7 @@ package org.bitBridge.Tests.Gui;
 import com.formdev.flatlaf.FlatDarkLaf;
 import org.bitBridge.Client.core.Client;
 import org.bitBridge.server.core.Server;
+import org.bitBridge.shared.Logger;
 import org.bitBridge.view.core.ConnectionState;
 import org.bitBridge.view.core.IMainView;
 import org.bitBridge.view.core.MainController;
@@ -229,11 +230,22 @@ public class MainViewSwing extends JFrame implements IMainView {
     }
 
     @Override public void updateServerUI(ServerState s, String e) {
+        Logger.logInfo(e);
         SwingUtilities.invokeLater(() -> {
-            boolean r = (s == ServerState.RUNNING);
-            serverStatusLabel.setText(r ? "● ONLINE" : "○ OFF");
-            serverStatusLabel.setForeground(r ? Color.GREEN : Color.GRAY);
-            startServerBtn.setText(r ? "Apagar" : "Activar");
+            if (s == ServerState.RUNNING) {
+                serverStatusLabel.setText("● ONLINE");
+                serverStatusLabel.setForeground(Color.GREEN);
+                startServerBtn.setText("Apagar");
+            } else if (s == ServerState.ERROR) {
+                serverStatusLabel.setText("● ERROR");
+                serverStatusLabel.setForeground(Color.RED); // Rojo para errores
+                startServerBtn.setText("Reintentar");
+                // Si tienes un área de logs en la UI, añade el error 'e'
+            } else {
+                serverStatusLabel.setText("○ OFF");
+                serverStatusLabel.setForeground(Color.GRAY);
+                startServerBtn.setText("Activar");
+            }
         });
     }
 
@@ -244,6 +256,11 @@ public class MainViewSwing extends JFrame implements IMainView {
             connectionStatusLabel.setForeground(c ? Color.GREEN : Color.RED);
             connectBtn.setText(c ? "Desconectar" : "Conectar");
         });
+    }
+
+    @Override
+    public void addLog(String log) {
+
     }
 
     private void exitApp() { if(JOptionPane.showConfirmDialog(this, "¿Salir?") == 0) System.exit(0); }

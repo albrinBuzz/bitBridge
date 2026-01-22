@@ -1,19 +1,17 @@
 package org.bitBridge.Client.services;
 
-import org.bitBridge.Client.DirectoryTransferManager;
 import org.bitBridge.Client.FileTransferManager;
 import org.bitBridge.Client.NioDirectoryTransferManager;
 import org.bitBridge.Client.core.Client;
 import org.bitBridge.Client.core.ClientActionHandler;
 import org.bitBridge.Client.core.ClientContext;
 import org.bitBridge.shared.*;
+import org.bitBridge.shared.core.comunication.*;
 
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.SourceDataLine;
-import java.awt.*;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.file.StandardOpenOption;
 import java.util.HashMap;
@@ -45,12 +43,21 @@ public class MessageDispatcher {
         // 1. Manejo de lista de clientes
         register(ClientListMessage.class, (data, cl, ctx) -> {
 
-            cl.notifyHostobserves(((ClientListMessage) data).getClientNicks());
+            cl.notifyHostobserves(data.getClientNicks());
         });
 
         // 2. Manejo de mensajes de chat
         register(Mensaje.class, (data, cl, ctx) -> {
-            cl.handleIncomingMessage(((Mensaje) data).getContenido());
+            cl.handleIncomingMessage(data.getContenido());
+        });
+
+        register(MessageAck.class, (data, cl, ctx) -> {
+
+            // Aquí podrías buscar en tu lista de mensajes enviados
+            // y ponerle un "check" verde o cambiar el color
+            //cl.updateMessageStatus(ack.getOriginalMessageId(), ack.getStatus());
+            //Logger.logInfo("Mensaje confirmado por el servidor.");
+            cl.getMessageTracker().markAsDelivered();
         });
 
         // 3. Manejo de transferencias (Handshake)
@@ -149,5 +156,9 @@ public class MessageDispatcher {
                 e.printStackTrace();
             }
         });
+    }
+
+    public void onDisconnect() {
+        client.onDisconnect();
     }
 }

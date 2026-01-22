@@ -1,4 +1,4 @@
-package org.bitBridge.shared;
+package org.bitBridge.shared.core.comunication;
 
 public enum ServerStatusConnection {
     DISCONNECTED,  // El cliente no está conectado al servidor

@@ -5,14 +5,10 @@ import org.bitBridge.server.transfer.FileTransferService;
 import org.bitBridge.shared.*;
 
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.*;
 
-import org.bitBridge.shared.Communication;
-import org.bitBridge.shared.CommunicationType;
+import org.bitBridge.shared.core.comunication.*;
 import org.bitBridge.shared.Logger;
-
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 public class CommunicationDispatcher {
     private final Map<CommunicationType, CommunicationHandler> handlers = new ConcurrentHashMap<>();
@@ -27,12 +23,19 @@ public class CommunicationDispatcher {
                 return t;
             });
 
-    private final ExecutorService fileTransferPool = Executors.newCachedThreadPool(r -> {
+    /*private final ExecutorService fileTransferPool = Executors.newCachedThreadPool(r -> {
         Thread t = new Thread(r);
 
         t.setName("FT-Pool-" + t.getId());
         return t;
-    });
+    });*/
+
+    // Máximo 50 transferencias simultáneas para proteger la RAM
+    private final ExecutorService fileTransferPool = new ThreadPoolExecutor(
+            4, 50, 60L, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>()
+    );
+
+    private final ExecutorService virtualExecutor = Executors.newVirtualThreadPerTaskExecutor();
 
     //private final ExecutorService fileTransferPool = Executors.newVirtualThreadPerTaskExecutor();
 
@@ -47,7 +50,7 @@ public class CommunicationDispatcher {
         //dispatcher.registerHandler(CommunicationType.FILE, new FileHandler(), ExecutionMode.SYNC);
         registerHandler(CommunicationType.NOTIFICATION, (exchange, comm) -> {
             if (comm instanceof FileHandshakeCommunication handshake) {
-                Logger.logInfo("[DISPATCHER] Handshake detectado para sesión: " + handshake.getSessionId());
+
 
                 // Entregamos la respuesta al manager para desbloquear al emisor
                 exchange.getContext().transferManager().registerHandshake(
@@ -82,7 +85,7 @@ public class CommunicationDispatcher {
 
         // En CommunicationDispatcher del Servidor
         registerHandler(CommunicationType.SCREEN_CAPTURE, (exchange, comm) -> {
-            Logger.logInfo("Captura Recibida");
+
             ScreenCaptureMessage screenMsg = (ScreenCaptureMessage) comm;
             var destinatario=screenMsg.getTargetNick();
             // El servidor simplemente actúa como puente (Relay)
@@ -111,6 +114,7 @@ public class CommunicationDispatcher {
 
         Runnable task = () -> {
             try {
+                //Logger.logInfo(Thread.currentThread().getName());
                 handler.handle(new CommunicationExchange(sender, context), message);
             } catch (Exception e) {
                 Logger.logError("Error en " + message.getType() + ": " + e.getMessage());
@@ -125,9 +129,9 @@ public class CommunicationDispatcher {
             // Los mensajes de chat y notificaciones van al pool de mensajería
             if (mode == ExecutionMode.SYNC) {
                 task.run();
-                //workerPool.execute(task);
             } else {
-                workerPool.execute(task);
+                //workerPool.execute(task);
+                virtualExecutor.execute(task);
             }
         }
     }

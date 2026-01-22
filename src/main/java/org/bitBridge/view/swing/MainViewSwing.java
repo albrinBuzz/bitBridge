@@ -372,6 +372,11 @@ public class MainViewSwing extends JFrame implements IMainView {
         });
     }
 
+    @Override
+    public void addLog(String log) {
+
+    }
+
     private void handleDesconnectionAction() {
 
     }

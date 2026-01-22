@@ -2,16 +2,13 @@ package org.bitBridge.server;
 
 
 
-import org.bitBridge.Client.ClientInfo;
 import org.bitBridge.server.core.client.ClientHandler;
-import org.bitBridge.shared.ClientListMessage;
-import org.bitBridge.shared.Communication;
-import org.bitBridge.shared.CommunicationType;
-import org.bitBridge.shared.Mensaje;
+import org.bitBridge.shared.core.comunication.Communication;
+import org.bitBridge.shared.core.comunication.CommunicationType;
+import org.bitBridge.shared.core.comunication.Mensaje;
 
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.stream.Collectors;
 
 public class ClientRegistry {
 

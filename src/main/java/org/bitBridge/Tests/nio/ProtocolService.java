@@ -1,7 +1,7 @@
 package org.bitBridge.Tests.nio;
 
 import com.google.gson.Gson;
-import org.bitBridge.shared.*;
+import org.bitBridge.shared.core.comunication.*;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;

@@ -2,11 +2,11 @@ package org.bitBridge.Client;
 
 import org.bitBridge.controller.TransferenciaController;
 import org.bitBridge.shared.*;
+import org.bitBridge.shared.core.comunication.*;
 import org.bitBridge.shared.network.ProtocolService;
 
 import java.io.*;
 import java.net.Socket;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;

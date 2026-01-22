@@ -48,8 +48,8 @@ public class ConsoleView implements Runnable {
         sb.append(getCommandHelpPanel());
         sb.append(getSystemResourcesPanel()); // <--- Sección de hardware
         sb.append(getNetworkDashboard());
-        sb.append(displayNodesTable());
-        sb.append(getActivityLog());
+        //sb.append(displayNodesTable());
+        //sb.append(getActivityLog());
 
         // Espaciado dinámico
         sb.append("\n");

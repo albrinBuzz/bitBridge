@@ -3,7 +3,7 @@ package org.bitBridge.Tests.nio;
 
 
 import org.bitBridge.server.core.ServerContext;
-import org.bitBridge.shared.Communication;
+import org.bitBridge.shared.core.comunication.Communication;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;

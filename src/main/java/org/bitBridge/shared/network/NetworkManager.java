@@ -1,4 +1,4 @@
-package org.bitBridge.utils;
+package org.bitBridge.shared.network;
 
 
 
@@ -8,7 +8,6 @@ import javax.jmdns.*;
 import java.io.IOException;
 import java.net.*;
 import java.net.http.*;
-import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 

@@ -4,9 +4,8 @@ package org.bitBridge.Observers;
 import org.bitBridge.Client.TransferManager;
 import org.bitBridge.models.TransferProgress;
 import org.bitBridge.models.Transferencia;
-import org.bitBridge.shared.FileDirectoryCommunication;
-import org.bitBridge.shared.FileHandshakeAction;
-import org.bitBridge.shared.FileHandshakeCommunication;
+import org.bitBridge.shared.core.comunication.FileHandshakeAction;
+import org.bitBridge.shared.core.comunication.FileHandshakeCommunication;
 import org.bitBridge.shared.FileTransferState;
 
 public interface TransferencesObserver{

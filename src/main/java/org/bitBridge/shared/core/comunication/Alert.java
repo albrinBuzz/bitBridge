@@ -1,6 +1,6 @@
-package org.bitBridge.shared;
+package org.bitBridge.shared.core.comunication;
 
-public class Alert extends Communication{
+public class Alert extends Communication {
 
 
     public enum Severity {

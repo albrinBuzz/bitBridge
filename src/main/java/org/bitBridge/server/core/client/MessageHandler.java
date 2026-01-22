@@ -1,7 +1,10 @@
 package org.bitBridge.server.core.client;
 
-import org.bitBridge.shared.Communication;
-import org.bitBridge.shared.Mensaje;
+import org.bitBridge.shared.Logger;
+import org.bitBridge.shared.core.comunication.Communication;
+import org.bitBridge.shared.core.comunication.Mensaje;
+import org.bitBridge.shared.core.comunication.MessageAck;
+import org.bitBridge.shared.core.comunication.ResponseCommunication;
 
 public class MessageHandler implements CommunicationHandler{
 
@@ -9,11 +12,18 @@ public class MessageHandler implements CommunicationHandler{
 
 
     @Override
-    public void handle(CommunicationExchange exchange, Communication message) throws Exception {
+    public void handle(CommunicationExchange exchange, Communication message) {
         Mensaje m = (Mensaje) message;
-        var client=exchange.getSender();
-        var context=exchange.getContext();
-        context.getServer().broadcastMessage("[" + client.getNick() + "] => " + m.getContenido(), client);
-        context.getServer().addMessageHistory("[" + client.getNick() + "] => " + m.getContenido());
+        var sender = exchange.getSender();
+        var context = exchange.getContext();
+
+        String formattedMsg = "[" + sender.getNick() + "] => " + m.getContenido();
+        context.getServer().broadcastMessage(formattedMsg, sender);
+        context.getServer().addMessageHistory(formattedMsg);
+
+        MessageAck ack = new MessageAck(MessageAck.Status.SUCCESS);
+        sender.sendComunicacion(ack);
+        //Logger.logInfo("Confirmación enviada a " + sender.getNick() + " para mensaje: " + m.getContenido());
+
     }
 }

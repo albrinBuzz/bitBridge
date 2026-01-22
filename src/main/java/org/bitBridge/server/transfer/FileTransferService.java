@@ -3,27 +3,28 @@ package org.bitBridge.server.transfer;
 
 import org.bitBridge.server.core.NioServerEngine;
 import org.bitBridge.server.core.client.BitBridgeClient;
-import org.bitBridge.server.core.client.ClientHandler;
 import org.bitBridge.server.core.ServerContext;
 import org.bitBridge.shared.*;
+import org.bitBridge.shared.core.comunication.Communication;
+import org.bitBridge.shared.core.comunication.FileDirectoryCommunication;
+import org.bitBridge.shared.core.comunication.FileHandshakeAction;
+import org.bitBridge.shared.core.comunication.FileHandshakeCommunication;
 import org.bitBridge.shared.memory.BufferPool;
 import org.bitBridge.shared.network.ProtocolService;
 
 import java.io.*;
 import java.nio.ByteBuffer;
-import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.WritableByteChannel;
 import java.util.Random;
-import java.util.concurrent.TimeUnit;
 
 
 public class FileTransferService {
 
     private final ServerContext context;
     // Buffer directo (fuera del Heap) para máxima velocidad de puente entre sockets
-    private static final int BRIDGE_BUFFER_SIZE = 256 * 1024;
+    private static final int BRIDGE_BUFFER_SIZE = 128 * 1024;
 
     public FileTransferService(ServerContext context) {
         this.context = context;
@@ -42,30 +43,25 @@ public class FileTransferService {
             }
 
             String sessionId = "FILE_" + new Random().nextInt(1000, 9999);
-            Logger.logInfo(logId + " Generada sesión: " + sessionId + " para " + recipientNick);
 
             FileHandshakeCommunication request = new FileHandshakeCommunication(
                     FileHandshakeAction.SEND_REQUEST, sessionId, communication);
 
             recipient.sendComunicacion(request);
-            Logger.logInfo(logId + " Notificación SEND_REQUEST enviada al receptor. Esperando conexión de datos...");
 
             // --- PUNTO CRÍTICO 1: Espera del Socket ---
-            BitBridgeClient receptorData = context.transferManager().waitForReceptor(sessionId, 10); // Subido a 10s
+            BitBridgeClient receptorData = context.transferManager().waitForReceptor(sessionId, 30); // Subido a 10s
 
             if (receptorData == null) {
                 Logger.logError(logId + " TIMEOUT (Fase 1): El receptor no conectó su socket para la sesión " + sessionId);
                 return;
             }
 
-            Logger.logInfo(logId + " Fase 1 Exitosa: Receptor (" + receptorData.getNick() + ") conectado físicamente.");
 
             // --- PUNTO CRÍTICO 2: Espera de la Acción (ACCEPT) ---
-            Logger.logInfo(logId + " Esperando mensaje ACCEPT_REQUEST del receptor...");
-            FileHandshakeAction action = context.transferManager().waitForResponseAction(sessionId, 5);
+            FileHandshakeAction action = context.transferManager().waitForResponseAction(sessionId, 30);
 
             if (action == FileHandshakeAction.ACCEPT_REQUEST) {
-                Logger.logInfo(logId + " Fase 2 Exitosa: Acción recibida: ACCEPT. Notificando inicio de transferencia.");
 
                 FileHandshakeCommunication start = new FileHandshakeCommunication(
                         FileHandshakeAction.START_TRANSFER, sessionId, communication);
@@ -87,11 +83,11 @@ public class FileTransferService {
                     }
                     if (sender.getReadableChannel() instanceof SocketChannel sc) {
                         sc.setOption(java.net.StandardSocketOptions.TCP_NODELAY, true);
-                        sc.setOption(java.net.StandardSocketOptions.SO_RCVBUF, 4*1024 * 1024); // 1MB
+                        sc.setOption(java.net.StandardSocketOptions.SO_RCVBUF, BRIDGE_BUFFER_SIZE); // 1MB
                     }
                     if (receptorData.getWritableChannel() instanceof SocketChannel sc) {
                         sc.setOption(java.net.StandardSocketOptions.TCP_NODELAY, true);
-                        sc.setOption(java.net.StandardSocketOptions.SO_SNDBUF, 4*1024 * 1024); // 1MB
+                        sc.setOption(java.net.StandardSocketOptions.SO_SNDBUF, BRIDGE_BUFFER_SIZE); // 1MB
                     }
                 }
 
@@ -118,7 +114,6 @@ public class FileTransferService {
         // Usamos el canal directamente del handler
 
         ByteBuffer buffer = null;
-
         try (ReadableByteChannel sChannel = source.getReadableChannel();
              WritableByteChannel dChannel = dest.getWritableChannel()) {
 
@@ -270,11 +265,11 @@ public class FileTransferService {
                     }
                     if (sender.getReadableChannel() instanceof SocketChannel sc) {
                         sc.setOption(java.net.StandardSocketOptions.TCP_NODELAY, true);
-                        sc.setOption(java.net.StandardSocketOptions.SO_RCVBUF, 4*1024 * 1024); // 1MB
+                        sc.setOption(java.net.StandardSocketOptions.SO_RCVBUF, BRIDGE_BUFFER_SIZE); // 1MB
                     }
                     if (dataReceiver.getWritableChannel() instanceof SocketChannel sc) {
                         sc.setOption(java.net.StandardSocketOptions.TCP_NODELAY, true);
-                        sc.setOption(java.net.StandardSocketOptions.SO_SNDBUF, 4*1024 * 1024); // 1MB
+                        sc.setOption(java.net.StandardSocketOptions.SO_SNDBUF, BRIDGE_BUFFER_SIZE); // 1MB
                     }
                 }
                 // --- BUCLE DE RELAY NIO ---

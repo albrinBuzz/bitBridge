@@ -6,7 +6,7 @@ import org.bitBridge.Client.core.Client;
 import org.bitBridge.Observers.GenericCountListener;
 import org.bitBridge.Observers.NetObserver;
 import org.bitBridge.shared.Logger;
-import org.bitBridge.shared.ServerStatusConnection;
+import org.bitBridge.shared.core.comunication.ServerStatusConnection;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
