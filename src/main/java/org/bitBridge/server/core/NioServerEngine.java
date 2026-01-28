@@ -52,7 +52,7 @@ public class NioServerEngine implements ServerNetworkEngine {
             try {
                 SocketChannel clientChannel = serverChannel.accept();
                 if (clientChannel != null) {
-                    if (TOTALCONECTIONS.get() >= 1000) {
+                    if (TOTALCONECTIONS.get() >= 1000000) {
                         // we've hit max limit of current open connections, so we go
                         // ahead and close this connection without processing it
                         try {

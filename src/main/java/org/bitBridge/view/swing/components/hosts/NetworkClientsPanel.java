@@ -1,5 +1,6 @@
 package org.bitBridge.view.swing.components.hosts;
 
+import com.formdev.flatlaf.util.SystemFileChooser;
 import org.bitBridge.Client.ClientInfo;
 import org.bitBridge.Client.core.Client;
 import org.bitBridge.Observers.GenericCountListener;
@@ -145,7 +146,7 @@ public class NetworkClientsPanel extends JPanel implements HostsObserver {
         serverMenu.addSeparator();
 
         // --- 2. SECCIÓN DE TRANSFERENCIA (PUSH) ---
-        JMenuItem itemPushFile = new JMenuItem("📤 Enviar Archivo...");
+        JMenuItem itemPushFile = new JMenuItem("Enviar Archivo...");
         //itemPushFile.addActionListener(e -> handleSendAction(false));
         itemPushFile.addActionListener(e -> handleAction(TransferType.ARCHIVO));
 
@@ -220,7 +221,9 @@ public class NetworkClientsPanel extends JPanel implements HostsObserver {
     }
 
     private File selectFileNative(boolean isFile) {
-        JFileChooser chooser = new JFileChooser();
+
+        //JFileChooser chooser = new JFileChooser();
+        SystemFileChooser chooser = new SystemFileChooser();
         chooser.setFileSelectionMode(isFile ? JFileChooser.FILES_ONLY : JFileChooser.DIRECTORIES_ONLY);
         chooser.setDialogTitle(isFile ? "Seleccionar Archivo" : "Seleccionar Carpeta");
 
@@ -228,6 +231,7 @@ public class NetworkClientsPanel extends JPanel implements HostsObserver {
             return chooser.getSelectedFile();
         }
         return null;
+
     }
 
     /**

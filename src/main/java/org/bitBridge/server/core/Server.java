@@ -2,8 +2,11 @@ package org.bitBridge.server.core;
 
 import java.io.*;
 import java.net.*;
+import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 
 import org.bitBridge.Client.ClientInfo;
@@ -20,6 +23,7 @@ import org.bitBridge.shared.core.comunication.CommunicationType;
 import org.bitBridge.shared.Logger;
 import org.bitBridge.shared.core.comunication.Mensaje;
 
+import org.bitBridge.shared.network.ProtocolService;
 import org.bitBridge.shared.network.ServerNetworkEngine;
 import org.bitBridge.shared.network.NetworkManager;
 import org.bitBridge.utils.UPnPManager;
@@ -37,7 +41,7 @@ public class Server {
 
 
     private final CommunicationDispatcher dispatcher;
-
+    private final AtomicBoolean updatePending = new AtomicBoolean(false);
 
     private ServerStats stats;
     private NetworkManager networkManager = new NetworkManager();
@@ -301,34 +305,70 @@ public class Server {
 
     // Método sincronizado para enviar un mensaje a todos los clientes, excepto uno
     // ELIMINA el synchronized. El registry ya usa CopyOnWriteArrayList, que es segura.
+    /*public void broadcastMessage(String message, BitBridgeClient excludeClient) {
+        Mensaje msg = new Mensaje(message, CommunicationType.MESSAGE);
+
+        // 1. Preparamos el buffer compartido
+        ByteBuffer sharedBuffer = null;
+        try {
+            sharedBuffer = ProtocolService.toNioBuffer(msg, 100);
+            if (sharedBuffer == null) return;
+
+            List<BitBridgeClient> recipients = registry.getHandlersExcept(excludeClient);
+            int count = recipients.size();
+
+            // 2. Usamos un "AtomicInteger" para saber cuándo todos terminaron de enviar
+            AtomicInteger refCount = new AtomicInteger(count);
+
+            ByteBuffer finalSharedBuffer = sharedBuffer;
+            recipients.forEach(client -> {
+                // Pasamos el buffer y el contador al cliente
+                if (client instanceof  NioClientHandler cliente){
+                    cliente.sendSharedBuffer(finalSharedBuffer.duplicate(), refCount);
+                }
+
+            });
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }*/
+
     public void broadcastMessage(String message, BitBridgeClient excludeClient) {
         Mensaje msg = new Mensaje(message, CommunicationType.MESSAGE);
-        stats.addMessage(message);
+        //stats.addMessage(message);
 
         // No bloqueamos todo el servidor mientras iteramos
         registry.getHandlersExcept(excludeClient).forEach(client -> {
             // Importante: sendComunicacion ya tiene su propio synchronized interno por cliente
-            client.sendComunicacion(msg);
+            //client.sendComunicacion(msg);
+            Thread.ofVirtual().start(() -> {
+                client.sendComunicacion(msg);
+            });
         });
     }
 
 
-
     public void updateClient() {
-        // Obtenemos la lista DESPUÉS de que el registry haya eliminado al cliente
-        List<ClientInfo> currentClients = registry.getAllClientInfos();
-        ClientListMessage updateMsg = new ClientListMessage(CommunicationType.UPDATE, currentClients);
+        // Si ya hay una actualización programada, no hacemos nada
+        if (updatePending.compareAndSet(false, true)) {
+            Thread.ofVirtual().start(() -> {
+                try {
+                    // Esperamos un poco para agrupar múltiples desconexiones/conexiones
+                    Thread.sleep(1000);
 
-        // Usamos getAllHandlers() para asegurarnos de no enviar a clientes ya cerrados
-        registry.getAllHandlers().forEach(h -> {
-            try {
-                h.sendComunicacion(updateMsg);
-            } catch (Exception e) {
-                // Si falla un envío aquí, no pasa nada, ese cliente probablemente se está cerrando también
-            }
-        });
+                    List<ClientInfo> currentClients = registry.getAllClientInfos();
+                    ClientListMessage updateMsg = new ClientListMessage(CommunicationType.UPDATE, currentClients);
 
-        if (stats != null) stats.setClients(currentClients);
+                    // Enviamos a todos
+                    registry.getAllHandlers().forEach(h -> h.sendComunicacion(updateMsg));
+
+                    if (stats != null) stats.setClients(currentClients);
+                } catch (InterruptedException ignored) {
+                } finally {
+                    updatePending.set(false);
+                }
+            });
+        }
     }
 
     public ServerStats getStats() {

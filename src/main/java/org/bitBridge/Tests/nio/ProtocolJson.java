@@ -1,13 +1,12 @@
-package org.bitBridge.shared.network;
+package org.bitBridge.Tests.nio;
 
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+
 import com.google.gson.Gson;
 import org.bitBridge.server.core.client.BitBridgeClient;
-import org.bitBridge.shared.Logger;
+import org.bitBridge.shared.*;
 import org.bitBridge.shared.core.comunication.*;
 import org.bitBridge.shared.memory.DirectBufferPool;
-import org.msgpack.jackson.dataformat.MessagePackFactory;
 
 import java.io.*;
 import java.nio.ByteBuffer;
@@ -17,7 +16,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.EnumMap;
 import java.util.Map;
 
-public class ProtocolService {
+public class ProtocolJson {
     private static final Gson gson = new Gson();
 
     private static final Map<CommunicationType, Class<? extends Communication>> typeRegistry = new EnumMap<>(CommunicationType.class);

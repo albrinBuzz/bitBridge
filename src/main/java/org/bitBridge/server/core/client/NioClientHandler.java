@@ -9,6 +9,8 @@ import org.bitBridge.shared.core.comunication.Communication;
 import org.bitBridge.shared.core.comunication.CommunicationType;
 import org.bitBridge.shared.Logger;
 import org.bitBridge.shared.core.comunication.Mensaje;
+import org.bitBridge.shared.memory.DirectBufferPool;
+import org.bitBridge.shared.memory.SharedBufferWrapper;
 import org.bitBridge.shared.network.ProtocolService;
 
 import java.io.IOException;
@@ -17,6 +19,12 @@ import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.WritableByteChannel;
+import java.util.Arrays;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class NioClientHandler implements BitBridgeClient {
     private final SocketChannel channel;
@@ -25,14 +33,18 @@ public class NioClientHandler implements BitBridgeClient {
 
     // Buffers de lectura de estado
     private ByteBuffer payloadBuffer = null;
-    private ByteBuffer headerBuffer = ByteBuffer.allocate(6);
+    private final ByteBuffer headerBuffer = ByteBuffer.allocate(6);
     private boolean readingHeader = true;
     private boolean readingLength = true;
     private ClientInfo info;
     private boolean isShuttingDown = false;
-
+    private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
     public String nick;
     private boolean authenticated = false;
+
+    private final ConcurrentLinkedQueue<ByteBuffer> writeQueue = new ConcurrentLinkedQueue<>();
+    private final AtomicBoolean isWriting = new AtomicBoolean(false);
+
     public NioClientHandler(SocketChannel channel, ServerContext context) {
         this.channel = channel;
         this.context = context;
@@ -41,51 +53,74 @@ public class NioClientHandler implements BitBridgeClient {
     public void setSelectionKey(SelectionKey key) {
         this.selectionKey = key;
     }
+
     public void processRead() {
         try {
-            if (readingHeader) {
-                if (channel.read(headerBuffer) == -1) throw new IOException("End of stream");
+            // El loop while(true) permite leer múltiples mensajes en una sola activación del Selector
+            while (true) {
+                if (readingHeader) {
+                    if (channel.read(headerBuffer) == -1) throw new IOException("EOF");
+                    if (headerBuffer.hasRemaining()) return; // Faltan bytes del header
 
-                if (!headerBuffer.hasRemaining()) {
                     headerBuffer.flip();
                     int jsonSize = headerBuffer.getInt();
                     short typeSize = headerBuffer.getShort();
+                    // El tamaño total que el ProtocolService.fromBytes espera recibir (Header + Body)
+                    int fullPacketSize = 6 + typeSize + jsonSize;
 
-                    // Protección contra ataques de memoria
-                    if (jsonSize <= 0 || jsonSize > 2 * 1024 * 1024) {
-                        throw new IOException("Paquete inválido o demasiado grande: " + jsonSize);
+                    if (fullPacketSize <= 6 || fullPacketSize > 1024 * 1024 * 2) {
+                        throw new IOException("Paquete inválido: " + fullPacketSize);
                     }
 
-                    payloadBuffer = ByteBuffer.allocate(6 + typeSize + jsonSize);
+                    payloadBuffer = DirectBufferPool.acquire(50);
+                    if (payloadBuffer == null) return;
+
+                    /*if (fullPacketSize > payloadBuffer.capacity()) {
+                        DirectBufferPool.release(payloadBuffer);
+                        payloadBuffer = ByteBuffer.allocateDirect(fullPacketSize);
+                    }*/
+
+                    payloadBuffer.limit(fullPacketSize);
+
+
                     headerBuffer.rewind();
                     payloadBuffer.put(headerBuffer);
+
                     readingHeader = false;
                 }
-            }
 
-            if (!readingHeader) {
-                if (channel.read(payloadBuffer) == -1) throw new IOException("End of stream");
+                if (channel.read(payloadBuffer) == -1) throw new IOException("EOF");
 
-                if (!payloadBuffer.hasRemaining()) {
-                    // --- PUNTO CRÍTICO: CAMBIO A HILO VIRTUAL ---
-                    byte[] fullData = payloadBuffer.array();
+                if (payloadBuffer.hasRemaining()) return; // Aún faltan bytes del cuerpo
 
-                    // 1. Pausamos la lectura para este cliente para no saturar el Worker
-                    if (selectionKey != null) selectionKey.interestOps(0);
+                // --- ¡MENSAJE COMPLETO! ---
+                payloadBuffer.flip();
 
-                    Thread.ofVirtual().start(() -> {
-                        try {
-                            onMessageComplete(fullData);
-                        } finally {
-                            // 2. Reactivamos la lectura al terminar el proceso lógico
-                            resumeSelection();
-                        }
-                    });
+                // Copiamos a un array para procesar en el hilo virtual
+                // NOTA: El buffer sigue siendo el del Pool
+                byte[] data = new byte[payloadBuffer.remaining()];
+                payloadBuffer.get(data);
 
-                    resetBuffers();
-                }
+                // DEVOLVEMOS EL BUFFER AL POOL INMEDIATAMENTE
+                DirectBufferPool.release(payloadBuffer);
+
+                // PASAMOS AL HILO VIRTUAL (Sin pausar la lectura de red)
+                final byte[] finalData = data;
+                Thread.ofVirtual().start(() -> onMessageComplete(finalData));
+
+                // RESET PARA EL SIGUIENTE MENSAJE
+                headerBuffer.clear();
+                payloadBuffer = null;
+                readingHeader = true;
+
+                // No hacemos 'return', el 'while' intentará leer el siguiente header
+                // que ya pueda estar en el buffer del SO.
             }
         } catch (IOException e) {
+            if (payloadBuffer != null) {
+                DirectBufferPool.release(payloadBuffer);
+                payloadBuffer = null;
+            }
             shutDown();
         }
     }
@@ -182,20 +217,77 @@ public class NioClientHandler implements BitBridgeClient {
         }
     }
 
+    public void sendSharedBuffer(ByteBuffer buffer, AtomicInteger refCount) {
+        // Añadimos a la cola el buffer duplicado
+        //writeQueue.offer(new SharedBufferWrapper(buffer, refCount));
+        drainWriteQueue();
+    }
+
+    public void sendComunicacion(Communication comm) {
+
+        if (isShuttingDown)return;
+
+        ByteBuffer buffer = null;
+        try {  // 1. Preparamos el buffer (fuera del lock)
 
 
-    public  void sendComunicacion(Communication comm) {
-        if (isShuttingDown) return;
-        try {
-            ProtocolService.writeNIO(channel, comm);
+         buffer = ProtocolService.toNioBuffer(comm,50); // Crea un método que devuelva el ByteBuffer
+
+        if (buffer==null){
+            if (comm.getType()!=CommunicationType.ACK){
+                //Logger.logWarn("Carga excesiva: Mensaje descartado para " + nick);
+                return;
+            }
+            buffer = ProtocolService.toNioBuffer(comm, 500);
+            if (buffer == null) return;
+        }
+
+
+        writeQueue.offer(buffer);
+
+        // 2. Intentamos disparar el proceso de vaciado de cola
+        drainWriteQueue();
+
+
+            //ProtocolService.writeNIO(channel,comm);
         } catch (IOException e) {
-            // Importante: No llamar a shutDown() directamente aquí si ya estamos en ello
-            //Logger.logError("Error enviando a " + nick + ": " + e.getMessage());
-
-            shutDown();
+            if (buffer != null) DirectBufferPool.release(buffer);
+            //Logger.logError("Error en envío: " + e.getMessage());
         }
     }
 
+    private void drainWriteQueue() {
+        if (isWriting.compareAndSet(false, true)) {
+            Thread.ofVirtual().start(() -> {
+                try {
+                    ByteBuffer buf;
+                    while ((buf = writeQueue.poll()) != null) {
+                        try {
+                            // isWriting garantiza que este es el único hilo escribiendo en este channel
+                            while (buf.hasRemaining()) {
+                                int written = channel.write(buf);
+                                if (written == 0) {
+                                    Thread.yield();
+                                }
+                            }
+                        } finally {
+                            // LIBERACIÓN GARANTIZADA
+                            if (buf.isDirect()) {
+                                // Si tu pool tiene lógica para ignorar buffers que no creó, úsalo.
+                                // Si no, asegúrate de que el pool pueda manejar esto.
+                                DirectBufferPool.release(buf);
+                            }
+                        }
+                    }
+                } catch (IOException e) {
+                    shutDown();
+                } finally {
+                    isWriting.set(false);
+                    if (!writeQueue.isEmpty()) drainWriteQueue();
+                }
+            });
+        }
+    }
 
 
     public void send(Communication comm) {

@@ -17,13 +17,15 @@ public class MessageHandler implements CommunicationHandler{
         var sender = exchange.getSender();
         var context = exchange.getContext();
 
-        String formattedMsg = "[" + sender.getNick() + "] => " + m.getContenido();
-        context.getServer().broadcastMessage(formattedMsg, sender);
-        context.getServer().addMessageHistory(formattedMsg);
+        sender.sendComunicacion(new MessageAck(MessageAck.Status.SUCCESS));
 
-        MessageAck ack = new MessageAck(MessageAck.Status.SUCCESS);
-        sender.sendComunicacion(ack);
+        // 2. Procesar el broadcast de forma asíncrona para no bloquear el flujo
+        Thread.ofVirtual().start(() -> {
+            String formattedMsg = "[" + sender.getNick() + "] => " + m.getContenido();
+            context.getServer().broadcastMessage(formattedMsg, sender);
+            //context.getServer().addMessageHistory(formattedMsg);
+        });
+    }
         //Logger.logInfo("Confirmación enviada a " + sender.getNick() + " para mensaje: " + m.getContenido());
 
-    }
 }

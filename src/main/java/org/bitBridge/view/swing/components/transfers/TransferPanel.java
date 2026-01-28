@@ -304,12 +304,12 @@ public class TransferPanel extends JPanel implements TransferencesObserver {
 
         // --- EFECTO DE SONIDO ---
         //playNotificationSound();
-        try {
+        /*try {
             generateTone(880, 100, 0.1);
         } catch (LineUnavailableException e) {
             Logger.logInfo(e.getMessage());
             //throw new RuntimeException(e);
-        }
+        }*/
 
         try {
             SwingUtilities.invokeAndWait(() -> {

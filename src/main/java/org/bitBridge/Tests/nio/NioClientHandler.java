@@ -65,7 +65,7 @@ public class NioClientHandler {
     private void handleIncomingPacket(byte[] data) {
         try {
             // Aquí usamos tu lógica de GSON pero desde bytes
-            Communication comm = ProtocolService.fromBytes(data);
+            Communication comm = ProtocolBinary.fromBytes(data);
             //context.dispatcher().dispatch(this, comm, context);
         } catch (Exception e) {
             System.err.println("Error procesando paquete: " + e.getMessage());
@@ -81,7 +81,7 @@ public class NioClientHandler {
     public void send(Communication comm) {
         try {
             // ProtocolService debe devolver un ByteBuffer con [Longitud][Tipo][JSON]
-            ProtocolService.writeNIO(channel,comm);
+            ProtocolBinary.writeNIO(channel,comm);
             /*ByteBuffer buffer = ProtocolService.toNioBuffer(comm);
 
             while (buffer.hasRemaining()) {

@@ -1,250 +1,168 @@
 
-============================================================
-NUEVA EJECUCIÓN DETECTADA
-============================================================
-
-█████████████████████████████████████████████
-📊 REPORTE DE ESTRÉS BITBRIDGE
-█████████████████████████████████████████████
-📅 FECHA          : 2026-01-21 23:14:09
-🌐 IP SERVIDOR    : 192.168.100.212:8080
-⏱️  DURACIÓN TOTAL : 19,28 segundos
-🔌 SUPERVIVENCIA  : 110 / 110 clientes vivos
----------------------------------------------
-⚙️  CONFIG         : 110 clientes x 10 msg
-📤 ENVIADOS (Cli) : 1100
-✅ RECIBIDOS (ACK) : 946
-❌ DIFERENCIA     : 154
----------------------------------------------
-🚀 VELOCIDAD REAL : 49,06 msg/seg
-📊 EFICIENCIA NETO: 86,00%
-=============================================
-❌ RESULTADO: CONGESTIÓN / PÉRDIDA
-=============================================
+█████████████████████████████████████████████████████████████████
+📊 BITBRIDGE PERFORMANCE BENCHMARK
+█████████████████████████████████████████████████████████████████
+🖥️  TARGET HARDWARE (SERVER):
+💻 [PENTIUM SERVER]
+   CPU: Intel Pentium N4200 (4C/4T) @ 1.10GHz
+   RAM: 4GB DDR3 | OS: Rocky Linux (Kernel 5.x)
+   TIPO: Nodo de Bajo Consumo
+-----------------------------------------------------------------
+🌐 ENDPOINT   : 192.168.100.212:8080
+⏱️  DURATION   : 20,12 seconds
+📅 TIMESTAMP  : 2026-01-22 19:10:00
+-----------------------------------------------------------------
+⚙️  LOAD CONFIG : 168 clients | 12 msg per client
+✅ ACKs        : 2000 / 2016
+🚀 THROUGHPUT  : 99,39 msg/sec
+📊 EFFICIENCY  : 99,21%
+STATUS      : 🔥 OPTIMAL
+█████████████████████████████████████████████████████████████████
 
 
-
-============================================================
-NUEVA EJECUCIÓN DETECTADA
-============================================================
-
-█████████████████████████████████████████████
-📊 REPORTE DE ESTRÉS BITBRIDGE
-█████████████████████████████████████████████
-📅 FECHA          : 2026-01-21 23:14:36
-🌐 IP SERVIDOR    : 192.168.100.212:8080
-⏱️  DURACIÓN TOTAL : 20,45 segundos
-🔌 SUPERVIVENCIA  : 130 / 130 clientes vivos
----------------------------------------------
-⚙️  CONFIG         : 130 clientes x 10 msg
-📤 ENVIADOS (Cli) : 1300
-✅ RECIBIDOS (ACK) : 416
-❌ DIFERENCIA     : 884
----------------------------------------------
-🚀 VELOCIDAD REAL : 20,34 msg/seg
-📊 EFICIENCIA NETO: 32,00%
-=============================================
-❌ RESULTADO: CONGESTIÓN / PÉRDIDA
-=============================================
+█████████████████████████████████████████████████████████████████
+📊 BITBRIDGE PERFORMANCE BENCHMARK
+█████████████████████████████████████████████████████████████████
+🖥️  TARGET HARDWARE (SERVER):
+💻 [PENTIUM SERVER]
+   CPU: Intel Pentium N4200 (4C/4T) @ 1.10GHz
+   RAM: 4GB DDR3 | OS: Rocky Linux (Kernel 5.x)
+   TIPO: Nodo de Bajo Consumo
+-----------------------------------------------------------------
+🌐 ENDPOINT   : 192.168.100.212:8080
+⏱️  DURATION   : 24,37 seconds
+📅 TIMESTAMP  : 2026-01-22 19:12:27
+-----------------------------------------------------------------
+⚙️  LOAD CONFIG : 238 clients | 12 msg per client
+✅ ACKs        : 2838 / 2856
+🚀 THROUGHPUT  : 116,45 msg/sec
+📊 EFFICIENCY  : 99,37%
+STATUS      : 🔥 OPTIMAL
+█████████████████████████████████████████████████████████████████
 
 
-
-============================================================
-NUEVA EJECUCIÓN DETECTADA
-============================================================
-
-█████████████████████████████████████████████
-📊 REPORTE DE ESTRÉS BITBRIDGE
-█████████████████████████████████████████████
-📅 FECHA          : 2026-01-21 23:15:35
-🌐 IP SERVIDOR    : 192.168.100.212:8080
-⏱️  DURACIÓN TOTAL : 19,11 segundos
-🔌 SUPERVIVENCIA  : 115 / 115 clientes vivos
----------------------------------------------
-⚙️  CONFIG         : 115 clientes x 10 msg
-📤 ENVIADOS (Cli) : 1150
-✅ RECIBIDOS (ACK) : 729
-❌ DIFERENCIA     : 421
----------------------------------------------
-🚀 VELOCIDAD REAL : 38,14 msg/seg
-📊 EFICIENCIA NETO: 63,39%
-=============================================
-❌ RESULTADO: CONGESTIÓN / PÉRDIDA
-=============================================
+█████████████████████████████████████████████████████████████████
+📊 BITBRIDGE PERFORMANCE BENCHMARK
+█████████████████████████████████████████████████████████████████
+🖥️  TARGET HARDWARE (SERVER):
+💻 [PENTIUM SERVER]
+   CPU: Intel Pentium N4200 (4C/4T) @ 1.10GHz
+   RAM: 4GB DDR3 | OS: Rocky Linux (Kernel 5.x)
+   TIPO: Nodo de Bajo Consumo
+-----------------------------------------------------------------
+🌐 ENDPOINT   : 192.168.100.212:8080
+⏱️  DURATION   : 22,16 seconds
+📅 TIMESTAMP  : 2026-01-22 19:13:13
+-----------------------------------------------------------------
+⚙️  LOAD CONFIG : 258 clients | 26 msg per client
+✅ ACKs        : 6522 / 6708
+🚀 THROUGHPUT  : 294,27 msg/sec
+📊 EFFICIENCY  : 97,23%
+STATUS      : ⚠️ STRESSED
+█████████████████████████████████████████████████████████████████
 
 
-
-============================================================
-NUEVA EJECUCIÓN DETECTADA
-============================================================
-
-█████████████████████████████████████████████
-📊 REPORTE DE ESTRÉS BITBRIDGE
-█████████████████████████████████████████████
-📅 FECHA          : 2026-01-21 23:16:10
-🌐 IP SERVIDOR    : 192.168.100.212:8080
-⏱️  DURACIÓN TOTAL : 20,37 segundos
-🔌 SUPERVIVENCIA  : 110 / 110 clientes vivos
----------------------------------------------
-⚙️  CONFIG         : 110 clientes x 10 msg
-📤 ENVIADOS (Cli) : 1100
-✅ RECIBIDOS (ACK) : 1100
-❌ DIFERENCIA     : 0
----------------------------------------------
-🚀 VELOCIDAD REAL : 54,01 msg/seg
-📊 EFICIENCIA NETO: 100,00%
-=============================================
-🟢 RESULTADO: ÉXITO TOTAL
-=============================================
+█████████████████████████████████████████████████████████████████
+📊 BITBRIDGE PERFORMANCE BENCHMARK
+█████████████████████████████████████████████████████████████████
+🖥️  TARGET HARDWARE (SERVER):
+💻 [PENTIUM SERVER]
+   CPU: Intel Pentium N4200 (4C/4T) @ 1.10GHz
+   RAM: 4GB DDR3 | OS: Rocky Linux (Kernel 5.x)
+   TIPO: Nodo de Bajo Consumo
+-----------------------------------------------------------------
+🌐 ENDPOINT   : 192.168.100.212:8080
+⏱️  DURATION   : 24,55 seconds
+📅 TIMESTAMP  : 2026-01-22 19:13:52
+-----------------------------------------------------------------
+⚙️  LOAD CONFIG : 358 clients | 22 msg per client
+✅ ACKs        : 5150 / 7876
+🚀 THROUGHPUT  : 209,77 msg/sec
+📊 EFFICIENCY  : 65,39%
+STATUS      : ❌ CONGESTED
+█████████████████████████████████████████████████████████████████
 
 
-
-============================================================
-NUEVA EJECUCIÓN DETECTADA
-============================================================
-
-█████████████████████████████████████████████
-📊 REPORTE DE ESTRÉS BITBRIDGE
-█████████████████████████████████████████████
-📅 FECHA          : 2026-01-21 23:16:34
-🌐 IP SERVIDOR    : 192.168.100.212:8080
-⏱️  DURACIÓN TOTAL : 18,87 segundos
-🔌 SUPERVIVENCIA  : 110 / 110 clientes vivos
----------------------------------------------
-⚙️  CONFIG         : 110 clientes x 10 msg
-📤 ENVIADOS (Cli) : 1100
-✅ RECIBIDOS (ACK) : 1100
-❌ DIFERENCIA     : 0
----------------------------------------------
-🚀 VELOCIDAD REAL : 58,30 msg/seg
-📊 EFICIENCIA NETO: 100,00%
-=============================================
-🟢 RESULTADO: ÉXITO TOTAL
-=============================================
+█████████████████████████████████████████████████████████████████
+📊 BITBRIDGE PERFORMANCE BENCHMARK
+█████████████████████████████████████████████████████████████████
+🖥️  TARGET HARDWARE (SERVER):
+💻 [PENTIUM SERVER]
+   CPU: Intel Pentium N4200 (4C/4T) @ 1.10GHz
+   RAM: 4GB DDR3 | OS: Rocky Linux (Kernel 5.x)
+   TIPO: Nodo de Bajo Consumo
+-----------------------------------------------------------------
+🌐 ENDPOINT   : 192.168.100.212:8080
+⏱️  DURATION   : 28,24 seconds
+📅 TIMESTAMP  : 2026-01-22 19:14:32
+-----------------------------------------------------------------
+⚙️  LOAD CONFIG : 358 clients | 12 msg per client
+✅ ACKs        : 4234 / 4296
+🚀 THROUGHPUT  : 149,95 msg/sec
+📊 EFFICIENCY  : 98,56%
+STATUS      : 🔥 OPTIMAL
+█████████████████████████████████████████████████████████████████
 
 
-
-============================================================
-NUEVA EJECUCIÓN DETECTADA
-============================================================
-
-█████████████████████████████████████████████
-📊 REPORTE DE ESTRÉS BITBRIDGE
-█████████████████████████████████████████████
-📅 FECHA          : 2026-01-21 23:16:57
-🌐 IP SERVIDOR    : 192.168.100.147:8080
-⏱️  DURACIÓN TOTAL : 18,74 segundos
-🔌 SUPERVIVENCIA  : 110 / 110 clientes vivos
----------------------------------------------
-⚙️  CONFIG         : 110 clientes x 10 msg
-📤 ENVIADOS (Cli) : 1100
-✅ RECIBIDOS (ACK) : 1100
-❌ DIFERENCIA     : 0
----------------------------------------------
-🚀 VELOCIDAD REAL : 58,70 msg/seg
-📊 EFICIENCIA NETO: 100,00%
-=============================================
-🟢 RESULTADO: ÉXITO TOTAL
-=============================================
+█████████████████████████████████████████████████████████████████
+📊 BITBRIDGE PERFORMANCE BENCHMARK
+█████████████████████████████████████████████████████████████████
+🖥️  TARGET HARDWARE (SERVER):
+💻 [PENTIUM SERVER]
+   CPU: Intel Pentium N4200 (4C/4T) @ 1.10GHz
+   RAM: 4GB DDR3 | OS: Rocky Linux (Kernel 5.x)
+   TIPO: Nodo de Bajo Consumo
+-----------------------------------------------------------------
+🌐 ENDPOINT   : 192.168.100.212:8080
+⏱️  DURATION   : 25,55 seconds
+📅 TIMESTAMP  : 2026-01-22 19:15:05
+-----------------------------------------------------------------
+⚙️  LOAD CONFIG : 458 clients | 12 msg per client
+✅ ACKs        : 5066 / 5496
+🚀 THROUGHPUT  : 198,27 msg/sec
+📊 EFFICIENCY  : 92,18%
+STATUS      : ⚠️ STRESSED
+█████████████████████████████████████████████████████████████████
 
 
-
-============================================================
-NUEVA EJECUCIÓN DETECTADA
-============================================================
-
-█████████████████████████████████████████████
-📊 REPORTE DE ESTRÉS BITBRIDGE
-█████████████████████████████████████████████
-📅 FECHA          : 2026-01-21 23:17:19
-🌐 IP SERVIDOR    : 192.168.100.147:8080
-⏱️  DURACIÓN TOTAL : 18,88 segundos
-🔌 SUPERVIVENCIA  : 110 / 110 clientes vivos
----------------------------------------------
-⚙️  CONFIG         : 110 clientes x 10 msg
-📤 ENVIADOS (Cli) : 1100
-✅ RECIBIDOS (ACK) : 1100
-❌ DIFERENCIA     : 0
----------------------------------------------
-🚀 VELOCIDAD REAL : 58,28 msg/seg
-📊 EFICIENCIA NETO: 100,00%
-=============================================
-🟢 RESULTADO: ÉXITO TOTAL
-=============================================
+█████████████████████████████████████████████████████████████████
+📊 BITBRIDGE PERFORMANCE BENCHMARK
+█████████████████████████████████████████████████████████████████
+🖥️  TARGET HARDWARE (SERVER):
+💻 [PENTIUM SERVER]
+   CPU: Intel Pentium N4200 (4C/4T) @ 1.10GHz
+   RAM: 4GB DDR3 | OS: Rocky Linux (Kernel 5.x)
+   TIPO: Nodo de Bajo Consumo
+-----------------------------------------------------------------
+🌐 ENDPOINT   : 192.168.100.212:8080
+⏱️  DURATION   : 32,00 seconds
+📅 TIMESTAMP  : 2026-01-22 19:15:54
+-----------------------------------------------------------------
+⚙️  LOAD CONFIG : 578 clients | 6 msg per client
+✅ ACKs        : 2194 / 3468
+🚀 THROUGHPUT  : 68,56 msg/sec
+📊 EFFICIENCY  : 63,26%
+STATUS      : ❌ CONGESTED
+█████████████████████████████████████████████████████████████████
 
 
-
-============================================================
-NUEVA EJECUCIÓN DETECTADA
-============================================================
-
-█████████████████████████████████████████████
-📊 REPORTE DE ESTRÉS BITBRIDGE
-█████████████████████████████████████████████
-📅 FECHA          : 2026-01-21 23:17:52
-🌐 IP SERVIDOR    : 192.168.100.212:8080
-⏱️  DURACIÓN TOTAL : 18,42 segundos
-🔌 SUPERVIVENCIA  : 110 / 110 clientes vivos
----------------------------------------------
-⚙️  CONFIG         : 110 clientes x 10 msg
-📤 ENVIADOS (Cli) : 1100
-✅ RECIBIDOS (ACK) : 904
-❌ DIFERENCIA     : 196
----------------------------------------------
-🚀 VELOCIDAD REAL : 49,07 msg/seg
-📊 EFICIENCIA NETO: 82,18%
-=============================================
-❌ RESULTADO: CONGESTIÓN / PÉRDIDA
-=============================================
-
-
-
-============================================================
-NUEVA EJECUCIÓN DETECTADA
-============================================================
-
-█████████████████████████████████████████████
-📊 REPORTE DE ESTRÉS BITBRIDGE
-█████████████████████████████████████████████
-📅 FECHA          : 2026-01-21 23:18:29
-🌐 IP SERVIDOR    : 192.168.100.212:8080
-⏱️  DURACIÓN TOTAL : 18,39 segundos
-🔌 SUPERVIVENCIA  : 110 / 110 clientes vivos
----------------------------------------------
-⚙️  CONFIG         : 110 clientes x 10 msg
-📤 ENVIADOS (Cli) : 1100
-✅ RECIBIDOS (ACK) : 1020
-❌ DIFERENCIA     : 80
----------------------------------------------
-🚀 VELOCIDAD REAL : 55,46 msg/seg
-📊 EFICIENCIA NETO: 92,73%
-=============================================
-❌ RESULTADO: CONGESTIÓN / PÉRDIDA
-=============================================
-
-
-
-============================================================
-NUEVA EJECUCIÓN DETECTADA
-============================================================
-
-█████████████████████████████████████████████
-📊 REPORTE DE ESTRÉS BITBRIDGE
-█████████████████████████████████████████████
-📅 FECHA          : 2026-01-21 23:18:57
-🌐 IP SERVIDOR    : 192.168.100.147:8080
-⏱️  DURACIÓN TOTAL : 18,93 segundos
-🔌 SUPERVIVENCIA  : 110 / 110 clientes vivos
----------------------------------------------
-⚙️  CONFIG         : 110 clientes x 10 msg
-📤 ENVIADOS (Cli) : 1100
-✅ RECIBIDOS (ACK) : 1100
-❌ DIFERENCIA     : 0
----------------------------------------------
-🚀 VELOCIDAD REAL : 58,11 msg/seg
-📊 EFICIENCIA NETO: 100,00%
-=============================================
-🟢 RESULTADO: ÉXITO TOTAL
-=============================================
-
+█████████████████████████████████████████████████████████████████
+📊 BITBRIDGE PERFORMANCE BENCHMARK
+█████████████████████████████████████████████████████████████████
+🖥️  TARGET HARDWARE (SERVER):
+💻 [PENTIUM SERVER]
+   CPU: Intel Pentium N4200 (4C/4T) @ 1.10GHz
+   RAM: 4GB DDR3 | OS: Rocky Linux (Kernel 5.x)
+   TIPO: Nodo de Bajo Consumo
+-----------------------------------------------------------------
+🌐 ENDPOINT   : 192.168.100.212:8080
+⏱️  DURATION   : 36,11 seconds
+📅 TIMESTAMP  : 2026-01-22 19:17:17
+-----------------------------------------------------------------
+⚙️  LOAD CONFIG : 778 clients | 6 msg per client
+✅ ACKs        : 1135 / 4668
+🚀 THROUGHPUT  : 31,43 msg/sec
+📊 EFFICIENCY  : 24,31%
+STATUS      : ❌ CONGESTED
+█████████████████████████████████████████████████████████████████
 

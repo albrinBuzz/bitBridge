@@ -71,13 +71,28 @@
         </dependency>
 
 
+
+
+        <!-- Source: https://mvnrepository.com/artifact/com.formdev/flatlaf -->
         <dependency>
             <groupId>com.formdev</groupId>
             <artifactId>flatlaf</artifactId>
-            <version>3.2</version>
+            <version>3.7</version>
+
         </dependency>
 
+        <!-- Source: https://mvnrepository.com/artifact/com.formdev/flatlaf-extras -->
+        <dependency>
+            <groupId>com.formdev</groupId>
+            <artifactId>flatlaf</artifactId>
+            <version>3.7</version>
+        </dependency>
 
+        <dependency>
+            <groupId>com.formdev</groupId>
+            <artifactId>flatlaf-intellij-themes</artifactId>
+            <version>3.7</version>
+        </dependency>
         <dependency>
             <groupId>org.jmdns</groupId>
             <artifactId>jmdns</artifactId>
@@ -98,6 +113,11 @@
             <version>2.5.2</version>
         </dependency>
 
+        <dependency>
+            <groupId>org.msgpack</groupId>
+            <artifactId>jackson-dataformat-msgpack</artifactId>
+            <version>0.9.3</version>
+        </dependency>
 
         <!-- Source: https://mvnrepository.com/artifact/com.google.code.gson/gson -->
         <dependency>
@@ -141,6 +161,7 @@
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <version>3.3.4</version>
                 <executions>
+
                     <execution>
                         <id>repackage-desktop</id>
                         <goals>
@@ -162,6 +183,18 @@
                             <finalName>BitBridge-CLI</finalName>
                         </configuration>
                     </execution>
+
+                    <execution>
+                        <id>repackage-stress</id>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                        <configuration>
+                            <mainClass>org.bitBridge.Tests.StressTest</mainClass>
+                            <finalName>StressTool</finalName>
+                        </configuration>
+                    </execution>
+
                 </executions>
                 <configuration>
                     <executable>true</executable>

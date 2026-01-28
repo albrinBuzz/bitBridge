@@ -10,6 +10,18 @@ public class Mensaje extends Communication {
         this.contenido = contenido;
     }
 
+    public Mensaje() {
+    }
+
+    public Mensaje(CommunicationType communicationType, String contenido) {
+        super(communicationType);
+        this.contenido = contenido;
+    }
+
+    public void setContenido(String contenido) {
+        this.contenido = contenido;
+    }
+
     public Mensaje(CommunicationType type) {
         super(type);
     }

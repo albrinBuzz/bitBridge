@@ -2,6 +2,8 @@ package org.bitBridge.view.swing;
 
 import com.formdev.flatlaf.FlatClientProperties;
 import com.formdev.flatlaf.FlatDarkLaf;
+
+import com.formdev.flatlaf.intellijthemes.FlatOneDarkIJTheme;
 import org.bitBridge.Client.core.Client;
 import org.bitBridge.server.core.Server;
 import org.bitBridge.view.core.ConnectionState;
@@ -45,7 +47,8 @@ public class MainView extends JFrame implements IMainView {
     private JTextArea logArea;
     public MainView() {
 
-        setupTheme();
+        //setupTheme();
+        FlatOneDarkIJTheme.setup();
 
         server=Server.getInstance();
         client=new Client();

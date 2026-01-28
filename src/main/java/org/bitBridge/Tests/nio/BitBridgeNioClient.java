@@ -102,7 +102,7 @@ public class BitBridgeNioClient implements Runnable {
     public void send(Communication comm) {
         try {
             // Convertir a [Length][JSON]
-            ProtocolService.writeNIO(clientChannel,comm);
+            ProtocolBinary.writeNIO(clientChannel,comm);
             /*&ByteBuffer buffer = ProtocolService.writeNIO(clientChannel,comm);
             while (buffer.hasRemaining()) {
                 clientChannel.write(buffer);
@@ -114,7 +114,7 @@ public class BitBridgeNioClient implements Runnable {
 
     private void onMessageReceived(byte[] data) throws IOException {
         // Deserializar y enviar al controlador de la UI
-        Communication comm = ProtocolService.fromBytes(data);
+        Communication comm = ProtocolBinary.fromBytes(data);
         System.out.println("Recibido: " + comm.getClass().getSimpleName());
     }
 

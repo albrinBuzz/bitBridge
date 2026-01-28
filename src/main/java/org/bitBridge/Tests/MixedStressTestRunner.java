@@ -1,53 +1,77 @@
 package org.bitBridge.Tests;
 
 import org.bitBridge.Client.core.Client;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.PrintWriter;
+import com.sun.management.OperatingSystemMXBean;
+import java.io.*;
+import java.lang.management.ManagementFactory;
+import java.net.InetAddress;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 public class MixedStressTestRunner {
-    // Ajustes para Pentium N4200 (4 núcleos, 4GB RAM)
-    static final int TOTAL_CLIENTS = 110;
-    static final int MESSAGES_PER_CLIENT = 10;
-    static final int TOTAL_EXPECTED = TOTAL_CLIENTS * MESSAGES_PER_CLIENT;
-    static final String SERVER_IP = "192.168.100.147";
+    // --- CONFIGURACIÓN DE RED ---
+    //static final String SERVER_IP = "192.168.100.147"; // Cambia según el test
+    static final String SERVER_IP = "192.168.100.212"; // Cambia según el test
+
     static final int PORT = 8080;
+
+    // --- CONFIGURACIÓN DE ESTRÉS ---
+    static final int TOTAL_CLIENTS = 778;
+    static final int MESSAGES_PER_CLIENT = 6;
+    static final int TOTAL_EXPECTED = TOTAL_CLIENTS * MESSAGES_PER_CLIENT;
+
+    // --- INVENTARIO DINÁMICO DE HARDWARE ---
+    private static final Map<String, String> HARDWARE_REGISTRY = new HashMap<>();
+
+    static {
+        HARDWARE_REGISTRY.put("192.168.100.212",
+                "💻 [PENTIUM SERVER]\n" +
+                        "   CPU: Intel Pentium N4200 (4C/4T) @ 1.10GHz\n" +
+                        "   RAM: 4GB DDR3 | OS: Rocky Linux (Kernel 5.x)\n" +
+                        "   TIPO: Nodo de Bajo Consumo");
+
+        HARDWARE_REGISTRY.put("192.168.100.147",
+                "🚀 [ACER NITRO 5 AN515-55]\n" +
+                        "   CPU: Intel i5-10300H (4C/8T) @ 4.50GHz Turbo\n" +
+                        "   RAM: 16GB | GPU: GTX 1650 | OS: Fedora 41 (Kernel 6.17)\n" +
+                        "   NET: Realtek Killer E2600 GbE (Latencia Baja)");
+
+        HARDWARE_REGISTRY.put("127.0.0.1",
+                "🏠 [MASTER WORKSTATION - GIGABYTE B760M]\n" +
+                        "   CPU: Intel i7-12700 (12C/20T) | 8 P-Cores | 4 E-Cores\n" +
+                        "   RAM: 64GB DDR4 | SSD: Kingston NVMe Gen4\n" +
+                        "   OS: Fedora 42 (Adams) | Kernel 6.18 | i3wm\n" +
+                        "   INFO: Máxima capacidad de concurrencia.");
+    }
 
     public static void main(String[] args) throws InterruptedException {
         final List<Client> activeClients = new CopyOnWriteArrayList<>();
+        String hardwareInfo = HARDWARE_REGISTRY.getOrDefault(SERVER_IP, "❓ DISPOSITIVO DESCONOCIDO");
 
-        System.out.println("🔥 INICIANDO TEST DE RENDIMIENTO: " + TOTAL_EXPECTED + " mensajes totales.");
-        System.out.println("⚙️  Configuración: " + TOTAL_CLIENTS + " clientes envían " + MESSAGES_PER_CLIENT + " mensajes c/u.");
+        System.out.println("🔥 INICIANDO ESTRÉS HACIA: " + hardwareInfo);
 
         long startTest = System.currentTimeMillis();
 
-        // 1. Monitor en tiempo real (Virtual Thread)
+        // Monitor en vivo
         Thread monitor = Thread.ofVirtual().start(() -> {
             long lastDelivered = 0;
             while (!Thread.interrupted()) {
                 try {
                     TimeUnit.SECONDS.sleep(1);
-                    long currentDelivered = activeClients.stream()
-                            .mapToLong(c -> c.getMessageTracker().getTotalDelivered()).sum();
-
-                    long mps = currentDelivered - lastDelivered;
-                    lastDelivered = currentDelivered;
-
-                    double progress = (currentDelivered * 100.0 / TOTAL_EXPECTED);
-                    System.out.printf("\r🚀 [LIVE] ACKs: %d | Speed: %d msg/s | Progreso: %.1f%%",
-                            currentDelivered, mps, progress);
+                    long current = activeClients.stream().mapToLong(c -> c.getMessageTracker().getTotalDelivered()).sum();
+                    System.out.printf("\r🚀 [LIVE] %s | ACKs: %d | %d msg/s", SERVER_IP, current, (current - lastDelivered));
+                    lastDelivered = current;
                 } catch (InterruptedException e) { break; }
             }
         });
 
-        // 2. Ejecutor de Clientes (Virtual Threads)
+        // Ejecución de clientes
         var executor = Executors.newVirtualThreadPerTaskExecutor();
         try {
             for (int i = 0; i < TOTAL_CLIENTS; i++) {
@@ -56,9 +80,7 @@ public class MixedStressTestRunner {
                         Client c = new Client();
                         c.setConexion(SERVER_IP, PORT);
                         activeClients.add(c);
-
                         Thread.sleep((long) (Math.random() * 500));
-
                         for (int m = 0; m < MESSAGES_PER_CLIENT; m++) {
                             c.enviarMensaje("Stress Test Msg " + m);
                             Thread.sleep(45);
@@ -69,84 +91,68 @@ public class MixedStressTestRunner {
             }
         } finally {
             executor.shutdown();
-            executor.awaitTermination(1, TimeUnit.MINUTES);
+            executor.awaitTermination(2, TimeUnit.MINUTES);
         }
 
-        System.out.println("\n\n⏳ Esperando recuperación de ACKs finales (15s)...");
         TimeUnit.SECONDS.sleep(15);
-
         long endTest = System.currentTimeMillis();
         monitor.interrupt();
 
-        // 4. Reporte Final y persistencia en Log
-        printAndSaveFinalReport(activeClients, TOTAL_EXPECTED, (endTest - startTest));
+        printAndSaveFinalReport(activeClients, (endTest - startTest), hardwareInfo);
     }
 
-    private static void printAndSaveFinalReport(List<Client> clients, int expected, long totalDurationMs) {
+    private static void printAndSaveFinalReport(List<Client> clients, long totalDurationMs, String hwInfo) {
         long delivered = clients.stream().mapToLong(c -> c.getMessageTracker().getTotalDelivered()).sum();
         long sent = clients.stream().mapToLong(c -> c.getMessageTracker().getTotalSent()).sum();
         long alive = clients.stream().filter(Client::isActive).count();
 
-        double efficiency = (sent > 0) ? (delivered * 100.0 / sent) : 0;
         double seconds = totalDurationMs / 1000.0;
         double throughput = delivered / seconds;
+        double efficiency = (sent > 0) ? (delivered * 100.0 / sent) : 0;
 
-        StringBuilder logContent = new StringBuilder();
-        String date = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        // Info de la máquina LOCAL (la que lanza el test)
+        OperatingSystemMXBean osBean = (OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
+        String localHost = "Desconocido";
+        try { localHost = InetAddress.getLocalHost().getHostName(); } catch (Exception e) {}
 
-        // Construcción del reporte (Consola y String para el archivo)
-        logContent.append("\n").append("█".repeat(45)).append("\n");
-        logContent.append("📊 REPORTE DE ESTRÉS BITBRIDGE\n");
-        logContent.append("█".repeat(45)).append("\n");
-        logContent.append("📅 FECHA          : ").append(date).append("\n");
-        logContent.append("🌐 IP SERVIDOR    : ").append(SERVER_IP).append(":").append(PORT).append("\n");
-        logContent.append("⏱️  DURACIÓN TOTAL : ").append(String.format("%.2f segundos", seconds)).append("\n");
-        logContent.append("🔌 SUPERVIVENCIA  : ").append(alive).append(" / ").append(TOTAL_CLIENTS).append(" clientes vivos\n");
-        logContent.append("-".repeat(45)).append("\n");
-        logContent.append("⚙️  CONFIG         : ").append(TOTAL_CLIENTS).append(" clientes x ").append(MESSAGES_PER_CLIENT).append(" msg\n");
-        logContent.append("📤 ENVIADOS (Cli) : ").append(sent).append("\n");
-        logContent.append("✅ RECIBIDOS (ACK) : ").append(delivered).append("\n");
-        logContent.append("❌ DIFERENCIA     : ").append(sent - delivered).append("\n");
-        logContent.append("-".repeat(45)).append("\n");
-        logContent.append("🚀 VELOCIDAD REAL : ").append(String.format("%.2f msg/seg", throughput)).append("\n");
-        logContent.append("📊 EFICIENCIA NETO: ").append(String.format("%.2f%%", efficiency)).append("\n");
+        StringBuilder report = new StringBuilder();
+        report.append("\n").append("█".repeat(65)).append("\n");
+        report.append("📊 BITBRIDGE PERFORMANCE BENCHMARK\n");
+        report.append("█".repeat(65)).append("\n");
 
-        String resultMsg;
-        if (efficiency >= 98 && alive == TOTAL_CLIENTS) {
-            resultMsg = "🟢 RESULTADO: ÉXITO TOTAL";
-        } else if (alive < TOTAL_CLIENTS) {
-            resultMsg = "🔴 RESULTADO: FALLO DE CONEXIÓN";
-        } else {
-            resultMsg = "❌ RESULTADO: CONGESTIÓN / PÉRDIDA";
-        }
-        logContent.append("=".repeat(45)).append("\n").append(resultMsg).append("\n").append("=".repeat(45));
+        // SECCIÓN DE HARDWARE (Dinámica por IP)
+        report.append("🖥️  TARGET HARDWARE (SERVER):\n");
+        report.append(hwInfo).append("\n");
+        report.append("-".repeat(65)).append("\n");
 
-        // Mostrar en consola
-        System.out.println(logContent);
+        // SECCIÓN DE RED Y TIEMPOS
+        report.append(String.format("🌐 ENDPOINT   : %s:%d\n", SERVER_IP, PORT));
+        report.append(String.format("⏱️  DURATION   : %.2f seconds\n", totalDurationMs / 1000.0));
+        report.append(String.format("📅 TIMESTAMP  : %s\n", LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
+        report.append("-".repeat(65)).append("\n");
 
-        // Guardar en archivo
-        saveLogToFile(logContent.toString());
+        // SECCIÓN DE MÉTRICAS DE ESTRÉS
+        report.append(String.format("⚙️  LOAD CONFIG : %d clients | %d msg per client\n", TOTAL_CLIENTS, MESSAGES_PER_CLIENT));
+        report.append(String.format("✅ ACKs        : %d / %d\n", delivered, sent));
+        report.append(String.format("🚀 THROUGHPUT  : %.2f msg/sec\n", throughput));
+        report.append(String.format("📊 EFFICIENCY  : %.2f%%\n", efficiency));
+
+        // RESULTADO VISUAL
+        String status = (efficiency > 98) ? "🔥 OPTIMAL" : (efficiency > 85) ? "⚠️ STRESSED" : "❌ CONGESTED";
+        report.append("STATUS      : ").append(status).append("\n");
+        report.append("█".repeat(65)).append("\n");
+
+        System.out.println(report);
+        saveToFile(report.toString());
     }
 
-    private static void saveLogToFile(String content) {
+    private static void saveToFile(String report) {
         try {
-            File directory = new File("logs_test");
-            if (!directory.exists()) directory.mkdir();
-
-            // Nombre de archivo fijo para acumular todos los tests
-            File logFile = new File(directory, "stress_test_history.log");
-
-            // El parámetro 'true' en FileWriter activa el modo "APPEND" (añadir al final)
-            try (PrintWriter out = new PrintWriter(new FileWriter(logFile, true))) {
-                out.println("\n" + "=".repeat(60));
-                out.println("NUEVA EJECUCIÓN DETECTADA");
-                out.println("=".repeat(60));
-                out.println(content);
-                out.println("\n"); // Espacio extra entre logs para legibilidad
+            File dir = new File("logs_test");
+            if (!dir.exists()) dir.mkdir();
+            try (PrintWriter out = new PrintWriter(new FileWriter(new File(dir, "stress_test_history.log"), true))) {
+                out.println(report);
             }
-            System.out.println("\n📂 Registro acumulado en: " + logFile.getAbsolutePath());
-        } catch (IOException e) {
-            System.err.println("❌ No se pudo escribir en el historial de logs: " + e.getMessage());
-        }
+        } catch (IOException e) { System.err.println("Error: " + e.getMessage()); }
     }
 }
