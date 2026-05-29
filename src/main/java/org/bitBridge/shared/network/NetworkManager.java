@@ -1,145 +1,138 @@
 package org.bitBridge.shared.network;
 
-
-
+import org.bitBridge.server.core.Server;
+import org.bitBridge.shared.LogLevel;
 import org.bitBridge.shared.Logger;
-
 import javax.jmdns.*;
 import java.io.IOException;
 import java.net.*;
 import java.net.http.*;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 
 public class NetworkManager {
-    private JmDNS jmdns;
+    private final List<JmDNS> jmdnsInstances = new ArrayList<>();
     private final String SERVICE_TYPE = "_bitbridge._tcp.local.";
     private final AtomicBoolean isScanning = new AtomicBoolean(false);
 
     /**
-     * Obtiene la IP local real (evita problemas con interfaces virtuales como Docker/VMWare)
+     * Obtiene TODAS las IPs IPv4 válidas de las interfaces activas.
+     * Esto evita quedar atrapado en 127.0.0.1 o IPs de Docker/VirtualBox.
      */
-    public static String getLocalIp() {
-
-        try  {
-            InetAddress ip = InetAddress.getLocalHost();
-            //System.out.println("IP local: " + ip.getHostAddress());
-            // No necesita conectarse realmente, solo abrir el puerto hacia afuera para ver qué IP usa
-            //socket.connect(new InetSocketAddress("8.8.8.8", 80), 1000);
-            return ip.getHostAddress();
-        } catch (Exception e) {
-            return "127.0.0.1";
-        }
-    }
-
-    // --- SECCIÓN SERVIDOR (ANUNCIO) ---
-
-    // --- SECCIÓN SERVIDOR (ANUNCIO) ---
-
-    public void startServerAnnouncement(int port, String serverName) {
+    public static List<InetAddress> getAllLocalIps() {
+        List<InetAddress> addresses = new ArrayList<>();
         try {
-            String localIp = getLocalIp();
-            InetAddress addr = InetAddress.getByName(localIp);
-
-            if (jmdns == null) {
-                jmdns = JmDNS.create(addr, serverName + "-mdns");
-                Logger.logInfo("[mDNS] Nodo creado en interfaz: " + addr.getHostAddress());
+            Enumeration<NetworkInterface> nets = NetworkInterface.getNetworkInterfaces();
+            for (NetworkInterface netint : Collections.list(nets)) {
+                // Filtramos interfaces inactivas, loopback o puramente virtuales si es posible
+                if (netint.isUp() && !netint.isLoopback()) {
+                    Enumeration<InetAddress> inetAddresses = netint.getInetAddresses();
+                    for (InetAddress inetAddress : Collections.list(inetAddresses)) {
+                        // Solo IPv4 para evitar complicaciones de ruteo en redes locales simples
+                        if (inetAddress instanceof Inet4Address) {
+                            addresses.add(inetAddress);
+                        }
+                    }
+                }
             }
+        } catch (SocketException e) {
+            Logger.logError("Error al listar interfaces: " + e.getMessage());
+        }
+        return addresses;
+    }
 
-            ServiceInfo serviceInfo = ServiceInfo.create(SERVICE_TYPE,
-                    serverName, port, "owner=" + System.getProperty("user.name"));
+    // --- SECCIÓN SERVIDOR (ANUNCIO EN TODAS LAS INTERFACES) ---
 
-            jmdns.registerService(serviceInfo);
+    public void startServerAnnouncement(int port, String serverName, Server server) {
+        List<InetAddress> targetIps = getAllLocalIps();
 
-            Logger.logInfo(String.format("[📡] SERVIDOR ACTIVO: [%s] | IP: %s | Puerto: %d",
-                    serverName, localIp, port));
+        if (targetIps.isEmpty()) {
+            Logger.logError("[mDNS] No se encontraron interfaces de red activas.");
+            return;
+        }
 
-        } catch (IOException e) {
-            Logger.logError("[mDNS] Error crítico al anunciar servidor: " + e.getMessage());
+        for (InetAddress addr : targetIps) {
+            try {
+                // Creamos una instancia de JmDNS por cada interfaz física/wifi
+                JmDNS jmdns = JmDNS.create(addr, serverName + "-" + addr.getHostAddress());
+                jmdnsInstances.add(jmdns);
+
+                ServiceInfo serviceInfo = ServiceInfo.create(SERVICE_TYPE,
+                        serverName, port, "owner=" + System.getProperty("user.name"));
+
+                jmdns.registerService(serviceInfo);
+
+                Logger.logInfo(String.format("[📡] ANUNCIANDO EN: %s | IP: %s | Puerto: %d",
+                        netInterfaceName(addr), addr.getHostAddress(), port));
+
+                server.notifyUI(String.format("[📡] ANUNCIANDO EN: %s | IP: %s | Puerto: %d",
+                        netInterfaceName(addr), addr.getHostAddress(), port), LogLevel.INFO);
+
+            } catch (IOException e) {
+                Logger.logWarn("[mDNS] No se pudo anunciar en " + addr.getHostAddress() + ": " + e.getMessage());
+            }
         }
     }
 
-    // --- SECCIÓN CLIENTE (BÚSQUEDA) ---
+    // --- SECCIÓN CLIENTE (BÚSQUEDA MULTI-INTERFAZ) ---
 
     public void startLookingForServers(BiConsumer<String, Integer> onServerFound) {
         if (isScanning.getAndSet(true)) {
-            Logger.logWarn("[mDNS] El escaneo ya está en curso.");
-            //return;
+            Logger.logWarn("[mDNS] Escaneo ya en curso.");
+            return;
         }
 
-        try {
-            InetAddress addr = InetAddress.getByName(getLocalIp());
-            if (jmdns == null) {
-                jmdns = JmDNS.create(addr, "BitBridge-Client");
-            }
+        List<InetAddress> targetIps = getAllLocalIps();
+        for (InetAddress addr : targetIps) {
+            try {
+                JmDNS jmdns = JmDNS.create(addr, "BitBridge-Scanner-" + addr.getHostAddress());
+                jmdnsInstances.add(jmdns);
 
-            Logger.logInfo("[🔍] Iniciando búsqueda de nodos en la red: " + addr.getHostAddress());
+                Logger.logInfo("[🔍] Escaneando desde interfaz: " + addr.getHostAddress());
 
-            jmdns.addServiceListener(SERVICE_TYPE, new ServiceListener() {
-                @Override
-                public void serviceAdded(ServiceEvent event) {
-                    Logger.logInfo("[+] Servicio detectado: " + event.getName() + ". Resolviendo...");
-                    jmdns.requestServiceInfo(event.getType(), event.getName());
-                }
-
-                @Override
-                public void serviceRemoved(ServiceEvent event) {
-                    Logger.logInfo("[-] Servicio fuera de línea: " + event.getName());
-                }
-
-                @Override
-                public void serviceResolved(ServiceEvent event) {
-                    ServiceInfo info = event.getInfo();
-                    String[] addresses = info.getHostAddresses();
-
-                    if (addresses.length > 0) {
-                        String ip = addresses[0];
-                        int port = info.getPort();
-                        Logger.logInfo(String.format("[✨] NODO RESUELTO: %s -> %s:%d",
-                                event.getName(), ip, port));
-                        onServerFound.accept(ip, port);
-                    } else {
-                        Logger.logWarn("[?] No se pudo resolver la dirección para: " + event.getName());
+                jmdns.addServiceListener(SERVICE_TYPE, new ServiceListener() {
+                    @Override
+                    public void serviceAdded(ServiceEvent event) {
+                        jmdns.requestServiceInfo(event.getType(), event.getName());
                     }
-                }
-            });
 
-        } catch (IOException e) {
-            Logger.logError("[mDNS] Error en el cliente de búsqueda: " + e.getMessage());
+                    @Override
+                    public void serviceRemoved(ServiceEvent event) {
+                        Logger.logInfo("[-] Nodo desconectado: " + event.getName());
+                    }
+
+                    @Override
+                    public void serviceResolved(ServiceEvent event) {
+                        ServiceInfo info = event.getInfo();
+                        String[] addresses = info.getHostAddresses();
+                        if (addresses.length > 0) {
+                            // Devolvemos la IP encontrada
+                            onServerFound.accept(addresses[0], info.getPort());
+                        }
+                    }
+                });
+            } catch (IOException e) {
+                Logger.logError("[mDNS] Error al iniciar scanner en " + addr.getHostAddress());
+            }
         }
     }
 
-    // --- LIMPIEZA (IMPORTANTE PARA EL FIREWALL) ---
+    private String netInterfaceName(InetAddress addr) {
+        try {
+            return NetworkInterface.getByInetAddress(addr).getDisplayName();
+        } catch (Exception e) { return "Desconocida"; }
+    }
 
     public void stopAll() {
-        if (jmdns != null) {
+        for (JmDNS jmdns : jmdnsInstances) {
             try {
                 jmdns.unregisterAllServices();
                 jmdns.close();
-                jmdns = null;
-                isScanning.set(false);
-                Logger.logInfo("[🧹] Servicios de red detenidos y puertos liberados.");
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            } catch (IOException e) { /* Ignorar al cerrar */ }
         }
-    }
-
-    // --- UTILIDADES EXTERNAS ---
-
-    public String getPublicIP() {
-        try {
-            HttpClient client = HttpClient.newBuilder()
-                    .connectTimeout(java.time.Duration.ofSeconds(5))
-                    .build();
-
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create("https://api.ipify.org"))
-                    .build();
-
-            return client.send(request, HttpResponse.BodyHandlers.ofString()).body();
-        } catch (Exception e) {
-            return "No disponible";
-        }
+        jmdnsInstances.clear();
+        isScanning.set(false);
+        Logger.logInfo("[🧹] NetworkManager: Todas las instancias JmDNS cerradas.");
     }
 }

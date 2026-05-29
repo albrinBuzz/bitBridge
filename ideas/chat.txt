@@ -1,0 +1,33 @@
+1. Retroalimentación Visual (Feedback)
+El usuario necesita saber qué está pasando, especialmente durante procesos lentos de red o hardware.
+
+Skeleton Loading: En lugar de mostrar un espacio vacío mientras el p:poll carga los logs, usa un "esqueleto" (barras grises animadas) que simule la estructura del mensaje. Esto reduce la ansiedad de carga.
+
+Indicadores de Estado del Nodo: Como trabajas con nodos (ej. Fedora), podrías añadir un pequeño badge en cada mensaje que indique si el archivo ya fue replicado en otros nodos o si solo está en el servidor central.
+
+2. Gestión Inteligente de Archivos
+Previsualización Multimedia: Si el archivo es una imagen (.jpg, .png), muestra una miniatura (thumbnail) en lugar de solo el icono. Para archivos de código (.java, .py), podrías integrar un visualizador con resaltado de sintaxis básico.
+
+Drag and Drop mejorado: Aunque ya tienes el p:fileUpload, podrías habilitar una zona transparente sobre todo el chat-body que se active al arrastrar un archivo, facilitando la subida desde PC.
+
+3. Funciones de Búsqueda y Filtrado
+Con el tiempo, el log se llenará de archivos.
+
+Filtro por Tipo: Botones rápidos (Chips) en la parte superior para filtrar por: "Imágenes", "Documentos", "Código" o "Scripts de DB".
+
+Búsqueda Incremental: Un campo de búsqueda que filtre la lista de logs localmente mediante JavaScript mientras el usuario escribe, sin esperar al servidor.
+
+4. Notificaciones y Alertas
+Web Notifications: Si el usuario tiene la pestaña en segundo plano mientras trabaja en su Acer Nitro o en su proyecto de Spring Boot, puedes usar la API de notificaciones del navegador para avisar cuando un archivo nuevo ha sido subido por otro usuario.
+
+Toast Messages: Usa p:growl para confirmar acciones de forma no intrusiva (ej: "Enlace de descarga copiado al portapapeles").
+
+5. Optimización de Rendimiento (Mobile & Desktop)
+Paginación Infinita: En lugar de cargar los últimos 50 logs de golpe, carga 15. Cuando el usuario haga scroll hacia arriba, carga los siguientes 15. Esto ahorra memoria RAM en el teléfono y en el i7-12700 del servidor.
+
+Compresión On-the-fly: Al subir imágenes grandes desde el móvil, podrías usar un canvas de JavaScript para redimensionarlas antes de enviarlas, ahorrando ancho de banda.
+
+6. Personalización (UI/UX)
+Modo Nocturno Dinámico: Ya tienes una estética oscura tipo "Glassmorphism", pero podrías permitir cambiar entre temas (ej. un tema "Matrix" verde o un tema "Dracula").
+
+Nombre de Usuario/Alias: Permitir que el usuario elija un alias rápido (ej. "Cris_Dev") para que en el log no aparezca solo "User_123".

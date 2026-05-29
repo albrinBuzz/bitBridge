@@ -42,29 +42,40 @@ public class Logger {
     public static synchronized void log(LogLevel level, String message) {
         StackTraceElement ste = Thread.currentThread().getStackTrace()[3];
         String time = dtf.format(LocalDateTime.now());
-        String className = ste.getClassName().substring(ste.getClassName().lastIndexOf('.') + 1);
 
-        System.out.println(formatForConsole(level, time, className, ste, message));
-        saveToFile(formatForFile(level, time, className, ste, message));
+        // CAMBIO: Ahora obtenemos el nombre completo del paquete + clase
+        String fullClassName = ste.getClassName();
+
+        System.out.println(formatForConsole(level, time, fullClassName, ste, message));
+        saveToFile(formatForFile(level, time, fullClassName, ste, message));
     }
 
-    private static String formatForConsole(LogLevel lvl, String time, String cls, StackTraceElement ste, String msg) {
-        if (!enableColors) return formatForFile(lvl, time, cls, ste, msg);
+    private static String formatForConsole(LogLevel lvl, String time, String fullCls, StackTraceElement ste, String msg) {
+        if (!enableColors) return formatForFile(lvl, time, fullCls, ste, msg);
 
-        // Estructura: TIME [LEVEL] CLASS::METHOD(L) - MESSAGE
-        return String.format("%s%s%s %s%s%s %s%s%s::%s%s%s(%s%d%s) %s %s%s%s",
-                LINE_COLOR, time, RESET,
-                lvl.color, lvl.label, RESET,
-                BOLD + CLASS_COLOR, cls, RESET,
-                METHOD_COLOR, ste.getMethodName(), RESET,
-                LINE_COLOR, ste.getLineNumber(), RESET,
-                BOLD + "»", // Un separador visual
-                MSG_COLOR, msg, RESET);
+        // Separamos el paquete de la clase para darles colores distintos
+        String packageName = "";
+        String className = fullCls;
+        if (fullCls.contains(".")) {
+            packageName = fullCls.substring(0, fullCls.lastIndexOf('.') + 1);
+            className = fullCls.substring(fullCls.lastIndexOf('.') + 1);
+        }
+
+        // Estructura: TIME [LEVEL] package.Class::method(line) » message
+        return String.format("%s%s%s %s%s%s %s%s%s%s%s%s::%s%s%s(%s%d%s) %s %s%s%s",
+                TIME_COLOR, time, RESET,             // Tiempo
+                lvl.color, lvl.label, RESET,         // Nivel [INFO]
+                TIME_COLOR, packageName, RESET,      // Paquete (en gris para no saturar)
+                BOLD + CLASS_COLOR, className, RESET, // Clase (en Azul brillante)
+                METHOD_COLOR, ste.getMethodName(), RESET, // Método
+                LINE_COLOR, ste.getLineNumber(), RESET,   // Línea
+                BOLD + "»",                          // Separador
+                MSG_COLOR, msg, RESET);              // Mensaje
     }
 
-    private static String formatForFile(LogLevel lvl, String time, String cls, StackTraceElement ste, String msg) {
+    private static String formatForFile(LogLevel lvl, String time, String fullCls, StackTraceElement ste, String msg) {
         return String.format("[%s] %s %s::%s(L:%d) - %s",
-                time, lvl.label, cls, ste.getMethodName(), ste.getLineNumber(), msg);
+                time, lvl.label, fullCls, ste.getMethodName(), ste.getLineNumber(), msg);
     }
 
     private static void saveToFile(String fullLog) {

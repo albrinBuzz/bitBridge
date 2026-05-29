@@ -1,3 +1,21 @@
+/**
+ * Copyright 2026 [Tu Nombre Completo]
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+
+
 package org.bitBridge.Client.core;
 import org.bitBridge.Client.services.MessageDispatcher;
 
@@ -7,21 +25,24 @@ import org.bitBridge.shared.network.ClientNetworkEngine;
 import org.bitBridge.shared.network.ProtocolService;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.util.Iterator;
+import java.util.concurrent.CountDownLatch;
 
 public class NioClientEngine implements ClientNetworkEngine, Runnable {
     private SocketChannel socketChannel;
     private Selector selector;
     private MessageDispatcher dispatcher;
     private boolean running;
-
+    private long connectionStartTime;
+    private  CountDownLatch connectionLatch;
     // Buffers para reconstrucción de paquetes JSON
-    private ByteBuffer headerBuffer = ByteBuffer.allocate(6);
+    private ByteBuffer headerBuffer = ByteBuffer.allocate(8);
     private ByteBuffer payloadBuffer;
     private boolean readingHeader = true;
 
@@ -31,24 +52,23 @@ public class NioClientEngine implements ClientNetworkEngine, Runnable {
 
     @Override
     public void connect(String host, int port) throws IOException {
+        // RESET de estado para reconexión
+        this.connectionLatch = new CountDownLatch(1);
+        this.readingHeader = true;
+        this.headerBuffer.clear();
+        this.payloadBuffer = null;
+
         this.selector = Selector.open();
         this.socketChannel = SocketChannel.open();
         this.socketChannel.configureBlocking(false);
-        this.socketChannel.connect(new InetSocketAddress(host, port));
 
-        // Esperar a que la conexión se complete (NIO style)
-        while (!socketChannel.finishConnect()) {
-            try {
-                Thread.sleep(10); // Pequeña espera para no saturar CPU en el handshaking
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-        }
+        this.connectionStartTime = System.currentTimeMillis();
+        InetSocketAddress address = new InetSocketAddress(InetAddress.getByName(host), port);
 
-        this.socketChannel.register(selector, SelectionKey.OP_READ);
+        this.socketChannel.connect(address);
+        this.socketChannel.register(selector, SelectionKey.OP_CONNECT);
         this.running = true;
 
-        // Iniciamos el hilo que vigila la red de forma asíncrona
         new Thread(this, "NIO-Client-Worker").start();
     }
 
@@ -62,69 +82,106 @@ public class NioClientEngine implements ClientNetworkEngine, Runnable {
                 while (it.hasNext()) {
                     SelectionKey key = it.next();
                     it.remove();
-                    if (key.isReadable()) {
+
+                    if (key.isConnectable()) {
+                        finishConnection(key);
+                    } else if (key.isReadable()) {
                         readIncomingData();
                     }
                 }
             } catch (IOException e) {
-                Logger.logError("Conexión perdida con el servidor."+e.getMessage());
+                Logger.logError("Error en loop NIO: " + e.getMessage());
                 running = false;
             }
         }
     }
 
-    private void readIncomingData() throws IOException {
-        int read;
-        if (readingHeader) {
-            //socketChannel.read(headerBuffer);
-            read = socketChannel.read(headerBuffer);
-            if (read == -1) {
-                handleServerDisconnection();
-                return;
-            }
+    private void finishConnection(SelectionKey key) throws IOException {
+        if (socketChannel.finishConnect()) {
+            long duration = System.currentTimeMillis() - connectionStartTime;
+            key.interestOps(SelectionKey.OP_READ);
 
-            if (!headerBuffer.hasRemaining()) {
+            // ¡ESTO LEVANTA LA VALLA!
+            connectionLatch.countDown();
+
+            Logger.logInfo(String.format("NIO: Conexión establecida físicamente en %d ms.", duration));
+        }
+    }
+
+    private void readIncomingData() throws IOException {
+        while (true) { // Loop para procesar todos los mensajes pendientes en el socket
+            if (readingHeader) {
+                int read = socketChannel.read(headerBuffer);
+                if (read == -1) { handleServerDisconnection(); return; }
+                if (read == 0 && headerBuffer.position() == 0) return; // No hay nada más que leer
+                if (headerBuffer.hasRemaining()) return; // Header incompleto, esperar al Selector
+
+                // --- HEADER COMPLETO ---
                 headerBuffer.flip();
                 int jsonSize = headerBuffer.getInt();
-                short typeSize = headerBuffer.getShort();
+                int typeSize = headerBuffer.getInt();
 
-                // Preparamos el payloadBuffer incluyendo el espacio para el header
-                // para que ProtocolService.fromBytes funcione correctamente
-                payloadBuffer = ByteBuffer.allocate(6 + typeSize + jsonSize);
+                // Sanity Check (Evitar OOM)
+                if (typeSize <= 0 || typeSize > 1024 || jsonSize < 0 || jsonSize > 10 * 1024 * 1024) {
+                    headerBuffer.clear();
+                    throw new IOException("Protocol Desync: Header inválido (" + typeSize + ")");
+                }
 
-                headerBuffer.flip(); // Volvemos a flip para copiarlo
+                payloadBuffer = ByteBuffer.allocate(8 + typeSize + jsonSize);
+                headerBuffer.rewind(); // Volvemos al inicio del header para copiarlo íntegro
                 payloadBuffer.put(headerBuffer);
-
                 readingHeader = false;
             }
-        }
 
-        if (!readingHeader) {
-            //socketChannel.read(payloadBuffer);
-            read = socketChannel.read(payloadBuffer);
-            if (read == -1) {
-                handleServerDisconnection();
-                return;
-            }
+            if (!readingHeader) {
+                int read = socketChannel.read(payloadBuffer);
+                if (read == -1) { handleServerDisconnection(); return; }
+                if (payloadBuffer.hasRemaining()) return; // Cuerpo incompleto, esperar
 
-            if (!payloadBuffer.hasRemaining()) {
+                // --- PAYLOAD COMPLETO ---
                 payloadBuffer.flip();
                 byte[] data = payloadBuffer.array();
 
-                Communication comm = ProtocolService.fromBytes(data);
-                dispatcher.dispatch(comm);
-
-                // Reset total
-                headerBuffer.clear();
-                payloadBuffer = null;
-                readingHeader = true;
+                try {
+                    Communication comm = ProtocolService.fromBytes(data);
+                    dispatcher.dispatch(comm);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                } finally {
+                    // RESET para el siguiente mensaje en la ráfaga
+                    headerBuffer.clear();
+                    payloadBuffer = null;
+                    readingHeader = true;
+                }
+                // El loop continúa: si hay bytes del siguiente mensaje, se procesan YA.
             }
         }
     }
 
     @Override
     public void send(Communication payload) throws IOException {
-            ProtocolService.writeNIO(socketChannel,payload);
+        try {
+            // Si el latch es null (no se ha llamado a connect), lanzamos error
+            if (connectionLatch == null) {
+                throw new IOException("No se ha iniciado una conexión.");
+            }
+
+            // Esperar a que finishConnection haga el countDown()
+            if (!connectionLatch.await(5, java.util.concurrent.TimeUnit.SECONDS)) {
+                throw new IOException("Timeout: El servidor no aceptó la conexión a tiempo.");
+            }
+
+            // Validar el estado del canal físico
+            if (socketChannel == null || !socketChannel.isConnected() || !socketChannel.isOpen()) {
+                throw new IOException("El canal se cerró inesperadamente antes de enviar.");
+            }
+
+            ProtocolService.writeNIO(socketChannel, payload);
+
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Envío interrumpido.");
+        }
     }
 
     public void setDispatcher(MessageDispatcher dispatcher) {
@@ -142,8 +199,8 @@ public class NioClientEngine implements ClientNetworkEngine, Runnable {
     }
 
     @Override
-    public void disconnect() {
-
+    public void disconnect() throws IOException {
+        stop();
     }
     private void handleServerDisconnection() throws IOException {
         Logger.logWarn("[CLIENTE] El servidor ha cerrado la conexión.");
@@ -173,6 +230,7 @@ public class NioClientEngine implements ClientNetworkEngine, Runnable {
 
     @Override
     public boolean isActive() {
-        return socketChannel != null && socketChannel.isConnected();
+        // Un canal NIO puede estar 'open' pero no 'connected' durante el handshake
+        return socketChannel != null && socketChannel.isOpen() && socketChannel.isConnected();
     }
 }

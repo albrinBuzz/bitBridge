@@ -51,7 +51,6 @@ public class CommunicationDispatcher {
         registerHandler(CommunicationType.NOTIFICATION, (exchange, comm) -> {
             if (comm instanceof FileHandshakeCommunication handshake) {
 
-
                 // Entregamos la respuesta al manager para desbloquear al emisor
                 exchange.getContext().transferManager().registerHandshake(
                         handshake.getSessionId(),
@@ -92,6 +91,25 @@ public class CommunicationDispatcher {
             exchange.sendTo(destinatario, screenMsg);
         }, ExecutionMode.SYNC);
 
+        registerHandler(CommunicationType.DIRECTORY_QUERY, new DirectoryQueryHandler(), ExecutionMode.ASYNC);
+
+        // En la inicialización del cliente:
+        registerHandler(CommunicationType.DIRECTORY_QUERY_RESULT, new DirectoryQueryResponseHandler(), ExecutionMode.ASYNC);
+
+
+        // Registro de solicitud de descarga (PULL)
+        registerHandler(CommunicationType.FILE_PULL_REQUEST, (exchange, comm) -> {
+            FilePullRequest pullReq = (FilePullRequest) comm;
+            String targetNick = pullReq.getTargetIp(); // En tu clase FilePullRequest usamos targetIp como el destino
+
+
+            // El servidor reenvía el objeto al nodo destino
+            exchange.sendTo(targetNick, pullReq);
+
+        }, ExecutionMode.ASYNC);
+
+
+
         /*registerHandler(CommunicationType.DIRECTORY, new DirectoryHandler());
         registerHandler(CommunicationType.FILE, new FileTransferHandler());*/
     }
@@ -122,7 +140,10 @@ public class CommunicationDispatcher {
         };
 
         // --- LÓGICA DE ASIGNACIÓN DE POOLS ---
-        if (message.getType() == CommunicationType.FILE || message.getType() == CommunicationType.DIRECTORY) {
+        if (message.getType() == CommunicationType.FILE ||
+                message.getType() == CommunicationType.DIRECTORY ||
+                message.getType() == CommunicationType.FILE_PULL_REQUEST) {
+
             // Las transferencias siempre deben ser ASYNC para no bloquear el Selector de NIO
             fileTransferPool.execute(task);
         } else {

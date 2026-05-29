@@ -3,9 +3,11 @@ package org.bitBridge.view.swing;
 import com.formdev.flatlaf.FlatClientProperties;
 import com.formdev.flatlaf.FlatDarkLaf;
 
+import com.formdev.flatlaf.intellijthemes.FlatDarkPurpleIJTheme;
 import com.formdev.flatlaf.intellijthemes.FlatOneDarkIJTheme;
 import org.bitBridge.Client.core.Client;
 import org.bitBridge.server.core.Server;
+import org.bitBridge.shared.LogLevel;
 import org.bitBridge.view.core.ConnectionState;
 import org.bitBridge.view.core.IMainView;
 import org.bitBridge.view.core.MainController;
@@ -49,6 +51,7 @@ public class MainView extends JFrame implements IMainView {
 
         //setupTheme();
         FlatOneDarkIJTheme.setup();
+        //FlatDarkPurpleIJTheme.setup();
 
         server=Server.getInstance();
         client=new Client();
@@ -61,7 +64,7 @@ public class MainView extends JFrame implements IMainView {
         //transferPanel.setTransferCountListener(this);
         chatPanel = new ChatPanel(client);
 
-        setTitle("BitBridge - [P2P Network Node]");
+        setTitle("BitBridge");
         setSize(1350, 850);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
@@ -83,6 +86,12 @@ public class MainView extends JFrame implements IMainView {
 
         mainTabs.addTab("🔍 Buscar Archivos", createSearchPanel());
 
+        //mainTabs.addTab("📥 Descargas", transferPanel);
+        //mainTabs.addTab("📥 Descargas", transferPanel);
+        //mainTabs.addTab("📥 Descargas", transferPanel);
+        //mainTabs.addTab("📥 Descargas", transferPanel);
+        //mainTabs.addTab("📥 Descargas", transferPanel);
+        //mainTabs.addTab("📥 Descargas", transferPanel);
         //mainTabs.addTab("📥 Descargas", transferPanel);
 
         //mainTabs.addTab("⬇ Transferencias", (Component) this.client.getTransferenciaController().setTransferencesObserver(new TransferPanel()));
@@ -148,10 +157,6 @@ public class MainView extends JFrame implements IMainView {
         });
     }
 
-    public void initGui(){
-
-    }
-
 
     @Override
     public void updateServerUI(ServerState state, String errorMessage) {
@@ -162,7 +167,7 @@ public class MainView extends JFrame implements IMainView {
             // 2. Si hay error, mostrar alerta y registrar en el log visual
             if (state == ServerState.ERROR && errorMessage != null) {
                 // Registrar en la StatusBar que creamos antes
-                statusBar.addLog("FALLO AL INICIAR: " + errorMessage, StatusBarPanel.LogType.ERROR);
+                statusBar.addLog("FALLO AL INICIAR: " + errorMessage, LogLevel.ERROR);
 
                 // Mostrar ventana emergente
                 showAlert("Error Crítico de Red", errorMessage);
@@ -194,8 +199,8 @@ public class MainView extends JFrame implements IMainView {
     }
 
     @Override
-    public void addLog(String log) {
-        statusBar.addLog(log, StatusBarPanel.LogType.INFO);
+    public void addLog(String message, LogLevel type) {
+        statusBar.addLog(message, type);
     }
 
 
@@ -253,16 +258,6 @@ public class MainView extends JFrame implements IMainView {
 
         return scroll;
     }
-    /*private JPanel createStatusBar() {
-        JPanel status = new JPanel(new BorderLayout());
-        status.setBorder(new EmptyBorder(5, 10, 5, 10));
-        JLabel traffic = new JLabel("⬇ 13.4 MB/s | ⬆ 2.1 MB/s | Paquetes: 104,201");
-        traffic.setForeground(NICOTINE_ORANGE);
-        status.add(new JLabel("Motor P2P: Activo | RAM: 156MB"), BorderLayout.WEST);
-        status.add(traffic, BorderLayout.EAST);
-        return status;
-    }*/
-
     private JPanel createPlaceholderPanel(String icon, String text) {
         JPanel p = new JPanel(new GridBagLayout());
         JLabel l = new JLabel("<html><center><font size='60'>" + icon + "</font><br><br>" + text + "</center></html>");
@@ -273,7 +268,8 @@ public class MainView extends JFrame implements IMainView {
 
     private void setupTheme() {
         try {
-            UIManager.setLookAndFeel(new FlatDarkLaf());
+            UIManager.setLookAndFeel(new FlatOneDarkIJTheme());
+
             UIManager.put("TabbedPane.selectedBackground", NICOTINE_ORANGE.darker());
             UIManager.put("TabbedPane.selectedForeground", Color.WHITE);
             //UIManager.put("ProgressBar.arc", 0); // Estilo Nicotine es cuadrado

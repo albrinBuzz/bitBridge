@@ -1,169 +1,163 @@
-import socket
-import json
+import sys
+import asyncio
 import struct
-import threading
-import tkinter as tk
-from tkinter import scrolledtext, messagebox
+import json
+import psutil
+from enum import Enum
+from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
+                             QHBoxLayout, QLabel, QTableWidget, QTableWidgetItem,
+                             QHeaderView, QFrame, QLineEdit, QPushButton)
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QColor
 
-class BitBridgeGUI:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("BitBridge Client - Python Edition")
-        self.root.geometry("500x600")
+# --- MOTOR DE RED (Igual, pero sin dependencias externas) ---
+class NioClientEngine:
+    def __init__(self, dispatcher):
+        self.dispatcher = dispatcher
+        self.reader = None
+        self.writer = None
+        self.is_running = False
 
-        # Estado de conexión
-        self.sock = None
-        self.connected = False
-
-        # --- Interfaz Gráfica ---
-        # Configuración de conexión
-        conn_frame = tk.Frame(root)
-        conn_frame.pack(pady=10, fill=tk.X, padx=10)
-
-        tk.Label(conn_frame, text="Nick:").pack(side=tk.LEFT)
-        self.nick_entry = tk.Entry(conn_frame, width=15)
-        self.nick_entry.insert(0, "PythonUser")
-        self.nick_entry.pack(side=tk.LEFT, padx=5)
-
-        self.btn_connect = tk.Button(conn_frame, text="Conectar", command=self.toggle_connection)
-        self.btn_connect.pack(side=tk.LEFT, padx=5)
-
-        # Área de Chat
-        self.chat_area = scrolledtext.ScrolledText(root, state='disabled', wrap=tk.WORD)
-        self.chat_area.pack(pady=10, padx=10, fill=tk.BOTH, expand=True)
-
-        # Entrada de mensaje
-        msg_frame = tk.Frame(root)
-        msg_frame.pack(pady=10, fill=tk.X, padx=10)
-
-        self.msg_entry = tk.Entry(msg_frame)
-        self.msg_entry.bind("<Return>", lambda e: self.send_message())
-        self.msg_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
-
-        self.btn_send = tk.Button(msg_frame, text="Enviar", command=self.send_message, state='disabled')
-        self.btn_send.pack(side=tk.RIGHT, padx=5)
-
-    def log(self, message):
-        """Escribe en la consola visual del chat."""
-        self.chat_area.config(state='normal')
-        self.chat_area.insert(tk.END, message + "\n")
-        self.chat_area.config(state='disabled')
-        self.chat_area.see(tk.END)
-
-    def toggle_connection(self):
-        if not self.connected:
-            self.connect_to_server()
-        else:
-            self.disconnect()
-
-    def connect_to_server(self):
-        host = "127.0.0.1"
-        port = 8080
-        nick = self.nick_entry.get().strip()
-
-        if not nick:
-            messagebox.showwarning("Error", "Ingresa un Nick")
-            return
-
+    async def connect(self, host, port):
         try:
-            self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.sock.connect((host, port))
-            self.connected = True
-
-            # Iniciar hilo de escucha
-            threading.Thread(target=self.receive_loop, daemon=True).start()
-
-            # Primer mensaje: Autenticación (según tu lógica handleAuthentication)
-            self.send_protocol_message(nick, "MESSAGE")
-
-            self.btn_connect.config(text="Desconectar")
-            self.btn_send.config(state='normal')
-            self.nick_entry.config(state='disabled')
-            self.log(f"[*] Conectado a {host}:{port} como {nick}")
-
+            self.reader, self.writer = await asyncio.open_connection(host, port)
+            self.is_running = True
+            asyncio.create_task(self._read_loop())
+            return True
         except Exception as e:
-            self.log(f"[!] Error de conexión: {e}")
-            messagebox.showerror("Error", f"No se pudo conectar: {e}")
+            print(f"Error de conexión: {e}")
+            return False
 
-    def send_protocol_message(self, content, type_name):
-        """Implementación exacta de ProtocolService.writeNIO"""
+    async def _read_loop(self):
         try:
-            # Construir el objeto JSON
-            payload = {
-                "contenido": content,
-                "communicationType": type_name
-            }
-            json_str = json.dumps(payload)
-            json_bytes = json_str.encode('utf-8')
-            type_bytes = type_name.encode('utf-8')
-
-            # Protocolo: [INT: jsonLen][SHORT: typeLen][BYTES: typeName][BYTES: JSON]
-            # '>' indica Big Endian (Java default)
-            header = struct.pack(">ih", len(json_bytes), len(type_bytes))
-
-            packet = header + type_bytes + json_bytes
-            self.sock.sendall(packet)
+            while self.is_running:
+                header = await self.reader.readexactly(8)
+                json_size, type_size = struct.unpack('>ii', header)
+                payload = await self.reader.readexactly(type_size + json_size)
+                type_name = payload[:type_size].decode('utf-8').strip()
+                json_data = payload[type_size:].decode('utf-8')
+                data_dict = json.loads(json_data)
+                await self.dispatcher.dispatch(type_name, data_dict)
         except Exception as e:
-            self.log(f"[!] Error al enviar: {e}")
-            self.disconnect()
+            print(f"Desconectado: {e}")
+            self.is_running = False
 
-    def send_message(self):
-        msg = self.msg_entry.get().strip()
-        if msg and self.connected:
-            self.send_protocol_message(msg, "MESSAGE")
-            self.msg_entry.delete(0, tk.END)
+    async def send(self, comm_type, data):
+        if not self.writer or self.writer.is_closing(): return
+        json_bytes = json.dumps(data).encode('utf-8')
+        type_bytes = comm_type.encode('utf-8')
+        header = struct.pack('>ii', len(json_bytes), len(type_bytes))
+        self.writer.write(header + type_bytes + json_bytes)
+        await self.writer.drain()
 
-    def receive_loop(self):
-        """Hilo dedicado a recibir datos sin bloquear la GUI."""
-        while self.connected:
-            try:
-                # 1. Leer Header (6 bytes)
-                header_data = self.recv_all(6)
-                if not header_data: break
+# --- INTERFAZ UI ---
+class BitBridgeFancyClient(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("BitBridge Terminal - Pro")
+        self.resize(1100, 700)
+        self.engine = NioClientEngine(self)
+        self.host_name = f"PyNode_{psutil.os.getpid()}"
 
-                json_len, type_len = struct.unpack(">ih", header_data)
+        # Estilo Neón
+        self.setStyleSheet("""
+            QMainWindow { background-color: #05070a; }
+            QWidget { color: #00d1ff; font-family: 'Consolas', monospace; }
+            QFrame#Panel { background-color: #0d1117; border: 1px solid #1a1e26; border-radius: 10px; }
+            QLineEdit { background: #161b22; border: 1px solid #30363d; padding: 8px; color: white; border-radius: 5px; }
+            QPushButton { background: #00d1ff; color: #05070a; font-weight: bold; border-radius: 5px; padding: 10px; }
+            QPushButton:hover { background: #00ff88; }
+            QTableWidget { background: transparent; border: none; alternate-background-color: #0d1117; }
+        """)
 
-                # 2. Leer el resto (Tipo + JSON)
-                body_data = self.recv_all(type_len + json_len)
-                if not body_data: break
+        # Layout
+        central = QWidget()
+        self.setCentralWidget(central)
+        layout = QVBoxLayout(central)
 
-                # Extraer partes
-                # type_str = body_data[:type_len].decode('utf-8') # Opcional usarlo
-                json_part = body_data[type_len:].decode('utf-8')
+        # Header y Status
+        header = QHBoxLayout()
+        self.lbl_status = QLabel("OFFLINE")
+        self.lbl_status.setStyleSheet("color: #ff3e3e;")
+        header.addWidget(QLabel("BITBRIDGE NODE // SYSTEM_READY"))
+        header.addStretch()
+        header.addWidget(self.lbl_status)
+        layout.addLayout(header)
 
-                # Parsear JSON y mostrar
-                data = json.loads(json_part)
-                if "contenido" in data:
-                    self.root.after(0, self.log, data["contenido"])
-                elif "status" in data: # Caso MessageAck
-                    self.root.after(0, self.log, f"[Servidor: {data['status']}]")
+        # Conexión
+        self.input_ip = QLineEdit("127.0.0.1")
+        self.input_port = QLineEdit("8080")
+        self.btn_connect = QPushButton("CONNECT")
+        self.btn_connect.clicked.connect(self.handle_connect_click) # Llamada normal
 
-            except Exception as e:
-                if self.connected:
-                    self.root.after(0, self.log, f"[!] Conexión perdida: {e}")
-                break
+        conn_box = QHBoxLayout()
+        conn_box.addWidget(self.input_ip); conn_box.addWidget(self.input_port); conn_box.addWidget(self.btn_connect)
+        layout.addLayout(conn_box)
 
-        self.root.after(0, self.disconnect)
+        # Chat Log
+        self.log_table = QTableWidget(0, 1)
+        self.log_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.log_table.horizontalHeader().setVisible(False)
+        layout.addWidget(self.log_table)
 
-    def recv_all(self, n):
-        """Asegura leer exactamente N bytes (fundamental para protocolos binarios)."""
-        data = bytearray()
-        while len(data) < n:
-            packet = self.sock.recv(n - len(data))
-            if not packet: return None
-            data.extend(packet)
-        return data
+        # Input Mensaje
+        msg_layout = QHBoxLayout()
+        self.input_msg = QLineEdit()
+        self.btn_send = QPushButton("SEND")
+        self.btn_send.clicked.connect(self.handle_send_click)
+        msg_layout.addWidget(self.input_msg); msg_layout.addWidget(self.btn_send)
+        layout.addLayout(msg_layout)
 
-    def disconnect(self):
-        self.connected = False
-        if self.sock:
-            self.sock.close()
-        self.btn_connect.config(text="Conectar")
-        self.btn_send.config(state='disabled')
-        self.nick_entry.config(state='normal')
-        self.log("[*] Desconectado.")
+    # --- PUENTES ASÍNCRONOS ---
+    def handle_connect_click(self):
+        # Envolvemos la corrutina en una tarea para evitar el conflicto de runtime
+        asyncio.create_task(self.start_connection())
+
+    def handle_send_click(self):
+        asyncio.create_task(self.send_message())
+
+    async def start_connection(self):
+        ip = self.input_ip.text()
+        port = int(self.input_port.text())
+        if await self.engine.connect(ip, port):
+            self.lbl_status.setText("ONLINE")
+            self.lbl_status.setStyleSheet("color: #00ff88;")
+            saludo = {"hostName": self.host_name, "contenido": "Python Link Established"}
+            await self.engine.send("MESSAGE", saludo)
+
+    async def send_message(self):
+        txt = self.input_msg.text()
+        if txt and self.engine.is_running:
+            await self.engine.send("MESSAGE", {"contenido": txt})
+            self.add_log(f"YO: {txt}", "#00d1ff")
+            self.input_msg.clear()
+
+    async def dispatch(self, type_name, data):
+        if type_name == "MESSAGE":
+            self.add_log(f"REMOTE: {data.get('contenido')}", "#00ff88")
+        elif type_name == "UPDATE":
+            self.add_log(f"SISTEMA: Lista de hosts actualizada", "#ffaa00")
+
+    def add_log(self, text, color):
+        row = self.log_table.rowCount()
+        self.log_table.insertRow(row)
+        item = QTableWidgetItem(text)
+        item.setForeground(QColor(color))
+        self.log_table.setItem(row, 0, item)
+        self.log_table.scrollToBottom()
+
+# --- BUCLE DE EVENTOS HÍBRIDO (SIN QASYNC) ---
+async def run_app():
+    app = QApplication.instance() or QApplication(sys.argv)
+    window = BitBridgeFancyClient()
+    window.show()
+
+    while True:
+        app.processEvents() # Procesa eventos de Qt
+        await asyncio.sleep(0.01) # Cede el control a asyncio
 
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = BitBridgeGUI(root)
-    root.mainloop()
+    try:
+        asyncio.run(run_app())
+    except KeyboardInterrupt:
+        pass

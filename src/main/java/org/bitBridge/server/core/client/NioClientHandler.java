@@ -33,12 +33,11 @@ public class NioClientHandler implements BitBridgeClient {
 
     // Buffers de lectura de estado
     private ByteBuffer payloadBuffer = null;
-    private final ByteBuffer headerBuffer = ByteBuffer.allocate(6);
+    private final ByteBuffer headerBuffer = ByteBuffer.allocate(8);
     private boolean readingHeader = true;
     private boolean readingLength = true;
     private ClientInfo info;
     private boolean isShuttingDown = false;
-    private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
     public String nick;
     private boolean authenticated = false;
 
@@ -56,71 +55,95 @@ public class NioClientHandler implements BitBridgeClient {
 
     public void processRead() {
         try {
-            // El loop while(true) permite leer múltiples mensajes en una sola activación del Selector
             while (true) {
                 if (readingHeader) {
-                    if (channel.read(headerBuffer) == -1) throw new IOException("EOF");
-                    if (headerBuffer.hasRemaining()) return; // Faltan bytes del header
+                    int read = channel.read(headerBuffer);
+                    if (read == -1) throw new IOException("EOF");
+                    if (headerBuffer.hasRemaining()) return; // No hay header completo aún
 
                     headerBuffer.flip();
                     int jsonSize = headerBuffer.getInt();
-                    short typeSize = headerBuffer.getShort();
-                    // El tamaño total que el ProtocolService.fromBytes espera recibir (Header + Body)
-                    int fullPacketSize = 6 + typeSize + jsonSize;
+                    int typeSize = headerBuffer.getInt();
+                    int fullPacketSize = 8 + typeSize + jsonSize;
 
-                    if (fullPacketSize <= 6 || fullPacketSize > 1024 * 1024 * 2) {
-                        throw new IOException("Paquete inválido: " + fullPacketSize);
+                    // Validación de locura (Sanity Check)
+                    if (jsonSize < 0 || typeSize < 0 || typeSize > 128) {
+                        throw new IOException("Protocol Desync: Header inválido. TypeSize: " + typeSize);
                     }
 
-                    payloadBuffer = DirectBufferPool.acquire(50);
-                    if (payloadBuffer == null) return;
+                    //Logger.logInfo(String.valueOf(fullPacketSize));
+                    DirectBufferPool.BufferType poolSugerido;
 
-                    /*if (fullPacketSize > payloadBuffer.capacity()) {
-                        DirectBufferPool.release(payloadBuffer);
+                    if (fullPacketSize <= DirectBufferPool.getCapacityForType(DirectBufferPool.BufferType.MESSAGE)) {
+                        //Logger.logInfo("Buffer Mensaje");
+                        poolSugerido = DirectBufferPool.BufferType.MESSAGE;
+                    }
+                    else if (fullPacketSize <= DirectBufferPool.getCapacityForType(DirectBufferPool.BufferType.DIRECTORY)) {
+                        Logger.logInfo("Buffer Direcotrio");
+                        poolSugerido = DirectBufferPool.BufferType.DIRECTORY;
+                    }
+                    else if (fullPacketSize <= DirectBufferPool.getCapacityForType(DirectBufferPool.BufferType.TRANSFER)) {
+                        poolSugerido = DirectBufferPool.BufferType.TRANSFER;
+                    } else {
+                        // Si es más grande que nuestro pool máximo (ej: 1MB+)
                         payloadBuffer = ByteBuffer.allocateDirect(fullPacketSize);
+                        poolSugerido = null;
+                    }
+
+                    if (poolSugerido != null) {
+                        payloadBuffer = DirectBufferPool.acquire(poolSugerido, 50);
+                        // Si el pool está saturado, fallback a allocateDirect
+                        if (payloadBuffer == null) {
+                            payloadBuffer = ByteBuffer.allocateDirect(fullPacketSize);
+                        }
+                    }
+
+                    // Usar allocateDirect si es grande, pool si es pequeño
+                    /*if (fullPacketSize > 8192) {
+                        payloadBuffer = ByteBuffer.allocateDirect(fullPacketSize);
+                    } else {
+                        payloadBuffer = DirectBufferPool.acquire(50);
+                        if (payloadBuffer == null) {
+                            payloadBuffer = ByteBuffer.allocateDirect(fullPacketSize);
+                        }
                     }*/
 
                     payloadBuffer.limit(fullPacketSize);
-
-
                     headerBuffer.rewind();
-                    payloadBuffer.put(headerBuffer);
-
+                    payloadBuffer.put(headerBuffer); // Metemos los 8 bytes del header
                     readingHeader = false;
                 }
 
-                if (channel.read(payloadBuffer) == -1) throw new IOException("EOF");
+                // Lectura del cuerpo
+                int readBody = channel.read(payloadBuffer);
+                if (readBody == -1) throw new IOException("EOF");
 
-                if (payloadBuffer.hasRemaining()) return; // Aún faltan bytes del cuerpo
+                if (payloadBuffer.hasRemaining()) return; // Cuerpo incompleto
 
-                // --- ¡MENSAJE COMPLETO! ---
+                // --- PROCESAMIENTO ---
                 payloadBuffer.flip();
-
-                // Copiamos a un array para procesar en el hilo virtual
-                // NOTA: El buffer sigue siendo el del Pool
                 byte[] data = new byte[payloadBuffer.remaining()];
                 payloadBuffer.get(data);
 
-                // DEVOLVEMOS EL BUFFER AL POOL INMEDIATAMENTE
-                DirectBufferPool.release(payloadBuffer);
+                // Liberar el buffer ANTES de seguir el loop si es del pool
+                if (payloadBuffer.isDirect()) {
+                    DirectBufferPool.release(payloadBuffer);
+                }
 
-                // PASAMOS AL HILO VIRTUAL (Sin pausar la lectura de red)
+                // IMPORTANTE: Reset de variables ANTES de lanzar el hilo
+                payloadBuffer = null;
+                headerBuffer.clear();
+                readingHeader = true;
+
+                // Procesar de forma asíncrona
                 final byte[] finalData = data;
                 Thread.ofVirtual().start(() -> onMessageComplete(finalData));
 
-                // RESET PARA EL SIGUIENTE MENSAJE
-                headerBuffer.clear();
-                payloadBuffer = null;
-                readingHeader = true;
-
-                // No hacemos 'return', el 'while' intentará leer el siguiente header
-                // que ya pueda estar en el buffer del SO.
+                // El loop continúa: si hay más bytes en el socket,
+                // channel.read(headerBuffer) los tomará limpiamente.
             }
         } catch (IOException e) {
-            if (payloadBuffer != null) {
-                DirectBufferPool.release(payloadBuffer);
-                payloadBuffer = null;
-            }
+            if (payloadBuffer != null) DirectBufferPool.release(payloadBuffer);
             shutDown();
         }
     }
@@ -251,7 +274,6 @@ public class NioClientHandler implements BitBridgeClient {
 
             //ProtocolService.writeNIO(channel,comm);
         } catch (IOException e) {
-            if (buffer != null) DirectBufferPool.release(buffer);
             //Logger.logError("Error en envío: " + e.getMessage());
         }
     }
@@ -272,6 +294,7 @@ public class NioClientHandler implements BitBridgeClient {
                             }
                         } finally {
                             // LIBERACIÓN GARANTIZADA
+                            //DirectBufferPool.release(buf);
                             if (buf.isDirect()) {
                                 // Si tu pool tiene lógica para ignorar buffers que no creó, úsalo.
                                 // Si no, asegúrate de que el pool pueda manejar esto.
@@ -286,21 +309,6 @@ public class NioClientHandler implements BitBridgeClient {
                     if (!writeQueue.isEmpty()) drainWriteQueue();
                 }
             });
-        }
-    }
-
-
-    public void send(Communication comm) {
-        try {
-            // ProtocolService debe devolver un ByteBuffer con [Longitud][Tipo][JSON]
-            ProtocolService.writeNIO(channel,comm);
-            /*ByteBuffer buffer = ProtocolService.toNioBuffer(comm);
-
-            while (buffer.hasRemaining()) {
-                channel.write(buffer);
-            }*/
-        } catch (IOException e) {
-            closeConnection();
         }
     }
 

@@ -1,275 +1,376 @@
 package org.bitBridge.Tests.Gui.nicotine;
 
 import com.formdev.flatlaf.FlatDarkLaf;
+import com.formdev.flatlaf.intellijthemes.FlatOneDarkIJTheme;
+
 import javax.swing.*;
-import javax.swing.border.EmptyBorder;
-import javax.swing.border.TitledBorder;
-import javax.swing.table.DefaultTableModel;
-import javax.swing.tree.DefaultMutableTreeNode;
-import javax.swing.tree.DefaultTreeModel;
+import javax.swing.border.*;
+import javax.swing.table.*;
+import javax.swing.tree.*;
 import java.awt.*;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
+import java.awt.event.*;
 
 public class RemoteExplorer extends JFrame {
 
     private static final Color NICOTINE_ORANGE = new Color(255, 165, 0);
-    private static final Color BG_DARKER = new Color(25, 25, 25);
+    private static final Color BG_DARKER = new Color(20, 20, 20);
+    private static final Color ACCENT_GREEN = new Color(50, 200, 50);
+
     private DefaultTableModel fileModel;
-    private JLabel lblPath;
+    private JTable fileTable;
 
     public RemoteExplorer() {
-        setupTheme();
+        //setupTheme();
+        FlatOneDarkIJTheme.setup();
+
         setTitle("BitBridge Pro - Advanced Remote Assets Explorer");
-        setSize(1450, 900);
+        setSize(1500, 950);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
+        setLocationRelativeTo(null);
         setLayout(new BorderLayout());
 
-        // 1. TOOLBAR GLOBAL
+        // 1. TOOLBAR SUPERIOR
         add(createGlobalToolBar(), BorderLayout.NORTH);
 
-        // 2. TABS PRINCIPALES
-        JTabbedPane mainTabs = new JTabbedPane();
-        mainTabs.addTab("🌐 Explorador Remoto", createRemoteExplorerPanel());
-        mainTabs.addTab("📈 Monitor de Tráfico", createTrafficMonitorPanel());
-        mainTabs.addTab("⚙️ Configuración Nodo", createSettingsPanel());
+        // 2. PANEL CENTRAL (Split lateral)
+        JSplitPane mainSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
+        mainSplit.setDividerLocation(250);
+        mainSplit.setLeftComponent(createSidePanel());
+        mainSplit.setRightComponent(createMainExplorationTabs());
 
-        add(mainTabs, BorderLayout.CENTER);
+        add(mainSplit, BorderLayout.CENTER);
 
         // 3. BARRA DE ESTADO
         add(createStatusBar(), BorderLayout.SOUTH);
     }
 
-    private JPanel createRemoteExplorerPanel() {
-        JPanel panel = new JPanel(new BorderLayout());
-
-        // --- ENCABEZADO: Selector de Nodo y Barra de Direcciones ---
-        JPanel headerPanel = new JPanel(new GridLayout(2, 1));
-        headerPanel.setBackground(BG_DARKER);
-
-        // Fila 1: Selector
-        JPanel userSelector = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        userSelector.setOpaque(false);
-        userSelector.add(new JLabel("Nodo Destino:"));
-        JComboBox<String> nodeCombo = new JComboBox<>(new String[]{
-                "WORKSTATION-01 (192.168.1.50)",
-                "SERVER-BACKUP (192.168.1.10)",
-                "DEV-STATION (192.168.1.60)"
-        });
-        userSelector.add(nodeCombo);
-        userSelector.add(new JButton("🔄 Refrescar"));
-        userSelector.add(new JSeparator(SwingConstants.VERTICAL));
-        userSelector.add(new JLabel("Buscador:"));
-        JTextField txtFilter = new JTextField(15);
-        userSelector.add(txtFilter);
-
-        // Fila 2: Breadcrumbs / Path
-        JPanel pathPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        pathPanel.setOpaque(false);
-        pathPanel.add(new JLabel("📁 Directorio Actual:"));
-        lblPath = new JLabel("root/home/user/compartido/Backups");
-        lblPath.setForeground(NICOTINE_ORANGE);
-        lblPath.setFont(new Font("Monospaced", Font.BOLD, 12));
-        pathPanel.add(lblPath);
-
-        headerPanel.add(userSelector);
-        headerPanel.add(pathPanel);
-
-        // --- CUERPO: SplitPane Triple ---
-        JSplitPane mainSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
-        mainSplit.setDividerLocation(280);
-
-        // A. Árbol de Directorios (Lado Izquierdo)
-        DefaultMutableTreeNode root = new DefaultMutableTreeNode("NODO-REMOTO");
-        DefaultMutableTreeNode home = new DefaultMutableTreeNode("C:/BitBridgeShared");
-        home.add(new DefaultMutableTreeNode("Multimedia"));
-        home.add(new DefaultMutableTreeNode("Documentos_Corp"));
-        home.add(new DefaultMutableTreeNode("System_Images"));
-        root.add(home);
-
-        JTree tree = new JTree(new DefaultTreeModel(root));
-        tree.setBackground(new Color(30, 30, 30));
-        JScrollPane treeScroll = new JScrollPane(tree);
-        treeScroll.setBorder(new TitledBorder("Estructura de Carpetas"));
-
-        // B. Tabla de Archivos (Centro)
-        String[] columns = {"Nombre", "Tamaño", "Modificado", "Estado", "Checksum SHA-1"};
-        fileModel = new DefaultTableModel(columns, 0);
-        populateMockFiles(); // Llenar con datos
-
-        JTable table = new JTable(fileModel);
-        table.setRowHeight(35); // Aumentado para mejor visualización
-        table.setShowGrid(false);
-        table.setIntercellSpacing(new Dimension(0, 0));
-
-        // --- LÓGICA DE CLIC DERECHO (MENÚ CONTEXTUAL) ---
-        JPopupMenu contextMenu = new JPopupMenu();
-
-        JMenuItem downloadItem = new JMenuItem("📥 Descargar Archivo (PULL)");
-        downloadItem.setFont(new Font("SansSerif", Font.BOLD, 12));
-
-        JMenuItem priorityDownload = new JMenuItem("⚡ Descarga Prioritaria (High Speed)");
-        JMenuItem verifyItem = new JMenuItem("🔍 Verificar Integridad SHA-1");
-        JMenuItem copyPathItem = new JMenuItem("📋 Copiar Ruta Remota");
-
-        contextMenu.add(downloadItem);
-        contextMenu.add(priorityDownload);
-        contextMenu.addSeparator();
-        contextMenu.add(verifyItem);
-        contextMenu.add(copyPathItem);
-
-        table.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mouseReleased(MouseEvent e) {
-                if (e.isPopupTrigger()) showMenu(e);
-            }
-            @Override
-            public void mousePressed(MouseEvent e) {
-                if (e.isPopupTrigger()) showMenu(e);
-            }
-            private void showMenu(MouseEvent e) {
-                int row = table.rowAtPoint(e.getPoint());
-                if (row >= 0 && row < table.getRowCount()) {
-                    table.setRowSelectionInterval(row, row); // Selecciona la fila automáticamente
-                    contextMenu.show(e.getComponent(), e.getX(), e.getY());
-                }
-            }
-        });
-
-        // Acciones del Menú
-        downloadItem.addActionListener(e -> {
-            String file = table.getValueAt(table.getSelectedRow(), 0).toString();
-            JOptionPane.showMessageDialog(this, "Iniciando descarga estándar de: " + file);
-        });
-
-        priorityDownload.addActionListener(e -> {
-            String file = table.getValueAt(table.getSelectedRow(), 0).toString();
-            JOptionPane.showMessageDialog(this, "⚡ Prioridad alta asignada a: " + file);
-        });
-
-        JScrollPane tableScroll = new JScrollPane(table);
-        tableScroll.setBorder(new TitledBorder("Contenido del Directorio"));
-
-        // C. Panel de Detalles (Derecha)
-        JPanel detailPanel = new JPanel();
-        detailPanel.setLayout(new BoxLayout(detailPanel, BoxLayout.Y_AXIS));
-        detailPanel.setPreferredSize(new Dimension(300, 0));
-        detailPanel.setBorder(new EmptyBorder(15, 15, 15, 15));
-
-        JLabel lblPreview = new JLabel("VISTA PREVIA");
-        lblPreview.setAlignmentX(Component.CENTER_ALIGNMENT);
-        lblPreview.setForeground(NICOTINE_ORANGE);
-
-        JPanel fileIconBox = new JPanel();
-        fileIconBox.setPreferredSize(new Dimension(150, 150));
-        fileIconBox.setBackground(new Color(45, 45, 45));
-        fileIconBox.add(new JLabel("📄"));
-
-        JTextPane txtMeta = new JTextPane();
-        txtMeta.setContentType("text/html");
-        txtMeta.setEditable(false);
-        txtMeta.setOpaque(false);
-        txtMeta.setText("<html><body style='color:gray; font-family:sans-serif;'>" +
-                "<b>Archivo:</b> data_backup.tar.gz<br>" +
-                "<b>Tamaño:</b> 1.4 GB<br>" +
-                "<b>Propietario:</b> System_Admin<br>" +
-                "<b>Permisos:</b> Read-Only<br><br>" +
-                "<font color='#FFA500'>ID Único: BB-9982-X</font></body></html>");
-
-        JButton btnPull = new JButton("📥 Iniciar Transferencia PULL");
-        btnPull.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
-        btnPull.setBackground(NICOTINE_ORANGE.darker());
-        btnPull.setForeground(Color.WHITE);
-
-        detailPanel.add(lblPreview);
-        detailPanel.add(Box.createVerticalStrut(10));
-        detailPanel.add(fileIconBox);
-        detailPanel.add(Box.createVerticalStrut(20));
-        detailPanel.add(txtMeta);
-        detailPanel.add(Box.createVerticalGlue());
-        detailPanel.add(btnPull);
-
-        // Integración de Splits
-        JSplitPane rightSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, tableScroll, detailPanel);
-        rightSplit.setDividerLocation(650);
-
-        mainSplit.setLeftComponent(treeScroll);
-        mainSplit.setRightComponent(rightSplit);
-
-        panel.add(headerPanel, BorderLayout.NORTH);
-        panel.add(mainSplit, BorderLayout.CENTER);
-
-        return panel;
-    }
-
-    private void populateMockFiles() {
-        fileModel.addRow(new Object[]{"kernel_update_v4.bin", "150 MB", "2026-01-10", "Ready", "8F2B...11"});
-        fileModel.addRow(new Object[]{"user_manual.pdf", "12 MB", "2025-12-15", "Ready", "A1B2...99"});
-        fileModel.addRow(new Object[]{"marketing_assets/", "--", "2026-01-01", "Folder", "DIR"});
-        fileModel.addRow(new Object[]{"database_dump.sql", "2.8 GB", "Hace 2h", "Busy", "E4E4...00"});
-    }
-
-    private JPanel createTrafficMonitorPanel() {
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.setBorder(new EmptyBorder(20, 20, 20, 20));
-        JPanel graph = new JPanel() {
-            @Override protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                Graphics2D g2 = (Graphics2D) g;
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(new Color(15, 15, 15));
-                g2.fillRect(0,0,getWidth(),getHeight());
-                g2.setColor(NICOTINE_ORANGE);
-                int[] points = {180, 160, 170, 100, 120, 80, 110};
-                for(int i=0; i<points.length-1; i++) {
-                    g2.drawLine(i*150, points[i], (i+1)*150, points[i+1]);
-                }
-            }
-        };
-        graph.setBorder(new TitledBorder("Throughput de Red Interna (Gbps)"));
-        panel.add(graph, BorderLayout.CENTER);
-        return panel;
+    private void setupTheme() {
+        try {
+            UIManager.setLookAndFeel(new FlatDarkLaf());
+            UIManager.put("Button.arc", 8);
+            UIManager.put("Component.arc", 8);
+            UIManager.put("ProgressBar.arc", 8);
+        } catch (Exception e) { e.printStackTrace(); }
     }
 
     private JPanel createGlobalToolBar() {
         JPanel bar = new JPanel(new FlowLayout(FlowLayout.LEFT));
         bar.setBackground(BG_DARKER);
-        bar.setPreferredSize(new Dimension(0, 40));
-        JButton btnReconnect = new JButton("🔌 Forzar Reconexión");
-        btnReconnect.setFont(new Font("SansSerif", Font.BOLD, 11));
-        bar.add(btnReconnect);
-        bar.add(new JButton("📁 Publicar Directorio"));
+        bar.setBorder(new MatteBorder(0, 0, 1, 0, Color.DARK_GRAY));
+
+        bar.add(new JButton("🔌 Conectar a Nodo"));
+        bar.add(new JButton("📁 Compartir Local"));
         bar.add(new JSeparator(SwingConstants.VERTICAL));
-        JLabel lblStatus = new JLabel("MODO: ADMINISTRADOR CENTRAL");
-        lblStatus.setForeground(Color.GRAY);
-        bar.add(lblStatus);
+
+        JLabel sysStats = new JLabel(" CPU: 12% | RAM: 1.2GB/64GB | Latencia: 15ms ");
+        sysStats.setForeground(Color.GRAY);
+        bar.add(sysStats);
+
         return bar;
+    }
+
+    private JPanel createSidePanel() {
+        JPanel side = new JPanel(new BorderLayout());
+        side.setBackground(BG_DARKER);
+
+        // Marcadores
+        DefaultListModel<String> favModel = new DefaultListModel<>();
+        favModel.addElement("⭐ Servidor Principal i7");
+        favModel.addElement("⭐ Backup Gigabyte B760");
+        favModel.addElement("📁 /home/user/logs");
+        favModel.addElement("📁 /var/www/assets");
+
+        JList<String> favList = new JList<>(favModel);
+        favList.setBackground(BG_DARKER);
+        favList.setFixedCellHeight(35);
+        favList.setBorder(new TitledBorder(new LineBorder(Color.DARK_GRAY), "Favoritos"));
+
+        // Árbol
+        DefaultMutableTreeNode root = new DefaultMutableTreeNode("Infraestructura");
+        DefaultMutableTreeNode node1 = new DefaultMutableTreeNode("NODO-REMOTO-01");
+        node1.add(new DefaultMutableTreeNode("BitBridge-Shared"));
+        node1.add(new DefaultMutableTreeNode("System-Backups"));
+        root.add(node1);
+
+        JTree tree = new JTree(root);
+        tree.setBackground(BG_DARKER);
+
+        JSplitPane split = new JSplitPane(JSplitPane.VERTICAL_SPLIT, new JScrollPane(favList), new JScrollPane(tree));
+        split.setDividerLocation(200);
+
+        side.add(split, BorderLayout.CENTER);
+        return side;
+    }
+
+    private JTabbedPane createMainExplorationTabs() {
+        JTabbedPane tabs = new JTabbedPane();
+        tabs.addTab("🌐 Explorador Remoto", createRemoteExplorerPanel());
+        tabs.addTab("📥 Cola de Transferencias", createQueuePanel());
+        return tabs;
+    }
+
+    private JPanel createRemoteExplorerPanel() {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBackground(BG_DARKER);
+
+        // --- BARRA DE NAVEGACIÓN (FILE MANAGER STYLE) ---
+        JPanel navContainer = new JPanel(new BorderLayout());
+        navContainer.setOpaque(false);
+
+        JToolBar actions = new JToolBar();
+        actions.setFloatable(false);
+        actions.setBackground(BG_DARKER);
+
+        actions.add(createNavButton("➕ Nueva Carpeta", "Crear"));
+        actions.add(createNavButton("📤 Subir (Push)", "Upload"));
+        actions.addSeparator();
+        actions.add(createNavButton("✂️ Cortar", null));
+        actions.add(createNavButton("📋 Pegar", null));
+        actions.add(createNavButton("🗑️ Eliminar", null));
+        actions.add(Box.createHorizontalGlue());
+
+        JTextField search = new JTextField(15);
+        search.putClientProperty("JTextField.placeholderText", "🔍 Filtrar archivos...");
+        actions.add(new JLabel("Filtro: "));
+        actions.add(search);
+
+        // Breadcrumbs
+        JPanel breadcrumbs = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 5));
+        breadcrumbs.setBackground(new Color(30, 30, 30));
+        String[] bPath = {"Root", "remote", "gigabyte_server", "backups"};
+        for(String p : bPath) {
+            JButton b = new JButton(p + " >");
+            b.setBorderPainted(false);
+            b.setContentAreaFilled(false);
+            b.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            breadcrumbs.add(b);
+        }
+
+        navContainer.add(actions, BorderLayout.NORTH);
+        navContainer.add(breadcrumbs, BorderLayout.SOUTH);
+
+        // --- TABLA DE ARCHIVOS ---
+        String[] columns = {"Nombre", "Tamaño", "Tipo", "Modificado", "Estado"};
+        fileModel = new DefaultTableModel(columns, 0) {
+            @Override public boolean isCellEditable(int r, int c) { return false; }
+        };
+        fileTable = new JTable(fileModel);
+        setupFileTable();
+        populateAdvancedMockData();
+
+        // --- SPLIT CENTRAL ---
+        JSplitPane contentSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, new JScrollPane(fileTable), createAdvancedInspector());
+        contentSplit.setDividerLocation(950);
+        contentSplit.setResizeWeight(0.8);
+
+        panel.add(navContainer, BorderLayout.NORTH);
+        panel.add(contentSplit, BorderLayout.CENTER);
+
+        return panel;
+    }
+
+    private void setupFileTable() {
+        fileTable.setRowHeight(35);
+        fileTable.setShowGrid(false);
+        fileTable.setIntercellSpacing(new Dimension(0, 0));
+        fileTable.setSelectionBackground(new Color(60, 60, 60));
+
+        // 1. RENDERER DE ESTADO (Ya lo tienes, mantenlo igual)
+        fileTable.getColumnModel().getColumn(4).setCellRenderer(new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable t, Object v, boolean s, boolean f, int r, int c) {
+                JLabel l = (JLabel) super.getTableCellRendererComponent(t, v, s, f, r, c);
+                String val = String.valueOf(v);
+                if ("Ready".equals(val)) l.setForeground(ACCENT_GREEN);
+                else if ("Busy".equals(val)) l.setForeground(Color.CYAN);
+                else if ("Error".equals(val)) l.setForeground(Color.RED);
+                return l;
+            }
+        });
+
+        // 2. CREACIÓN DEL MENÚ CONTEXTUAL DE ARCHIVOS
+        JPopupMenu fileMenu = new JPopupMenu();
+
+        // --- SECCIÓN: ACCIONES DE TRANSFERENCIA ---
+        JMenuItem itemPull = new JMenuItem("📥 Descargar (PULL)");
+        itemPull.setFont(new Font("SansSerif", Font.BOLD, 12));
+
+        JMenu menuSmartPull = new JMenu("⚡ Descarga Inteligente");
+        menuSmartPull.add(new JMenuItem("Sincronización Delta (Solo cambios)"));
+        menuSmartPull.add(new JMenuItem("Descarga Comprimida (LZ4)"));
+        menuSmartPull.add(new JMenuItem("Prioridad Crítica (Max Bandwidth)"));
+
+        // --- SECCIÓN: OPERACIONES DE ARCHIVO ---
+        JMenuItem itemRename = new JMenuItem("✏️ Renombrar");
+        JMenuItem itemDelete = new JMenuItem("🗑️ Eliminar");
+        itemDelete.setForeground(new Color(255, 80, 80));
+
+        // --- SECCIÓN: INTEGRIDAD Y DATA ---
+        JMenuItem itemHash = new JMenuItem("🔍 Verificar SHA-1 Remoto");
+        JMenuItem itemCopyPath = new JMenuItem("📋 Copiar Ruta Absoluta");
+
+        fileMenu.add(itemPull);
+        fileMenu.add(menuSmartPull);
+        fileMenu.addSeparator();
+        fileMenu.add(itemRename);
+        fileMenu.add(itemDelete);
+        fileMenu.addSeparator();
+        fileMenu.add(itemHash);
+        fileMenu.add(itemCopyPath);
+
+        // 3. LISTENERS (CLIC DERECHO Y DOBLE CLIC)
+        fileTable.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) { handlePopup(e); }
+            @Override
+            public void mouseReleased(MouseEvent e) { handlePopup(e); }
+
+            private void handlePopup(MouseEvent e) {
+                if (e.isPopupTrigger()) {
+                    int row = fileTable.rowAtPoint(e.getPoint());
+                    if (row != -1) {
+                        fileTable.setRowSelectionInterval(row, row);
+                        fileMenu.show(e.getComponent(), e.getX(), e.getY());
+                    }
+                }
+            }
+
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (e.getClickCount() == 2) {
+                    int row = fileTable.getSelectedRow();
+                    String name = fileTable.getValueAt(row, 0).toString();
+                    if (name.startsWith("📁")) {
+                        System.out.println("Navegando a: " + name);
+                        // navigateTo(currentPath + "/" + name.substring(2));
+                    }
+                }
+            }
+        });
+    }
+
+    private JPanel createAdvancedInspector() {
+        JPanel p = new JPanel();
+        p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
+        p.setBorder(new EmptyBorder(20, 20, 20, 20));
+        p.setBackground(new Color(25, 25, 25));
+        p.setMinimumSize(new Dimension(320, 0));
+
+        // --- SECCIÓN: ENCABEZADO Y PREVIEW ---
+        JLabel icon = new JLabel("🗄️");
+        icon.setFont(new Font("Serif", Font.PLAIN, 80));
+        icon.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        JLabel name = new JLabel("global_assets_2026.tar.gz");
+        name.setFont(new Font("SansSerif", Font.BOLD, 15));
+        name.setForeground(NICOTINE_ORANGE);
+        name.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        p.add(icon);
+        p.add(Box.createVerticalStrut(10));
+        p.add(name);
+        p.add(Box.createVerticalStrut(25));
+
+        // --- SECCIÓN: METADATOS TÉCNICOS ---
+        JLabel titleMeta = new JLabel("METADATOS DEL ASSET");
+        titleMeta.setFont(new Font("SansSerif", Font.BOLD, 10));
+        titleMeta.setForeground(Color.DARK_GRAY);
+        p.add(titleMeta);
+        p.add(Box.createVerticalStrut(10));
+        p.add(new JSeparator());
+        p.add(Box.createVerticalStrut(15));
+
+        // Propiedades mejoradas
+        p.add(createPropLabel("📂 Tipo", "Gzip Archive"));
+        p.add(createPropLabel("⚖️ Tamaño", "8.52 GB"));
+        p.add(createPropLabel("👤 Dueño", "admin (uid: 1000)"));
+        p.add(createPropLabel("🔑 SHA-1", "8F2B9901AC99..."));
+
+        p.add(Box.createVerticalStrut(20));
+
+        // --- SECCIÓN: ACCIONES RÁPIDAS ---
+        JButton btnCopyHash = new JButton("📋 Copiar Hash");
+        btnCopyHash.setFont(new Font("SansSerif", Font.PLAIN, 11));
+        btnCopyHash.setAlignmentX(Component.CENTER_ALIGNMENT);
+        p.add(btnCopyHash);
+
+        p.add(Box.createVerticalGlue());
+
+        // Botón de acción principal
+        JButton btnPull = new JButton("📥 INICIAR DOWNLOAD PULL");
+        btnPull.setBackground(NICOTINE_ORANGE);
+        btnPull.setForeground(Color.BLACK);
+        btnPull.setFont(new Font("SansSerif", Font.BOLD, 13));
+        btnPull.setMaximumSize(new Dimension(Integer.MAX_VALUE, 50));
+        btnPull.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        p.add(btnPull);
+        return p;
+    }
+
+    // Helper mejorado con mejor espaciado y fuentes
+    private JPanel createPropLabel(String key, String value) {
+        JPanel row = new JPanel(new BorderLayout());
+        row.setOpaque(false);
+        row.setMaximumSize(new Dimension(300, 30)); // Altura fija para consistencia
+
+        JLabel kl = new JLabel(key);
+        kl.setFont(new Font("SansSerif", Font.PLAIN, 12));
+        kl.setForeground(new Color(150, 150, 150)); // Gris medio
+
+        JLabel vl = new JLabel(value);
+        vl.setFont(new Font("Monospaced", Font.BOLD, 12)); // Monospaced para datos técnicos
+        vl.setForeground(Color.WHITE);
+
+        row.add(kl, BorderLayout.WEST);
+        row.add(vl, BorderLayout.EAST);
+
+        // Añadimos un pequeño margen inferior
+        row.setBorder(new EmptyBorder(0, 0, 5, 0));
+        return row;
+    }
+
+    private void populateAdvancedMockData() {
+        fileModel.setRowCount(0);
+        fileModel.addRow(new Object[]{"📁 bin", "--", "Sistema", "Hace 2 días", "Ready"});
+        fileModel.addRow(new Object[]{"📁 logs_produccion", "--", "Logs", "Hace 10 min", "Ready"});
+        fileModel.addRow(new Object[]{"📁 renders_4k", "--", "Multimedia", "2026-01-25", "Ready"});
+        fileModel.addRow(new Object[]{"⚙️ kernel_patch.sh", "45 KB", "Script Bash", "Hace 1h", "Ready"});
+        fileModel.addRow(new Object[]{"🎦 teaser_final.mp4", "1.2 GB", "Video", "2026-01-20", "Ready"});
+        fileModel.addRow(new Object[]{"🗄️ backup_db.tar.gz", "8.5 GB", "Archivo", "Hace 5h", "Busy"});
+        fileModel.addRow(new Object[]{"📄 nodes.json", "128 KB", "JSON", "Justo ahora", "Ready"});
+        fileModel.addRow(new Object[]{"⚠️ temp_dump.tmp", "0 KB", "Temp", "Error", "Error"});
+    }
+
+    private JPanel createQueuePanel() {
+        JPanel p = new JPanel(new BorderLayout());
+        String[] cols = {"Archivo", "Progreso", "Velocidad", "Estado"};
+        DefaultTableModel m = new DefaultTableModel(cols, 0);
+        m.addRow(new Object[]{"movie.mkv", "45%", "120 MB/s", "Descargando..."});
+        m.addRow(new Object[]{"backup.zip", "100%", "0 MB/s", "Completado"});
+
+        JTable t = new JTable(m);
+        t.setRowHeight(30);
+        p.add(new JScrollPane(t), BorderLayout.CENTER);
+        return p;
+    }
+
+    private JButton createNavButton(String text, String tt) {
+        JButton b = new JButton(text);
+        b.setToolTipText(tt);
+        return b;
     }
 
     private JPanel createStatusBar() {
         JPanel status = new JPanel(new BorderLayout());
         status.setBackground(BG_DARKER);
         status.setBorder(new EmptyBorder(5, 10, 5, 10));
-        JLabel stats = new JLabel("DL: 850 Mbps | UL: 120 Mbps | Nodes: 14 | Sockets OK");
-        stats.setForeground(NICOTINE_ORANGE);
-        status.add(new JLabel("BitBridge Engine v2.6.0-PRO"), BorderLayout.WEST);
-        status.add(stats, BorderLayout.EAST);
+        JLabel left = new JLabel("BitBridge Engine v2.6.0-PRO | Sockets: 156 OK");
+        JLabel right = new JLabel(" DL: 850 Mbps | UL: 120 Mbps ");
+        right.setForeground(NICOTINE_ORANGE);
+        status.add(left, BorderLayout.WEST);
+        status.add(right, BorderLayout.EAST);
         return status;
-    }
-
-    private JPanel createSettingsPanel() {
-        JPanel p = new JPanel(new GridBagLayout());
-        p.add(new JLabel("Configuración de Cifrado AES-256 y Puertos de Escucha..."));
-        return p;
-    }
-
-    private void setupTheme() {
-        try {
-            UIManager.setLookAndFeel(new FlatDarkLaf());
-            UIManager.put("TabbedPane.selectedBackground", NICOTINE_ORANGE);
-            UIManager.put("ScrollBar.thumbArc", 999);
-            UIManager.put("SplitPane.dividerSize", 10);
-        } catch (Exception e) { e.printStackTrace(); }
     }
 
     public static void main(String[] args) {

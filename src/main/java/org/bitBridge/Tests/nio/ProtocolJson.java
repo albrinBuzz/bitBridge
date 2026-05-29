@@ -224,7 +224,7 @@ public class ProtocolJson {
 
         // [INT: 4] + [SHORT: 2] + [TYPE: N] + [JSON: M]
         //ByteBuffer buffer = ByteBuffer.allocate(6 + typeBytes.length + jsonBytes.length);
-        ByteBuffer buffer = DirectBufferPool.acquire(50);
+        ByteBuffer buffer = DirectBufferPool.acquire(null,100);
         if (buffer == null) return;
         //ByteBuffer buffer = DirectBufferPool.acquire(50);
         //ByteBuffer buffer= DirectBufferPool.acquire();
@@ -257,7 +257,7 @@ public class ProtocolJson {
         }
 
         // 2. Uso del Pool para mensajes normales
-        ByteBuffer buffer = DirectBufferPool.acquire(timeout);
+        ByteBuffer buffer = DirectBufferPool.acquire(null,timeout);
         if (buffer == null) return null; // O lanzar excepción según prefieras
 
         fillBuffer(buffer, jsonBytes, typeBytes);

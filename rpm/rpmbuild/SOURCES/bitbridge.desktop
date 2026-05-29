@@ -1,0 +1,27 @@
+[Desktop Entry]
+# Tipo de entrada: Aplicación
+Type=Application
+
+# Nombre que verá el usuario en el menú
+Name=BitBridge
+
+# Descripción corta que aparece al pasar el mouse
+Comment=High-Performance File Transfer Bridge
+
+# El comando que definimos en /usr/bin dentro del RPM
+Exec=/usr/bin/bitbridge
+
+# Ruta del icono que el RPM instalará en /usr/share/icons/...
+Icon=bitbridge
+
+# Categorías para que Gnome lo clasifique correctamente
+Categories=Network;FileTransfer;Utility;
+
+# Indica si debe abrir una terminal (ponlo en true si es CLI, false si tiene GUI)
+Terminal=false
+
+# Clase de la ventana para agrupar iconos en el dock (opcional)
+StartupWMClass=org.bitBridge.Launcher
+
+# Palabras clave para la búsqueda
+Keywords=transfer;nio;bridge;network;

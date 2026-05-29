@@ -64,7 +64,7 @@ public class ProtocolBinary {
         byte[] typeBytes = comm.getType().name().getBytes(StandardCharsets.UTF_8);
 
         // [INT: 4] + [SHORT: 2] + [TYPE: N] + [PAYLOAD: M]
-        ByteBuffer buffer = DirectBufferPool.acquire(50);
+        ByteBuffer buffer = DirectBufferPool.acquire(null,0);
         if (buffer == null) {
             return;
             //buffer = ByteBuffer.allocateDirect(6 + typeBytes.length + payload.length);
@@ -187,7 +187,7 @@ public class ProtocolBinary {
             buffer = ByteBuffer.allocateDirect(totalSize);
             //return null;
         } else {
-            buffer = DirectBufferPool.acquire(timeout);
+            buffer = DirectBufferPool.acquire(null, timeout);
             if (buffer == null) return null;
         }
 

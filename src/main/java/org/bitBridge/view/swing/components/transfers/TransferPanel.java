@@ -413,6 +413,7 @@ public class TransferPanel extends JPanel implements TransferencesObserver {
 
     @Override
     public void notifyTranference(FileHandshakeAction a) {
+        Logger.logInfo("NOtifiando"+a.name());
         SwingUtilities.invokeLater(() -> {
             switch (a) {
                 case DECLINE_REQUEST:

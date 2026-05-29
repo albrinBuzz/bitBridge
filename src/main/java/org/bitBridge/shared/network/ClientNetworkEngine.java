@@ -9,6 +9,6 @@ public interface ClientNetworkEngine extends NetworkEngine {
     void send(Communication payload) throws IOException;
     String getStatus();
     String getHostName();
-    void disconnect();
+    void disconnect() throws IOException;
     boolean isActive();
 }

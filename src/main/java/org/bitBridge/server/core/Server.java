@@ -2,28 +2,29 @@ package org.bitBridge.server.core;
 
 import java.io.*;
 import java.net.*;
-import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 
 
 import org.bitBridge.Client.ClientInfo;
 import org.bitBridge.Observers.ServerObserver;
-import org.bitBridge.server.ConfiguracionServidor;
+import org.bitBridge.models.LogEntry;
+import org.bitBridge.server.config.ConfigKey;
 import org.bitBridge.server.NetworkServer;
 import org.bitBridge.server.core.client.*;
 import org.bitBridge.server.console.ConsoleView;
 import org.bitBridge.server.network.NetworkUtils;
 import org.bitBridge.server.stats.ServerStats;
 import org.bitBridge.server.transfer.TransferSessionManager;
+import org.bitBridge.shared.LogLevel;
+import org.bitBridge.shared.config.ConfiguracionApp;
 import org.bitBridge.shared.core.comunication.ClientListMessage;
 import org.bitBridge.shared.core.comunication.CommunicationType;
 import org.bitBridge.shared.Logger;
 import org.bitBridge.shared.core.comunication.Mensaje;
 
-import org.bitBridge.shared.network.ProtocolService;
 import org.bitBridge.shared.network.ServerNetworkEngine;
 import org.bitBridge.shared.network.NetworkManager;
 import org.bitBridge.utils.UPnPManager;
@@ -49,8 +50,9 @@ public class Server {
 
     private ServerObserver serverObserver;
     private static volatile Server serverInstancia;
-    private ConfiguracionServidor config = ConfiguracionServidor.getInstancia();
+    private ConfiguracionApp config = ConfiguracionApp.getInstancia();
     private  int PORT;
+    private Consumer<LogEntry> logListener;
 
     private ConfigurableApplicationContext springContext;
     public boolean isRunning;
@@ -64,7 +66,7 @@ public class Server {
 
     private Server() {
         this.stats = new ServerStats();
-        this.PORT = Integer.parseInt(ConfiguracionServidor.getInstancia().obtener("servidor.puerto"));
+        this.PORT = Integer.parseInt(ConfiguracionApp.getInstancia().obtener(ConfigKey.SERVER_PORT));
         this.consoleView = new ConsoleView(stats, PORT);
         this.dispatcher = new CommunicationDispatcher();
 
@@ -90,9 +92,11 @@ public class Server {
 
         try {
 
-            networkEngine.start(PORT);
+          var status=  networkEngine.start(PORT);
             promise.complete(null);
-            //startBackgroundServices();
+            startBackgroundServices();
+
+
 
         } catch (BindException e) {
             String sugerencia = (PORT < 1024) ?
@@ -172,14 +176,14 @@ public class Server {
 
         // Broadcast cada 2 segundos es suficiente
         //scheduler.scheduleAtFixedRate(this::brocastServer, 0, 2, TimeUnit.SECONDS);
-        String nickname = ConfiguracionServidor.getInstancia().obtener("usuario.nickname");
+        //String nickname = ConfiguracionServidor.getInstancia().obtener("usuario.nickname");
         //String host=serverSocket.getInetAddress().getHostName();
         String hostName = InetAddress.getLocalHost().getHostName();
         //int puertoReal = serverSocket.getLocalPort();
 
         //upnpManager.openPort(puertoReal);
 
-        networkManager.startServerAnnouncement(PORT, hostName);
+        networkManager.startServerAnnouncement(PORT, hostName,this);
 
         // IMPORTANTE: Cambio de MILISEGUNDOS a SEGUNDOS
         //scheduler.scheduleAtFixedRate(this::updateStatus, 0, 1, TimeUnit.SECONDS);
@@ -301,7 +305,16 @@ public class Server {
     }
 
 
+    public void setLogListener(Consumer<LogEntry> listener) {
+        this.logListener = listener;
+    }
 
+
+    public void notifyUI(String msg, LogLevel type) {
+        if (logListener != null) {
+            logListener.accept(new LogEntry(msg, type));
+        }
+    }
 
     // Método sincronizado para enviar un mensaje a todos los clientes, excepto uno
     // ELIMINA el synchronized. El registry ya usa CopyOnWriteArrayList, que es segura.
@@ -375,45 +388,12 @@ public class Server {
         return stats;
     }
 
-/*private void updateUptime(){
-        this.serverObserver.updateUptime(formatUptime(serverStartTime));
-    }*/
-
-    public void updateStatus(){
-
-        /*Runtime runtime = Runtime.getRuntime();
-
-
-    // Total de memoria en JVM (en bytes)
-            long totalMemory = runtime.totalMemory();
-
-    // Memoria libre en la JVM (en bytes)
-            long freeMemory = runtime.freeMemory();
-
-    // Memoria usada en la JVM (en bytes)
-            long usedMemory = totalMemory - freeMemory;
-
-    // Convertir de bytes a gigabytes (1 GB = 1024 * 1024 * 1024 bytes)
-            double usedMemoryInGB = (double) usedMemory / (1024 * 1024 * 1024);
-
-            String memoria=String.format("%.2f", usedMemoryInGB);
-
-        this.serverObserver.updateMemory(memoria);
-        //this.serverObserver.updateUptime(formatUptime(serverStartTime));
-        //serverObserver.updateClient(clients.forEach();,Thread.activeCount());
-        //clients.forEach(()-> serverObserver.updateClient(t));
-        //List<ClientInfo>clientInfos=new ArrayList<>(clients.values());
-
-        //serverObserver.updateClient(clientInfos, Thread.activeCount());
-        //clients.forEach((clave,valor)->serverObserver.updateClient(valor, Thread.activeCount()));*/
-    }
-
-    public void updateBytes() {
-
-       // this.serverObserver.updateBytes(formatBytes(totalBytesSent));
-    }
     public int getPORT() {
         return PORT;
+    }
+
+    public ServerNetworkEngine getNetworkEngine() {
+        return this.networkEngine;
     }
 }
 

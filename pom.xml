@@ -74,12 +74,7 @@
 
 
         <!-- Source: https://mvnrepository.com/artifact/com.formdev/flatlaf -->
-        <dependency>
-            <groupId>com.formdev</groupId>
-            <artifactId>flatlaf</artifactId>
-            <version>3.7</version>
 
-        </dependency>
 
         <!-- Source: https://mvnrepository.com/artifact/com.formdev/flatlaf-extras -->
         <dependency>
@@ -93,11 +88,41 @@
             <artifactId>flatlaf-intellij-themes</artifactId>
             <version>3.7</version>
         </dependency>
+
+        <!-- Source: https://mvnrepository.com/artifact/com.formdev/flatlaf-extras -->
+        <dependency>
+            <groupId>com.formdev</groupId>
+            <artifactId>flatlaf-extras</artifactId>
+            <version>3.7</version>
+            <scope>compile</scope>
+        </dependency>
+
+
+
+        <!-- <dependency>
+            <groupId>com.github.perlundq</groupId>
+            <artifactId>yajsync-core</artifactId>
+            <version>0.9.0-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>com.github.perlundq</groupId>
+            <artifactId>yajsync-app</artifactId>
+            <version>0.9.0-SNAPSHOT</version>
+        </dependency>-->
+
+
         <dependency>
             <groupId>org.jmdns</groupId>
             <artifactId>jmdns</artifactId>
             <version>3.5.8</version>
         </dependency>
+
+        <dependency>
+            <groupId>com.github.fracpete</groupId>
+            <artifactId>rsync4j-core</artifactId>
+            <version>3.3.0-6</version>
+        </dependency>
+
 
         <!-- Source: https://mvnrepository.com/artifact/org.jupnp/jupnp -->
 
@@ -124,6 +149,14 @@
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
             <version>2.10.1</version>
+            <scope>compile</scope>
+        </dependency>
+
+        <!-- Source: https://mvnrepository.com/artifact/io.netty/netty-all -->
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-all</artifactId>
+            <version>4.2.9.Final</version>
             <scope>compile</scope>
         </dependency>
 

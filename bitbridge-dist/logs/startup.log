@@ -1,0 +1,9 @@
+📅 jue 05 feb 2026 17:12:42 -03
+WARNING: java.io.tmpdir directory does not exist
+Error: no se ha encontrado o cargado la clase principal org.bitBridge.Main
+Causado por: java.lang.ClassNotFoundException: org.bitBridge.Main
+📅 jue 05 feb 2026 17:16:05 -03
+------------------------------------------------
+📅 Lanzamiento: jue 05 feb 2026 17:22:07 -03
+☕ Java: openjdk version "21.0.9" 2025-10-21
+⚙️ Flags: -Xms512m -Xmx1536m -XX:MaxDirectMemorySize=1024m -XX:+UseZGC -Dfile.encoding=UTF-8 -Djava.net.preferIPv4Stack=true 

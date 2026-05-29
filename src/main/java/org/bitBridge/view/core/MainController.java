@@ -6,10 +6,13 @@ import org.bitBridge.Client.ClientInfo;
 import org.bitBridge.Client.core.Client;
 import org.bitBridge.Observers.NetObserver;
 import org.bitBridge.server.core.Server;
+import org.bitBridge.shared.LogLevel;
 import org.bitBridge.shared.Logger;
 import org.bitBridge.shared.core.comunication.ServerStatusConnection;
+import org.bitBridge.view.swing.StatusBarPanel;
 
 import javax.swing.*;
+import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -28,6 +31,16 @@ public class MainController implements NetObserver {
     }
 
     public void startServer() {
+
+        server.getNetworkEngine().setLogListener(logEntry -> {
+            addLog(logEntry.message(), logEntry.level());
+        });
+
+        server.setLogListener(logEntry -> {
+            addLog(logEntry.message(), logEntry.level());
+        });
+
+
         view.updateServerUI(ServerState.STARTING, null);
 
         server.startServer().thenRun(() -> {
@@ -85,7 +98,7 @@ public class MainController implements NetObserver {
                     // Esto solo se ejecutará si promise.complete(null) fue llamado
                     Logger.logInfo("¡Conexión exitosa confirmada!");
                     view.updateConnectionUI(ConnectionState.CONNECTED, "Conectado");
-                    addLog("¡Conexión exitosa confirmada!");
+                    addLog("¡Conexión exitosa confirmada!",LogLevel.INFO);
                 })
                 .exceptionally(ex -> {
                     // Esto se ejecuta si hubo un error o el timeout de 10s expiró
@@ -117,19 +130,19 @@ public class MainController implements NetObserver {
                 client.setConexion(ip, port);
 
             } catch (Exception e) {
-                // Forzamos que la excepción suba al bloque 'exceptionally'
-                throw new RuntimeException(e);
+                // Aquí lanzamos una RuntimeException para que .exceptionally la capture
+                throw new CompletionException(e);
             }
         }).thenRun(() -> {
             // Se ejecuta solo si setConexion terminó con éxito
-            Logger.logInfo("Conexión exitosa");
             view.updateConnectionUI(ConnectionState.CONNECTED, "Conectado a " + ip);
+            addLog("Conexión establecida", LogLevel.SUCCESS);
         }).exceptionally(ex -> {
             // Captura fallos de red o errores de lógica
             Throwable cause = (ex.getCause() != null) ? ex.getCause() : ex;
             Logger.logInfo("Error en conexión: " + cause.getMessage());
-
             view.updateConnectionUI(ConnectionState.CONNECTION_ERROR, cause.getMessage());
+            addLog("Fallo: " + cause.getMessage(), LogLevel.ERROR);
             return null;
         });
     }
@@ -142,13 +155,17 @@ public class MainController implements NetObserver {
 
     public void disconnectServer() {
         new Thread(() -> {
-            client.desconect();
+            try {
+                client.desconect();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
             view.updateConnectionUI(ConnectionState.DISCONNECTED, null);
         }).start();
     }
 
-    public void addLog(String log){
-        this.view.addLog(log);
+    public void addLog(String message, LogLevel type){
+        this.view.addLog(message,type);
     }
 
 

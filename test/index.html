@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BitBridge Web Explorer</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-deep: #0d0f17;
+            --bg-card: #1a1d27;
+            --accent-cyan: #00ffc8;
+            --accent-green: #28a745;
+            --text-main: #e0e6ed;
+            --border: #2d3245;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-deep);
+            color: var(--text-main);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+   /* --- NUEVO HEADER CON NAVEGACIÓN --- */
+        header {
+            background: var(--bg-card);
+            padding: 0 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 70px;
+            border-bottom: 2px solid var(--accent-cyan);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            z-index: 100;
+        }
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--accent-cyan);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 1.3rem;
+            font-weight: 800;
+            color: var(--accent-cyan);
+            text-decoration: none;
+        }
+
+
+        nav {
+            display: flex;
+            gap: 10px;
+            height: 100%;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0 15px;
+            color: var(--text-dim);
+            text-decoration: none;
+            font-size: 0.95rem;
+            font-weight: 500;
+            transition: 0.3s;
+            border-bottom: 3px solid transparent;
+        }
+
+        .nav-link:hover {
+            color: var(--text-main);
+            background: rgba(255,255,255,0.05);
+        }
+
+        .nav-link.active {
+            color: var(--accent-cyan);
+            border-bottom-color: var(--accent-cyan);
+            background: rgba(0, 255, 200, 0.05);
+        }
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            background: var(--accent-green);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--accent-green);
+        }
+
+        /* MAIN CONTENT */
+        main {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        /* BREADCRUMB */
+        .breadcrumb {
+            background: var(--bg-card);
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-family: monospace;
+            border: 1px solid var(--border);
+        }
+
+        /* FILE GRID/LIST */
+        .file-manager {
+            background: var(--bg-card);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+
+        .file-row {
+            display: grid;
+            grid-template-columns: auto 1fr auto auto;
+            padding: 15px;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            transition: background 0.2s;
+        }
+
+        .file-row:hover {
+            background: rgba(0, 255, 200, 0.05);
+        }
+
+        .file-icon {
+            font-size: 1.5rem;
+            margin-right: 15px;
+            color: var(--accent-cyan);
+        }
+
+        .file-info .name {
+            font-weight: 500;
+            display: block;
+        }
+
+        .file-info .details {
+            font-size: 0.8rem;
+            color: #888;
+        }
+
+        .btn-action {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-left: 10px;
+            transition: 0.3s;
+        }
+
+        .btn-action:hover {
+            border-color: var(--accent-cyan);
+            color: var(--accent-cyan);
+        }
+
+        /* UPLOAD SECTION (FAB or Box) */
+        .upload-zone {
+            margin-top: 20px;
+            border: 2px dashed var(--border);
+            padding: 30px;
+            text-align: center;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .upload-zone:hover {
+            border-color: var(--accent-cyan);
+            background: rgba(0, 255, 200, 0.02);
+        }
+
+        /* TERMINAL LOG */
+        .terminal {
+            background: #000;
+            color: #0f0;
+            font-family: 'Courier New', Courier, monospace;
+            padding: 15px;
+            height: 120px;
+            overflow-y: auto;
+            border-top: 2px solid var(--border);
+            font-size: 0.85rem;
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 600px) {
+            .file-row {
+                grid-template-columns: auto 1fr auto;
+            }
+            .file-info .details { display: none; }
+            header .user-info { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <a href="#" class="logo-section">
+        <i class="fas fa-bridge"></i> <span>BitBridge</span>
+    </a>
+
+    <nav>
+        <a href="index.html" class="nav-link active">
+            <i class="fas fa-folder-open"></i> <span>Explorador</span>
+        </a>
+        <!-- Este link conecta con la vista tipo WhatsApp que creamos antes -->
+        <a href="chat.html" class="nav-link">
+            <i class="fas fa-comments-alt"></i> <span>chat</span>
+        </a>
+        <a href="#" class="nav-link" title="Próximamente">
+            <i class="fas fa-microchip"></i> <span>Sistema</span>
+        </a>
+    </nav>
+
+    <div class="status-badge">
+        <span class="status-dot"></span>
+        <span>Online</span>
+    </div>
+</header>
+
+<main>
+
+
+
+    <div class="breadcrumb">
+        <i class="fas fa-home"></i> / root / downloads / personal
+    </div>
+
+    <div class="file-manager" id="fileList">
+        <!-- Archivo 1 -->
+        <div class="file-row">
+            <i class="far fa-file-pdf file-icon"></i>
+            <div class="file-info">
+                <span class="name">reporte_red_mayo.pdf</span>
+                <span class="details">1.2 MB | 01/05/2026</span>
+            </div>
+            <button class="btn-action" title="Descargar"><i class="fas fa-download"></i></button>
+            <button class="btn-action" title="Eliminar"><i class="fas fa-trash"></i></button>
+        </div>
+        <!-- Directorio -->
+        <div class="file-row">
+            <i class="fas fa-folder file-icon" style="color: #f1c40f;"></i>
+            <div class="file-info">
+                <span class="name">backup_base_datos</span>
+                <span class="details">Dir | 30/04/2026</span>
+            </div>
+            <button class="btn-action" title="Abrir"><i class="fas fa-folder-open"></i></button>
+            <button class="btn-action" title="Zip y Descargar"><i class="fas fa-file-archive"></i></button>
+        </div>
+        <!-- Imagen -->
+        <div class="file-row">
+            <i class="far fa-file-image file-icon"></i>
+            <div class="file-info">
+                <span class="name">captura_servidor_01.png</span>
+                <span class="details">450 KB | 28/04/2026</span>
+            </div>
+            <button class="btn-action" title="Descargar"><i class="fas fa-download"></i></button>
+            <button class="btn-action" title="Eliminar"><i class="fas fa-trash"></i></button>
+        </div>
+    </div>
+
+    <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
+        <i class="fas fa-cloud-upload-alt" style="font-size: 2.5rem; color: var(--accent-cyan); margin-bottom: 10px;"></i>
+        <p>Arrastra archivos aquí o <strong>toca para seleccionar</strong></p>
+        <input type="file" id="fileInput" style="display: none;" multiple>
+    </div>
+</main>
+
+<div class="terminal" id="terminal">
+    <div>[INFO] BitBridge Web Client v1.0.4 initialized.</div>
+    <div>[INFO] Connected to Node: 192.168.100.191 (Latency: 12ms)</div>
+    <div style="color: var(--accent-cyan)">[SYSTEM] Ready for file transfer.</div>
+</div>
+
+<script>
+    const fileInput = document.getElementById('fileInput');
+    const terminal = document.getElementById('terminal');
+
+    function log(msg, color = '#0f0') {
+        const div = document.createElement('div');
+        div.style.color = color;
+        div.textContent = `> ${new Date().toLocaleTimeString()}: ${msg}`;
+        terminal.appendChild(div);
+        terminal.scrollTop = terminal.scrollHeight;
+    }
+
+    fileInput.addEventListener('change', (e) => {
+        const files = e.target.files;
+        if(files.length > 0) {
+            log(`Iniciando subida de ${files.length} archivo(s)...`, '#00ffc8');
+            // Simulación de subida
+            setTimeout(() => {
+                log(`Transferencia completa: ${files[0].name} subido con éxito.`);
+            }, 1500);
+        }
+    });
+
+    // Efecto Drag & Drop simple
+    const zone = document.querySelector('.upload-zone');
+    zone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        zone.style.borderColor = 'var(--accent-cyan)';
+    });
+    zone.addEventListener('dragleave', () => {
+        zone.style.borderColor = 'var(--border)';
+    });
+</script>
+
+</body>
+</html>

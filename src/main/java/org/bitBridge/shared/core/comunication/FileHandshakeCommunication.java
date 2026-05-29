@@ -25,6 +25,7 @@ public class FileHandshakeCommunication extends Communication {
         this.sessionId = sessionId;
     }
 
+
     public FileHandshakeCommunication(FileHandshakeAction fileHandshakeAction) {
         super(CommunicationType.NOTIFICATION);
         this.action = fileHandshakeAction;
@@ -41,6 +42,10 @@ public class FileHandshakeCommunication extends Communication {
 
     public FileDirectoryCommunication getFileInfo() {
         return fileInfo;
+    }
+
+    public void setFileInfo(FileDirectoryCommunication fileInfo) {
+        this.fileInfo = fileInfo;
     }
 }
 

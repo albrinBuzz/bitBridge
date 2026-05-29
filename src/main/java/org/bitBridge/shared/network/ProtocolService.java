@@ -2,6 +2,7 @@ package org.bitBridge.shared.network;
 
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.formdev.flatlaf.json.Json;
 import com.google.gson.Gson;
 import org.bitBridge.server.core.client.BitBridgeClient;
 import org.bitBridge.shared.Logger;
@@ -29,6 +30,9 @@ public class ProtocolService {
         typeRegistry.put(CommunicationType.UPDATE, ClientListMessage.class);
         typeRegistry.put(CommunicationType.NOTIFICATION, FileHandshakeCommunication.class);
         typeRegistry.put(CommunicationType.ACK, MessageAck.class);
+        typeRegistry.put(CommunicationType.DIRECTORY_QUERY, DirectoryQuery.class);
+        typeRegistry.put(CommunicationType.DIRECTORY_QUERY_RESULT, DirectoryQueryResponse.class);
+        typeRegistry.put(CommunicationType.FILE_PULL_REQUEST, FilePullRequest.class);
     }
 
     /**
@@ -86,19 +90,32 @@ public class ProtocolService {
         ByteBuffer buffer = ByteBuffer.wrap(data);
 
         // 1. Leer la longitud del JSON (4 bytes - Equivale a in.readInt())
-        if (buffer.remaining() < 4) throw new IOException("Paquete demasiado corto (falta longitud)");
+        if (buffer.remaining() < 8) throw new IOException("Paquete demasiado corto (falta longitud)");
+
         int payloadLen = buffer.getInt();
 
         // 2. Leer la longitud del tipo (2 bytes - Equivale al prefijo de readUTF())
         if (buffer.remaining() < 2) throw new IOException("Paquete corrupto (falta longitud de tipo)");
-        short typeLen = buffer.getShort();
+        int typeLen = buffer.getInt();
 
         // 3. Leer el nombre del tipo
         if (buffer.remaining() < typeLen) throw new IOException("Paquete incompleto (falta nombre de tipo)");
         byte[] typeBytes = new byte[typeLen];
         buffer.get(typeBytes);
-        String typeStr = new String(typeBytes, StandardCharsets.UTF_8);
-        CommunicationType type = CommunicationType.valueOf(typeStr);
+        // ProtocolService.java
+        String typeStr = new String(typeBytes, StandardCharsets.UTF_8).trim();
+       // Logger.logInfo("Tipo de comunicacion [" + typeStr + "]");
+
+        if (typeStr.isEmpty()) {
+            throw new IOException("Protocol Desync: Nombre de tipo vacío detectado.");
+        }
+
+        CommunicationType type;
+        try {
+            type = CommunicationType.valueOf(typeStr);
+        } catch (IllegalArgumentException e) {
+            throw new IOException("Protocol Desync: Tipo desconocido [" + typeStr + "]");
+        }
 
         // 4. Leer el JSON usando el payloadLen obtenido al inicio
         // Usamos payloadLen para ser exactos, aunque buffer.remaining() debería coincidir
@@ -107,6 +124,7 @@ public class ProtocolService {
         buffer.get(jsonBytes);
         String json = new String(jsonBytes, StandardCharsets.UTF_8);
 
+
         return deserializeByType(json, type);
     }
 
@@ -114,7 +132,7 @@ public class ProtocolService {
         ReadableByteChannel channel = client.getReadableChannel();
 
         // 1. Leer el Header (6 bytes: 4 para Int size, 2 para Short type)
-        ByteBuffer header = ByteBuffer.allocate(6);
+        ByteBuffer header = ByteBuffer.allocate(8);
         while (header.hasRemaining()) {
             int read = channel.read(header);
             if (read == -1) throw new IOException("Conexión cerrada durante lectura de header");
@@ -122,7 +140,7 @@ public class ProtocolService {
         header.flip();
 
         int jsonSize = header.getInt();
-        short typeSize = header.getShort();
+        int typeSize = header.getInt();
 
         // 2. VALIDACIÓN CRÍTICA: Evitar el error "1145655877" (bytes de texto leídos como int)
         // Si el tamaño es mayor a 1MB para un JSON de control, algo anda mal
@@ -143,7 +161,7 @@ public class ProtocolService {
 
         // 4. Reconstruir el paquete completo para ProtocolService.fromBytes
         // ProtocolService espera: [4 bytes size][2 bytes typeSize][Bytes...]
-        ByteBuffer fullPacket = ByteBuffer.allocate(6 + typeSize + jsonSize);
+        ByteBuffer fullPacket = ByteBuffer.allocate(8 + typeSize + jsonSize);
         header.rewind();
         fullPacket.put(header);
         payload.flip();
@@ -155,34 +173,54 @@ public class ProtocolService {
 
     public static Communication readNIO(SocketChannel channel) throws IOException {
         // 1. Leer el Header (6 bytes: 4 para JSON + 2 para Tipo)
-        ByteBuffer header = ByteBuffer.allocate(6);
+        ByteBuffer header = ByteBuffer.allocate(8);
         while (header.hasRemaining()) {
             if (channel.read(header) == -1) throw new IOException("Canal cerrado");
         }
         header.flip();
 
         int jsonLen = header.getInt();
-        short typeLen = header.getShort();
+        int typeLen = header.getInt();
+        int bodySize = typeLen + jsonLen;
 
         // 2. Leer el cuerpo completo (Tipo + JSON)
         // Creamos un buffer con el tamaño exacto del contenido faltante
-        ByteBuffer body = ByteBuffer.allocate(typeLen + jsonLen);
-        while (body.hasRemaining()) {
-            if (channel.read(body) == -1) throw new IOException("Canal interrumpido");
+        ByteBuffer typeNameBuffer = ByteBuffer.allocate(typeLen);
+        while (typeNameBuffer.hasRemaining()) {
+            channel.read(typeNameBuffer);
         }
-        body.flip();
+        String typeStr = new String(typeNameBuffer.array(), StandardCharsets.UTF_8);
+        CommunicationType type = CommunicationType.valueOf(typeStr);
 
-        // 3. Extraer el nombre del tipo
-        byte[] typeBytes = new byte[typeLen];
-        body.get(typeBytes);
-        CommunicationType type = CommunicationType.valueOf(new String(typeBytes, StandardCharsets.UTF_8));
+        // 3. OBTENER BUFFER DEL POOL ESPECIALIZADO
+        DirectBufferPool.BufferType poolType = getPoolForType(type);
+        ByteBuffer body = DirectBufferPool.acquire(poolType, 100);
 
-        // 4. Extraer el JSON
-        byte[] jsonBytes = new byte[jsonLen];
-        body.get(jsonBytes);
-        String json = new String(jsonBytes, StandardCharsets.UTF_8);
+        // Si el mensaje es más grande que el buffer del pool (ej. un directorio gigante),
+        // usamos heap para no crashear
+        if (body == null || body.capacity() < bodySize) {
+            if (body != null) DirectBufferPool.release(body);
+            body = ByteBuffer.allocate(bodySize);
+        }
 
-        return deserializeByType(json, type);
+        try {
+            // 4. Leer el JSON restante (el type ya lo leímos arriba)
+            ByteBuffer jsonPart = body.duplicate();
+            jsonPart.limit(jsonLen); // Solo leemos lo que falta
+
+            while (body.position() < bodySize - typeLen) { // Ajustar según tu protocolo exacto
+                channel.read(body);
+            }
+            body.flip();
+
+            byte[] jsonBytes = new byte[jsonLen];
+            body.get(jsonBytes);
+            String json = new String(jsonBytes, StandardCharsets.UTF_8);
+
+            return deserializeByType(json, type);
+        } finally {
+            DirectBufferPool.release(body);
+        }
     }
 
     private static Communication deserializeByType(String json, CommunicationType type) throws IOException {
@@ -218,48 +256,53 @@ public class ProtocolService {
      * ESCRIBIR PARA NIO: Debe replicar exactamente el formato de DataOutputStream
      * [INT: Payload Len] [SHORT: Type Len] [BYTES: Type Name] [BYTES: JSON]
      */
+
     public static void writeNIO(SocketChannel channel, Communication comm) throws IOException {
-        String json = gson.toJson(comm);
-        byte[] jsonBytes = json.getBytes(StandardCharsets.UTF_8);
-        byte[] typeBytes = comm.getType().name().getBytes(StandardCharsets.UTF_8);
-
-        // [INT: 4] + [SHORT: 2] + [TYPE: N] + [JSON: M]
-        //ByteBuffer buffer = ByteBuffer.allocate(6 + typeBytes.length + jsonBytes.length);
-        ByteBuffer buffer = DirectBufferPool.acquire(50);
+        ByteBuffer buffer = toNioBuffer(comm, 100);
         if (buffer == null) return;
-        //ByteBuffer buffer = DirectBufferPool.acquire(50);
-        //ByteBuffer buffer= DirectBufferPool.acquire();
-        buffer.putInt(jsonBytes.length);           // <--- Los primeros 4 bytes
-        buffer.putShort((short) typeBytes.length); // <--- Los siguientes 2 bytes
-        buffer.put(typeBytes);
-        buffer.put(jsonBytes);
 
-        buffer.flip();
-        while(buffer.hasRemaining()) channel.write(buffer);
-        //DirectBufferPool.release(buffer);
+        try {
+            while (buffer.hasRemaining()) {
+                channel.write(buffer);
+            }
+        } finally {
+            // Solo liberar si es DIRECTO (del pool).
+            // Los de Heap los limpia el Garbage Collector solo.
+            if (buffer.isDirect()) {
+                DirectBufferPool.release(buffer);
+            }
+        }
     }
-
 
     public static ByteBuffer toNioBuffer(Communication comm, long timeout) throws IOException {
         String json = gson.toJson(comm);
+
         byte[] jsonBytes = json.getBytes(StandardCharsets.UTF_8);
         byte[] typeBytes = comm.getType().name().getBytes(StandardCharsets.UTF_8);
 
-        // IMPORTANTE: Suma exacta de bytes que vas a escribir
-        int totalSize = 4 + 2 + typeBytes.length + jsonBytes.length;
+        // Cambia el 2 por un 4
+        int totalSize = 4 + 4 + typeBytes.length + jsonBytes.length;
+        DirectBufferPool.BufferType targetPool = getPoolForType(comm.getType());
+        // 1. Si es más grande que el buffer del pool (8KB), usamos HEAP
+        // El Heap no causa Memory Leaks nativos y es gestionado por el GC.
+        /*if (totalSize > 8192) {
+            //return null;
+            ByteBuffer heapBuffer = ByteBuffer.allocate(totalSize);
+            fillBuffer(heapBuffer, jsonBytes, typeBytes);
+            return heapBuffer;
+        }*/
 
-        // 1. Verificación Dinámica de Capacidad
-        // Usamos 65536 porque es el tamaño fijo de tu DirectBufferPool
-        if (totalSize > 65536) {
-            // Para mensajes de UPDATE masivos, creamos un buffer temporal
-            ByteBuffer bigBuffer = ByteBuffer.allocateDirect(totalSize);
-            fillBuffer(bigBuffer, jsonBytes, typeBytes);
-            return bigBuffer;
+        // 2. Uso del Pool solo para lo que realmente cabe
+        ByteBuffer buffer = DirectBufferPool.acquire(targetPool, timeout);
+        if (buffer == null || buffer.capacity() < totalSize) {
+            // Si el pool nos dio un buffer pequeño pero el JSON creció de más, lo devolvemos
+            if (buffer != null) DirectBufferPool.release(buffer);
+
+            // Creamos uno en HEAP como red de seguridad
+            ByteBuffer fallback = ByteBuffer.allocate(totalSize);
+            fillBuffer(fallback, jsonBytes, typeBytes);
+            return fallback;
         }
-
-        // 2. Uso del Pool para mensajes normales
-        ByteBuffer buffer = DirectBufferPool.acquire(timeout);
-        if (buffer == null) return null; // O lanzar excepción según prefieras
 
         fillBuffer(buffer, jsonBytes, typeBytes);
         return buffer;
@@ -267,15 +310,38 @@ public class ProtocolService {
 
     private static void fillBuffer(ByteBuffer buffer, byte[] json, byte[] type) {
         buffer.clear();
-        // Verificación de seguridad extra antes del put
-        if (buffer.remaining() < (4 + 2 + type.length + json.length)) {
-            //return;
-            throw new RuntimeException("Error crítico: El buffer es muy pequeño para los datos");
+
+
+        int totalNeeded = 4 + 4 + type.length + json.length;
+
+        // 2. Verificación de seguridad
+        if (buffer.capacity() < totalNeeded) {
+            throw new RuntimeException("Buffer insuficiente. Capacidad: " +
+                    buffer.capacity() + " | Necesario: " + totalNeeded);
         }
+
+        // 3. Escritura explícita y simétrica
         buffer.putInt(json.length);
-        buffer.putShort((short) type.length);
+        buffer.putInt(type.length);
         buffer.put(type);
         buffer.put(json);
+
         buffer.flip();
+    }
+
+
+    private static DirectBufferPool.BufferType getPoolForType(CommunicationType type) {
+        return switch (type) {
+            // Mensajes de control, ACKs y Notificaciones -> Pool Pequeño
+            case MESSAGE, ACK, NOTIFICATION, UPDATE -> DirectBufferPool.BufferType.MESSAGE;
+
+            // Listados de carpetas -> Pool Mediano
+            case DIRECTORY, DIRECTORY_QUERY, DIRECTORY_QUERY_RESULT -> DirectBufferPool.BufferType.DIRECTORY;
+
+            // Transferencia de trozos de archivos -> Pool Grande
+            case FILE, FILE_PULL_REQUEST -> DirectBufferPool.BufferType.TRANSFER;
+
+            default -> DirectBufferPool.BufferType.MESSAGE;
+        };
     }
 }

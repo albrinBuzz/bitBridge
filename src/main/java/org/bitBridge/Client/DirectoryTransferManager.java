@@ -1,7 +1,9 @@
 package org.bitBridge.Client;
 
 import org.bitBridge.controller.TransferenciaController;
+import org.bitBridge.server.config.ConfigKey;
 import org.bitBridge.shared.*;
+import org.bitBridge.shared.config.ConfiguracionApp;
 import org.bitBridge.shared.core.comunication.*;
 import org.bitBridge.shared.network.ProtocolService;
 
@@ -28,7 +30,7 @@ public class DirectoryTransferManager implements TransferManager {
     private DataOutputStream out;
     private DataInputStream entrada;
 
-    private ConfiguracionCliente configCliente;
+    private ConfiguracionApp configCliente;
     private String nick;
     private int totalArchivos;
     private long tamanoTotal;
@@ -38,8 +40,8 @@ public class DirectoryTransferManager implements TransferManager {
     private static final int BUFFER_SIZE = 128 * 1024; // 128KB
 
     public DirectoryTransferManager(TransferenciaController transferenciaController) {
-        this.configCliente = new ConfiguracionCliente();
-        this.rutaCopia = configCliente.obtener("cliente.directorio_descargas");
+
+        this.rutaCopia = ConfiguracionApp.getInstancia().obtener(ConfigKey.DOWNLOAD_DIR);
         this.rutaCarpetaActual = rutaCopia;
         this.transferenciaController = transferenciaController;
     }
@@ -90,6 +92,8 @@ public class DirectoryTransferManager implements TransferManager {
 
             } else if (respuesta instanceof FileHandshakeCommunication f) {
                 transferenciaController.notifyTranference(f.getAction());
+            }else {
+                Logger.logInfo("Ninguna respuesta");
             }
 
             TimeUnit.MILLISECONDS.sleep(200);
@@ -214,7 +218,7 @@ public class DirectoryTransferManager implements TransferManager {
                     if (comm instanceof FileDirectoryCommunication archivoMeta) {
                         // 2. Leer ruta relativa (UTF)
                         String nombreRelativo = entrada.readUTF();
-                        String rutaCompleta = configCliente.obtener("cliente.directorio_descargas") + File.separator + nombreRelativo;
+                        String rutaCompleta = ConfiguracionApp.getInstancia().obtener(ConfigKey.DOWNLOAD_DIR) + File.separator + nombreRelativo;
 
                         if (archivoMeta.isDirectory()) {
                             new File(rutaCompleta).mkdirs();

@@ -7,8 +7,9 @@ import jakarta.faces.event.PhaseId;
 import jakarta.faces.view.ViewScoped;
 import jakarta.inject.Named;
 
-import org.bitBridge.server.ConfiguracionServidor;
+import org.bitBridge.server.config.ConfigKey;
 import org.bitBridge.shared.Logger;
+import org.bitBridge.shared.config.ConfiguracionApp;
 import org.primefaces.PrimeFaces;
 import org.primefaces.model.DefaultStreamedContent;
 import org.primefaces.model.StreamedContent;
@@ -30,7 +31,7 @@ public class DownloadBean implements Serializable {
 
 
     private List<File> serverFiles;
-    private ConfiguracionServidor config;
+    private ConfiguracionApp config;
     private File currentDirectory;
     private File rootDirectory;
 
@@ -41,8 +42,9 @@ public class DownloadBean implements Serializable {
 
     @PostConstruct
     public void init() throws IOException {
-        config = ConfiguracionServidor.getInstancia();
-        uploadPath = config.obtener("cliente.directorio_descargas");
+        Logger.logInfo("Inciando el download");
+        config = ConfiguracionApp.getInstancia();
+        uploadPath = config.obtener(ConfigKey.DOWNLOAD_DIR);
 
         // Validación de seguridad para la ruta
         File dirBase = new File(uploadPath);

@@ -7,13 +7,11 @@ import org.bitBridge.Client.services.MessageTracker;
 import org.bitBridge.Client.services.TransferService;
 import org.bitBridge.Observers.HostsObserver;
 import org.bitBridge.Observers.NetObserver;
+import org.bitBridge.Observers.RemoteDirectoryListener;
 import org.bitBridge.controller.TransferenciaController;
-import org.bitBridge.server.ConfiguracionServidor;
 import org.bitBridge.shared.*;
-import org.bitBridge.shared.core.comunication.Communication;
-import org.bitBridge.shared.core.comunication.CommunicationType;
-import org.bitBridge.shared.core.comunication.Mensaje;
-import org.bitBridge.shared.core.comunication.ServerStatusConnection;
+import org.bitBridge.shared.config.ConfiguracionApp;
+import org.bitBridge.shared.core.comunication.*;
 import org.bitBridge.shared.network.ClientNetworkEngine;
 import org.bitBridge.shared.network.NetworkManager;
 
@@ -21,6 +19,7 @@ import java.io.*;
 import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -34,8 +33,9 @@ public class Client {
     private int SERVER_PORT;
     private String hostName;
     private ExecutorService executorService;
+    private List<RemoteDirectoryListener> listeners = new ArrayList<>();
     //private Observer observer;
-    private ConfiguracionServidor config =ConfiguracionServidor.getInstancia();
+    private ConfiguracionApp config =ConfiguracionApp.getInstancia();
 
     private TransferenciaController transferenciaController;
     private NetworkManager networkManager = new NetworkManager();
@@ -45,7 +45,7 @@ public class Client {
     private ClientContext context;
     private ClientNetworkEngine networkEngine;
     private boolean connectando = false; // Flag de control
-
+    private long conectionTime=0;
     public Client()  {
         this.executorService = Executors.newFixedThreadPool(10); // Usar un pool de hilos para manejar tareas concurrentes
         transferenciaController=new TransferenciaController();
@@ -55,6 +55,8 @@ public class Client {
 
     public synchronized void setConexion(String serverAddress, int serverPort) throws IOException {
         // 1. Verificación Crítica: Si ya estamos conectados o conectando, abortar.
+
+        try {
         if (networkEngine != null && networkEngine.isActive()) {
             Logger.logInfo("Conexión abortada: Ya existe una sesión activa.");
             return;
@@ -64,27 +66,34 @@ public class Client {
         this.SERVER_PORT = serverPort;
 
         context = new ClientContext(SERVER_ADDRESS, SERVER_PORT, transferenciaController, executorService, this);
-        hostName = InetAddress.getLocalHost().getHostName();
-        this.dispatcher = new MessageDispatcher(this, context);
-        this.transferService = new TransferService(context);
 
-        // 2. Inicializar el motor NIO SOLO si no existe
-        if (this.networkEngine == null) {
-            this.networkEngine = new NioClientEngine(dispatcher);
-        }
+            if (hostName==null){
+                hostName = InetAddress.getLocalHost().getHostName();
+            }
 
-        //Logger.logInfo("Intentando establecer conexión NIO con " + serverAddress + ":" + serverPort);
 
-        // 3. Conectar
-        try {
+            this.dispatcher = new MessageDispatcher(this, context);
+            this.transferService = new TransferService(context);
+
+            // 2. Inicializar el motor NIO SOLO si no existe
+            if (this.networkEngine == null) {
+                this.networkEngine = new NioClientEngine(dispatcher);
+            }
+
             networkEngine.connect(serverAddress, serverPort);
+            if (networkEngine.isActive()){
+                Logger.logInfo("Activo");
+            }else {
+                Logger.logInfo("No Activo");
+            }
 
             // 4. Enviar identificación inicial
             Mensaje saludo = new Mensaje(hostName, CommunicationType.MESSAGE);
             enviarComunicacion(saludo);
-
+            //onConnectionSuccess();
         } catch (IOException e) {
             Logger.logError("Fallo al conectar: " + e.getMessage());
+            e.printStackTrace();
             throw e; // Relanzar para que el llamador sepa que falló
         }
     }
@@ -146,8 +155,9 @@ public class Client {
 
 
 
-    public void desconect() {
+    public void desconect() throws IOException {
         networkEngine.disconnect();
+        onDisconnect();
     }
 
 
@@ -158,10 +168,11 @@ public class Client {
      * Envía un archivo de forma agnóstica.
      * La UI solo entrega el destinatario y el archivo.
      */
-    public void sendFileToHost(ClientInfo recipient, File file) {
+    public void sendFileToHost(ClientInfo recipient, File file) throws Exception {
         if (file == null || !file.exists()) return;
         transferService.enqueueFileSend(recipient, file,hostName);
     }
+
     /**
      * Envía un directorio de forma agnóstica.
      */
@@ -200,6 +211,7 @@ public class Client {
         for (HostsObserver observer : hostsObservers) {
                     observer.updateAllHosts(hosts);  // Notifica a los observadores con el nuevo mensaje
         }
+
         /*if (observers.isEmpty()){
             Logger.logInfo("No hay obseradores");
         }*/
@@ -208,7 +220,14 @@ public class Client {
         }
     }
 
+    public void addDirectoryListener(RemoteDirectoryListener l) { listeners.add(l); }
 
+    // El Dispatcher llama a este método
+    public void handleRemoteDirectoryUpdate(NodoDirectorio nodo) {
+        for (RemoteDirectoryListener l : listeners) {
+            l.onDirectoryDataReceived(nodo);
+        }
+    }
 
 
     // Cuando llega un mensaje nuevo
@@ -262,5 +281,36 @@ public class Client {
 
     public boolean isActive() {
        return networkEngine.isActive();
+    }
+
+    public void requestFileList(String targetIp) throws IOException {
+           // networkEngine.send();
+        //DirectoryQuery(targetIp)
+        String token = UUID.randomUUID().toString();
+        Logger.logInfo(getHostName());
+        DirectoryQuery query=new DirectoryQuery(targetIp,this.getHostName(),token);
+        networkEngine.send(query);
+    }
+
+    public void requestFileList(String targetIp,String ruta) throws IOException {
+        // networkEngine.send();
+        //DirectoryQuery(targetIp)
+        String token = UUID.randomUUID().toString();
+        Logger.logInfo(getHostName()+"-"+targetIp);
+        DirectoryQuery query=new DirectoryQuery(targetIp,this.getHostName(),token,ruta);
+        networkEngine.send(query);
+    }
+
+    public synchronized void removeDirectoryListener(RemoteDirectoryListener listener) {
+        listeners.remove(listener);
+    }
+
+
+    public long getConnectionTime() {
+        return  conectionTime;
+    }
+
+    public void onConnectionSuccess() {
+        this.conectionTime = System.currentTimeMillis();
     }
 }

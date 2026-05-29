@@ -54,6 +54,16 @@ public class FileDirectoryCommunication extends Communication implements Seriali
         this.isDirectory = false;  // Es un archivo por defecto
     }
 
+    public FileDirectoryCommunication(String hash,String name, long size,String recipient,String senderNick) {
+        super(CommunicationType.FILE);  // O puedes usar CommunicationType.DIRECTORY si es un directorio
+        this.name = name;
+        this.size = size;
+        this.recipient=recipient;
+        this.senderNick=senderNick;
+        this.hash=hash;
+        this.isDirectory = false;  // Es un archivo por defecto
+    }
+
     // Constructor para directorio
     public FileDirectoryCommunication(String name,int totalArchivos,String recipient) {
         super(CommunicationType.DIRECTORY);
@@ -80,6 +90,14 @@ public class FileDirectoryCommunication extends Communication implements Seriali
 
     public void setRecipient(String recipient) {
         this.recipient = recipient;
+    }
+
+    public String getHash() {
+        return hash;
+    }
+
+    public void setHash(String hash) {
+        this.hash = hash;
     }
 
     @Override

@@ -3,601 +3,520 @@
       xmlns:h="jakarta.faces.html"
       xmlns:f="jakarta.faces.core"
       xmlns:p="http://primefaces.org/ui"
-      xmlns:fn="http://java.sun.com/jsp/jstl/functions"
-      xmlns:ui="http://java.sun.com/jsf/facelets">
-
+      xmlns:ui="jakarta.faces.facelets">
 <h:head>
-    <title>Gestión de Archivos</title>
-
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-
-    <link rel="stylesheet" href="https://unpkg.com/primeflex@3.3.1/primeflex.min.css"/>
-
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+    <title>BitBridge Mobile Explorer</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
     <style>
-    body {
-    font-family: system-ui, sans-serif;
-    margin: 0;
-    padding: 10px;
-    background: #f2f5f7;
+        :root {
+            --bg-deep: #0d0f17;
+            --bg-card: #1a1d27;
+            --bg-input: #05050a;
+            --accent-cyan: #00ffc8;
+            --accent-green: #28a745;
+            --text-main: #e0e6ed;
+            --text-dim: #8b949e;
+            --border: #2d3245;
+        }
+
+        body, html {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background-color: var(--bg-deep);
+            color: var(--text-main);
+            margin: 0; padding: 0;
+            display: flex; flex-direction: column; height: 100vh;
+        }
+
+        /* --- HEADER NAVBAR --- */
+        header {
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+        background: rgba(13, 17, 23, 0.8); /* Fondo semi-transparente */
+        backdrop-filter: blur(12px); /* Efecto cristal */
+        -webkit-backdrop-filter: blur(12px);
+        border-bottom: 1px solid var(--border);
+        padding: 0 15px;
+        height: 65px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        /* Margen para el notch de los teléfonos modernos */
+        padding-top: env(safe-area-inset-top);
     }
 
-    .card {
-    background: white;
-    padding: 18px;
-    margin: 0 auto 12px auto;
-    border-radius: 12px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.1);
-    }
 
-    .card-title {
-    font-size: 1.4em;
-    text-align: center;
-    margin-bottom: 15px;
-    }
 
-    .btn {
-    width: 100%;
-    padding: 16px;
-    margin-top: 10px;
-    font-size: 18px;
-    border: none;
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            flex-shrink: 0;
+        }
+
+        .logo-icon-wrapper {
+    background: linear-gradient(135deg, var(--accent-cyan), #0081ff);
+    width: 38px;
+    height: 38px;
     border-radius: 10px;
-    cursor: pointer;
-    transition: 0.2s;
-    }
-
-    .btn-primary {
-    background: #007bff;
-    color: white;
-    }
-
-    .btn-success {
-    background: #28a745;
-    color: white;
-    }
-
-    #progressBarContainer {
-    margin-top: 15px;
-    width: 100%;
-    background: #d6d6d6;
-    border-radius: 10px;
-    overflow: hidden;
-    display: none;
-    }
-
-    #progressBar {
-    height: 14px;
-    width: 0%;
-    background: #28a745;
-    transition: width 0.25s ease-in-out;
-    }
-
-    #log {
-    margin-top: 15px;
-    background: #111;
-    color: #0f0;
-    padding: 12px;
-    border-radius: 8px;
-    height: 200px;
-    overflow-y: scroll;
-    font-size: 14px;
-    white-space: pre-line;
-    font-family: monospace;
-    }
-
-    body {
-    font-family: "Segoe UI", Arial, sans-serif;
-    background: #f5f7fa;
-    margin: 0;
-    }
-
-    .card {
-    width: 480px;
-    margin: 80px auto;
-    padding: 30px;
-    border-radius: 12px;
-    background: white;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-    }
-
-    h2 {
-    text-align: center;
-    margin-bottom: 20px;
-    color: #333;
-    }
-
-    /* Hacer que los formularios estén en la misma fila */
-    .upload-container {
     display: flex;
-    justify-content: space-between;
-    flex-wrap: wrap; /* Esto asegura que se ajusten en pantallas pequeñas */
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 15px rgba(0, 255, 200, 0.3);
+}
+
+.logo-icon-wrapper i {
+    color: var(--bg-deep);
+    font-size: 1.2rem;
+}
+
+.logo-text {
+    font-size: 1.1rem;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: var(--text-main);
+    background: linear-gradient(to right, #fff, var(--text-dim));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+
+        nav {
+    display: flex;
+    background: var(--bg-input);
+    padding: 4px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    gap: 4px;
+}
+
+.nav-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Estado activo: se ve como un botón resaltado */
+.nav-link.active {
+    background: var(--bg-card);
+    color: var(--accent-cyan);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(0, 255, 200, 0.2);
+}
+
+        /* --- CONTENIDO PRINCIPAL --- */
+        main { flex: 1; padding: 15px; overflow-y: auto; max-width: 1200px; margin: 0 auto; width: 100%; box-sizing: border-box; }
+
+        .breadcrumb {
+            background: var(--bg-card); padding: 10px 15px; border-radius: 8px; margin-bottom: 15px;
+            font-family: 'Consolas', monospace; font-size: 0.85rem; border: 1px solid var(--border);
+            white-space: nowrap; overflow-x: auto;
+        }
+
+        /* --- GESTOR DE ARCHIVOS (Grid Móvil) --- */
+        .file-manager { background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border); overflow: hidden; margin-bottom: 20px;}
+        .file-row { display: grid; grid-template-columns: 40px 1fr auto; padding: 12px 15px; align-items: center; gap: 10px; border-bottom: 1px solid var(--border); }
+        .file-icon { font-size: 1.5rem; color: var(--accent-cyan); text-align: center; }
+        .file-info { overflow: hidden; }
+        .file-info .name { font-weight: 500; font-size: 0.95rem; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .file-info .details { font-size: 0.75rem; color: var(--text-dim); }
+
+        body .ui-button.btn-action {
+            background: transparent; border: 1px solid var(--border); color: var(--text-main);
+            width: 35px; height: 35px; border-radius: 6px; transition: 0.3s;
+        }
+        body .ui-button.btn-action:hover { border-color: var(--accent-cyan); color: var(--accent-cyan); background: rgba(0,255,200,0.1); }
+
+
+        .upload-container { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+
+        body .ui-tabs { background: transparent !important; border: none !important; padding: 0 !important; }
+        body .ui-tabs .ui-tabs-nav {
+            background: var(--bg-input) !important; border-bottom: 2px solid var(--border) !important;
+            border-radius: 0; padding: 0; display: flex;
+        }
+        body .ui-tabs .ui-tabs-nav li { background: transparent !important; border: none !important; margin: 0; flex: 1; text-align: center; }
+        body .ui-tabs .ui-tabs-nav li a { color: var(--text-dim) !important; font-weight: bold; width: 100%; padding: 12px 0 !important; }
+        body .ui-tabs .ui-tabs-nav li.ui-state-active { border-bottom: 2px solid var(--accent-cyan) !important; background: rgba(0,255,200,0.05) !important; }
+        body .ui-tabs .ui-tabs-nav li.ui-state-active a { color: var(--accent-cyan) !important; }
+        body .ui-tabs .ui-tabs-panels { background: transparent !important; border: none !important; padding: 15px; }
+
+        body .ui-fileupload-buttonbar { background: transparent !important; border: none !important; padding: 0 0 10px 0 !important; }
+        body .ui-fileupload-content { border: 2px dashed var(--border) !important; background: var(--bg-input) !important; border-radius: 8px; }
+
+        /* --- BOTONES CUSTOM Y PROGRESO --- */
+        .btn-custom {
+            width: 100%; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer;
+            border: 1px solid var(--border); background: var(--bg-input); color: var(--text-main); margin-bottom: 10px; transition: 0.3s;
+        }
+        .btn-custom:hover { border-color: var(--accent-cyan); }
+        .btn-success { background: var(--accent-green); border: none; color: white; }
+        .btn-success:hover { filter: brightness(1.1); }
+
+        .progress-wrapper { height: 12px; background: #222; border-radius: 6px; overflow: hidden; margin-top: 15px; display: none; }
+        .progress-bar { height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent-cyan), var(--accent-green)); transition: width 0.3s ease; }
+
+        /* --- TERMINAL --- */
+        .terminal {
+            background: #050508; color: #0f0; font-family: 'Courier New', monospace;
+            padding: 10px 15px; height: 120px; overflow-y: auto; font-size: 0.75rem;
+            border-top: 2px solid var(--border);
+        }
+
+        @media (max-width: 480px) {
+    .logo-text {
+        display: none; /* Solo queda el icono del logo */
     }
 
-    .upload-card {
-    width: 48%; /* Dos formularios al 48% de ancho */
+    .nav-link {
+        padding: 8px 12px;
+    }
+
+    .nav-link span {
+        display: none; /* Solo quedan los iconos de navegación */
+    }
+
+    .nav-link i {
+        font-size: 1.1rem;
+        margin: 0;
+    }
+}
+
+        /* --- BREADCRUMB MODERNO --- */
+.breadcrumb-container {
+    display: flex;
+    align-items: center;
+    background: var(--bg-card);
+    padding: 8px 12px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
     margin-bottom: 20px;
-    }
-
-    /* Estilo responsive para pantallas pequeñas */
-    @media (max-width: 768px) {
-    .upload-card {
-    width: 100%; /* En pantallas pequeñas, cada formulario ocupa el 100% */
-    }
-    }
-
-        /* Efecto de elevación e iluminación al pasar el mouse */
-.hover-zoom {
-    transition: transform .2s, box-shadow .2s;
-}
-.hover-zoom:hover {
-    transform: scale(1.1);
-    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    overflow-x: auto;
+    gap: 4px;
+    scrollbar-width: none; /* Ocultar scroll en Firefox */
 }
 
-/* Sombra suave para las imágenes en la tabla */
-.shadow-1 {
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+.breadcrumb-container::-webkit-scrollbar { display: none; } /* Ocultar scroll en Chrome */
+
+.bc-item {
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
 }
 
+.bc-link {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    background: transparent;
+}
+
+.bc-link:hover {
+    background: rgba(0, 255, 200, 0.08);
+    color: var(--accent-cyan);
+}
+
+.bc-current {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    background: rgba(0, 255, 200, 0.1);
+    color: var(--accent-cyan);
+    font-weight: 600;
+    font-size: 0.85rem;
+    border: 1px solid rgba(0, 255, 200, 0.2);
+}
+
+.bc-separator {
+    color: var(--border);
+    font-size: 0.7rem;
+    margin: 0 2px;
+}
+
+.bc-home-icon {
+    font-size: 1rem;
+    color: var(--accent-cyan);
+}
+
+.nav-controls {
+    display: flex;
+    gap: 8px;
+    margin-right: 12px;
+    padding-right: 12px;
+    border-right: 1px solid var(--border);
+}
     </style>
 
-
-<script>
-        // Habilitar la opción de seleccionar una carpeta
-        function enableDirectory() {
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
             const input = document.getElementById("folderInput");
-            input.setAttribute("webkitdirectory", "true");
-            input.setAttribute("directory", "true");
-            input.setAttribute("multiple", "true");
-        }
-
-        document.addEventListener("DOMContentLoaded", enableDirectory);
-
-        // Función para hacer log con mensajes detallados
-        function log(msg, isError = false) {
-            const logArea = document.getElementById("log");
-            const logMessage = document.createElement("div");
-
-            logMessage.textContent = msg;
-            if (isError) {
-                logMessage.style.color = "red"; // Mensajes de error en rojo
-            } else {
-                logMessage.style.color = "green"; // Mensajes de éxito en verde
+            if(input) {
+                input.setAttribute("webkitdirectory", "true");
+                input.setAttribute("directory", "true");
+                input.setAttribute("multiple", "true");
             }
+        });
 
-            logArea.appendChild(logMessage);
-            logArea.scrollTop = logArea.scrollHeight;
+        // Redirigimos el log a la terminal estética de la UI
+        function logToTerminal(msg, isError = false) {
+            const terminal = document.getElementById("sysTerminal");
+            const div = document.createElement("div");
+
+            const time = new Date().toLocaleTimeString();
+            div.textContent = `> ${time}: ${msg}`;
+            div.style.color = isError ? "#ff5252" : (msg.includes("✔") ? "#00ffc8" : "#0f0");
+
+            terminal.appendChild(div);
+            terminal.scrollTop = terminal.scrollHeight;
         }
 
-        // Función para abrir el selector de carpeta
         function selectFolder() {
             document.getElementById("folderInput").click();
-
-
-              const input = document.getElementById("folderInput");
-            const files = input.files;
-
-
-
-            // Extraemos el nombre de la carpeta desde el primer archivo
-            const firstFilePath = files[0].webkitRelativePath;
-            const folderName = firstFilePath.split("/")[0];  // El texto antes del primer "/"
-
-            console.log("Carpeta seleccionada:", folderName);
-
-            // Aquí puedes actualizar algún elemento en la UI con el nombre
-            document.getElementById("folderNameDisplay").textContent = `Carpeta: ${folderName}`;
-
-
         }
 
-        // Función para subir la carpeta
+        document.getElementById("folderInput")?.addEventListener("change", function() {
+            const files = this.files;
+            if (files.length > 0) {
+                const folderName = files[0].webkitRelativePath.split("/")[0];
+                document.getElementById("folderNameDisplay").textContent = `Directorio listo: /${folderName} (${files.length} items)`;
+            }
+        });
+
         async function uploadFolder() {
             const input = document.getElementById("folderInput");
             const files = input.files;
+
             if (!files || files.length === 0) {
-                alert("Debe seleccionar una carpeta.");
-                log("Error: No se seleccionó ninguna carpeta.", true);
+                logToTerminal("[ERROR] No se seleccionó ningún directorio.", true);
                 return;
             }
 
-            const selectedFolderName = document.getElementById("selectedFolderName");
-            const folderFilesList = document.getElementById("folderFilesList");
-
-             if (!files.length) {
-                selectedFolderName.textContent = "";
-                folderFilesList.innerHTML = "";
-                return;
-            }
-
-               const firstFilePath = files[0].webkitRelativePath;
-            const folderName = firstFilePath.split("/")[0] || "Carpeta seleccionada";
-
-            selectedFolderName.textContent = `Carpeta seleccionada: ${folderName}`;
-
-
-
-            // Mostrar el contenedor del progreso de la subida
-            const progressContainer = document.getElementById("progressBarContainer");
-            const progressBar = document.getElementById("progressBar");
+            const progressContainer = document.getElementById("pContainer");
+            const progressBar = document.getElementById("pBar");
 
             progressContainer.style.display = "block";
             progressBar.style.width = "0%";
 
-            // Log inicial
-             log("Carpeta: " + folderName);
-            log("Archivos encontrados: " + files.length);
-            log("Iniciando la subida...\n");
+            const folderName = files[0].webkitRelativePath.split("/")[0];
+            logToTerminal(`[INFO] Iniciando stream de directorio: ${folderName}`);
 
             let total = files.length;
             let uploaded = 0;
             let startTime = Date.now();
 
-            // Subida de cada archivo
             for (const file of files) {
                 const formData = new FormData();
                 formData.append("file", file);
                 formData.append("path", file.webkitRelativePath);
 
                 try {
-
-
+                    // Endpoint JSF / API
                     const response = await fetch("#{request.contextPath}/api/upload-folder", {
                         method: "POST",
                         body: formData
                     });
 
                     if (!response.ok) {
-                        log(`Error al subir ${file.name}. Código de estado: ${response.status}`, true);
+                        logToTerminal(`[FAIL] ${file.name} - HTTP ${response.status}`, true);
                     } else {
                         uploaded++;
                         progressBar.style.width = Math.round((uploaded / total) * 100) + "%";
-                        log(`✔ Subido: ${file.webkitRelativePath}`);
+                        logToTerminal(`✔ Streamed: ${file.webkitRelativePath}`);
                     }
                 } catch (error) {
-
+                    logToTerminal(`[FAIL] Error de red en ${file.name}`, true);
                 }
             }
 
-            let endTime = Date.now();
-            let totalTime = ((endTime - startTime) / 1000).toFixed(2);
-
-            log(`\n✔ Carpeta completa subida en ${totalTime} segundos.`);
-            log(`Subidos ${uploaded} de ${total} archivos.`);
+            let totalTime = ((Date.now() - startTime) / 1000).toFixed(2);
+            logToTerminal(`✔ Sincronización completa: ${uploaded}/${total} archivos en ${totalTime}s.`);
         }
     </script>
-
 </h:head>
-
 <h:body>
 
-    <!-- ======================================================= -->
-    <!--  FORM 3: DESCARGA DE ARCHIVOS                           -->
-    <!-- ======================================================= -->
 
 
-
-        <!-- BARRA DE NAVEGACIÓN -->
-
-    <h:form id="formBreadcrumb">
-        <!-- BARRA DE NAVEGACIÓN -->
-        <p:panel styleClass="p-mb-3">
-            <div class="p-d-flex p-ai-center p-jc-between">
-
-                <!-- BOTONES ATRÁS / ADELANTE -->
-                <div>
-                    <p:commandButton icon="pi pi-arrow-left"
-                                     title="Atrás"
-                                     action="#{downloadBean.goBack}"
-                                     update="formDownload"
-                                     disabled="#{!downloadBean.canGoBack}"
-                                     styleClass="p-button-text p-mr-2"/>
-
-                    <p:commandButton icon="pi pi-arrow-right"
-                                     title="Adelante"
-                                     action="#{downloadBean.goForward}"
-                                     update="formDownload"
-                                     disabled="#{!downloadBean.canGoForward}"
-                                     styleClass="p-button-text"/>
-                </div>
-
-                <!-- Mostrar el breadcrumb en la vista (debugging) -->
-
-
-                <!-- Mostrar breadcrumb con outputPanel -->
-                <p:outputPanel id="breadcrumbPanel">
-                    <h:outputText value="Ruta: " style="font-weight:bold" />
-
-                    <ui:repeat value="#{downloadBean.breadcrumb}" var="f" varStatus="status">
-                        <h:panelGroup>
-
-                            <h:panelGroup>
-
-                                <!-- ICONO -->
-                                <i class="pi #{f.isDirectory() ? 'pi-folder' : 'pi-file'}"
-                                   style="margin-right:4px;color:#6c757d"></i>
-
-                                <!-- ELEMENTOS INTERMEDIOS -->
-                                <h:commandLink value="#{f.name}"
-                                               action="#{downloadBean.goTo(f)}"
-                                               rendered="#{not status.last}"
-                                               style="text-decoration:none;color:#007ad9;font-weight:500" />
-
-                                <!-- ELEMENTO ACTUAL -->
-                                <h:outputText value="#{f.name}"
-                                              rendered="#{status.last}"
-                                              style="font-weight:bold;color:#2c3e50" />
-
-                                <!-- SEPARADOR -->
-                                <h:outputText value=" › "
-                                              rendered="#{not status.last}"
-                                              style="margin:0 6px;color:#999" />
-
-                            </h:panelGroup>
-
-
-                        </h:panelGroup>
-                    </ui:repeat>
-                </p:outputPanel>
-
-
-                <!-- BREADCRUMB -->
-                <p:breadCrumb id="breadcrumb">
-                    <p:menuitem value="Inicio"
-                                icon="pi pi-home"
-                                action="#{downloadBean.goRoot}"
-                                update="formDownload"/>
-
-                    <ui:repeat value="#{downloadBean.breadcrumb}" var="bc" varStatus="status">
-                        <p:menuitem value="#{bc.name}"
-                                    action="#{downloadBean.navigateTo(bc)}"
-                                    update="formDownload"/>
-                    </ui:repeat>
-                </p:breadCrumb>
-
+    <header>
+        <a href="#" class="logo-section">
+            <div class="logo-icon-wrapper">
+                <i class="fas fa-bridge"></i>
             </div>
-        </p:panel>
-    </h:form>
+            <span class="logo-text">BitBridge</span>
+        </a>
 
+        <nav>
+            <a href="#" class="nav-link active">
+                <i class="fas fa-folder-tree"></i>
+                <span>Archivos</span>
+            </a>
+            <a href="/home/chat.xhtml" class="nav-link">
+                <i class="fas fa-bolt-lightning"></i>
+                <span>Actividad</span>
+            </a>
+        </nav>F
+    </header>
+    <div class="storage-info" style="padding: 0 15px 15px;">
+        <div style="display:flex; justify-content:space-between; font-size:0.75rem; margin-bottom:5px;">
+            <span style="color:var(--text-dim)">Almacenamiento del Nodo</span>
+            <span style="color:var(--accent-cyan)">75% - 120GB / 160GB</span>
+        </div>
+        <div style="height:6px; background:var(--bg-input); border-radius:3px; border:1px solidd var(--border);">
+            <div style="width:75%; height:100%; background:var(--accent-cyan); box-shadow: 0 0 10px var(--accent-cyan);"></div>
+        </div>
+    </div>
+        <main>
+            <h:form id="formBreadcrumb">
+                <div class="breadcrumb-container">
 
-    <h:form id="formDownload">
-
-        <p:panel header="📁 Archivos en Servidor" styleClass="panel-container">
-            <p:dataTable id="tablaArchivos"
-                         var="f"
-                         value="#{downloadBean.serverFiles}"
-                         responsiveLayout="scroll"
-                         paginator="true"
-                         rows="10"
-                         widgetVar="tabla"
-                         rowsPerPageTemplate="5,10,20"
-                         rowIndexVar="index"
-                         emptyMessage="No se encontraron archivos">
-
-                <!-- COLUMNA PREVISUALIZACIÓN (Solo si es una imagen) -->
-                <p:column headerText="Previsualización" style="text-align:center; width:120px;">
-
-                    <!-- IMÁGENES: Con efecto de lupa al hacer clic (Lightbox manual) -->
-                    <h:panelGroup rendered="#{downloadBean.isImageFile(f)}">
-                        <p:commandLink onclick="PF('imgDialog_#{index}').show()">
-                            <p:graphicImage value="#{mediaStreamer.image}"
-                                            styleClass="shadow-1 hover-zoom"
-                                            style="max-width: 60px; height: auto; border-radius: 8px; cursor: pointer;">
-                                <f:param name="imageUrl" value="#{f.absolutePath}" />
-                            </p:graphicImage>
+                    <!-- BOTONES DE NAVEGACIÓN (HISTORIAL) -->
+                    <div class="nav-controls">
+                        <p:commandLink action="#{downloadBean.goBack}"
+                                       update="@form :formDownload"
+                                       disabled="#{!downloadBean.canGoBack}"
+                                       styleClass="btn-action" style="display:flex; align-items:center; justify-content:center; text-decoration:none;">
+                            <i class="fas fa-chevron-left" style="font-size: 0.8rem;"></i>
                         </p:commandLink>
 
-                        <!-- Modal para ver la imagen en grande -->
-                        <p:dialog widgetVar="imgDialog_#{index}" header="#{f.name}" modal="true" responsive="true" closeOnEscape="true">
-                            <p:graphicImage value="#{mediaStreamer.image}" style="max-width: 100%; max-height: 80vh;">
-                                <f:param name="imageUrl" value="#{f.absolutePath}" />
-                            </p:graphicImage>
-                        </p:dialog>
-                    </h:panelGroup>
-
-                    <!-- VÍDEOS: Icono de reproducción + Modal de cine -->
-                    <h:panelGroup rendered="#{downloadBean.isVideoFile(f)}">
-                        <p:commandButton icon="pi pi-play"
-                                         value="Ver"
-                                         type="button"
-                                         onclick="PF('videoDialog_#{index}').show()"
-                                         styleClass="ui-button-outlined ui-button-secondary rounded-button" />
-
-                        <p:dialog widgetVar="videoDialog_#{index}"
-                                  header="Reproduciendo: #{f.name}"
-                                  modal="true"
-                                  width="700"
-                                  responsive="true"
-                                  closeOnEscape="true"
-                                  onHide="var v = this.content.find('video')[0]; if(v) v.pause();">
-
-                            <p:video value="#{mediaStreamer.video}"
-                                     controls="true"
-                                     width="100%"
-                                     player="mp4">
-                                <f:param name="videoUrl" value="#{f.absolutePath}" />
-                                Tu navegador no soporta video.
-                            </p:video>
-                        </p:dialog>
-                    </h:panelGroup>
-
-                    <h:panelGroup rendered="#{mediaStreamer.isTextFile(f)}">
-                        <p:commandButton icon="pi pi-file-edit"
-                                         value="Leer"
-                                         action="#{mediaStreamer.previewTextFile(f)}"
-                                         update="textPreviewDialog"
-                                         oncomplete="PF('textDialog').show()"
-                                         styleClass="ui-button-flat" />
-
-                        <p:dialog widgetVar="textDialog" id="textPreviewDialog"
-                                  header="Contenido del archivo"
-                                  modal="true" width="600" responsive="true">
-
-                            <p:scrollPanel style="width:100%; height:400px" mode="native">
-                            <pre style="margin: 0; font-family: monospace; white-space: pre-wrap;">
-                                <h:outputText value="#{mediaStreamer.textContent}" />
-                            </pre>
-                            </p:scrollPanel>
-
-                            <f:facet name="footer">
-                                <p:commandButton value="Cerrar" onclick="PF('textDialog').hide()" type="button" />
-                            </f:facet>
-                        </p:dialog>
-                    </h:panelGroup>
-
-                    <!-- ARCHIVOS GENÉRICOS -->
-                    <h:panelGroup rendered="#{!downloadBean.isImageFile(f) and !downloadBean.isVideoFile(f)}">
-                        <i class="pi pi-file" style="font-size: 2rem; color: #999;"></i>
-                    </h:panelGroup>
-                </p:column>
-
-
-                <!-- COLUMNA NOMBRE -->
-                <p:column headerText="Nombre"
-                          sortBy="#{f.name}"
-                          filterBy="#{f.name}"
-                          filterMatchMode="contains">
-
-                    <i class="pi #{f.isDirectory() ? 'pi-folder' : 'pi-file'}"
-                       style="margin-right:8px"></i>
-                    #{f.name}
-                </p:column>
-
-                <!-- COLUMNA TIPO -->
-                <p:column headerText="Tipo"
-                          sortBy="#{f.isDirectory()}"
-                          filterBy="#{f.isDirectory()}"
-                          filterMatchMode="exact">
-
-                    <!-- Filtro desplegable -->
-                    <f:facet name="filter">
-                        <p:selectOneMenu onchange="PF('tabla').filter()">
-                            <f:selectItem itemLabel="Todos" itemValue="#{null}" />
-                            <f:selectItem itemLabel="Archivos" itemValue="false" />
-                            <f:selectItem itemLabel="Directorios" itemValue="true" />
-                        </p:selectOneMenu>
-                    </f:facet>
-
-                    <p:tag value="#{f.isDirectory() ? 'Directorio' : 'Archivo'}"
-                           severity="#{f.isDirectory() ? 'info' : 'success'}" />
-                </p:column>
-
-                <!-- COLUMNA ACCIONES -->
-                <p:column headerText="Acciones" style="width:200px; text-align:center">
-
-                    <!-- Descargar -->
-                    <p:commandButton icon="pi pi-download"
-                                     title="Descargar"
-                                     ajax="false"
-                                     rendered="#{not f.isDirectory()}"
-                                     styleClass="p-button-rounded p-button-success p-mr-2">
-                        <p:fileDownload value="#{downloadBean.downloadFile(f)}"/>
-                    </p:commandButton>
-
-                    <!-- Abrir directorio -->
-                    <p:commandButton icon="pi pi-folder-open"
-                                     title="Abrir Directorio"
-                                     rendered="#{f.isDirectory()}"
-                                     action="#{downloadBean.openDirectory(f)}"
-                                     update="formDownload"
-                                     styleClass="p-button-rounded p-button-info"/>
-                    <p:spacer width="20"
-                              height="20"/>
-                    <p:commandButton icon="pi pi-download"
-                                     title="Descargar Directorio"
-                                     rendered="#{f.isDirectory()}"
-                                     styleClass="p-button-rounded p-button-success p-mr-2">
-                        <p:fileDownload value="#{downloadBean.downloadZip(f)}"/>
-                    </p:commandButton>
-                </p:column>
-
-            </p:dataTable>
-        </p:panel>
-    </h:form>
-
-
-    <h:form id="formUpload">
-
-        <p:panel header="⬆️ Subida de archivos"
-                 style="max-width:1100px; margin:30px auto"
-                 styleClass="ui-fluid">
-            <p:tabView effect="fade" effectDuration="200">
-            <!-- ACCIONES -->
-            <div class="p-d-flex p-jc-between p-ai-start p-flex-wrap p-mb-3">
-                <p:tab title="📄 Archivos">
-                <!-- SUBIR ARCHIVOS -->
-                <div style="width:48%">
-                    <h:outputText value="Archivo individual"
-                                  style="font-weight:bold;display:block;margin-bottom:8px"/>
-
-                    <p:fileUpload id="upload"
-                                  listener="#{uploadBean.handleFileUpload}"
-                                  mode="advanced"
-                                  multiple="true"
-
-                                  chooseLabel="Seleccionar archivos"
-                                  uploadLabel="Subir"
-                                  cancelLabel="Cancelar"
-                                  update="growl"
-                                  style="width:100%"/>
-
-                    <p:growl id="growl" showDetail="true" />
-                </div>
-
-                </p:tab>
-
-                <p:tab title="📁 Carpeta">
-                <!-- SUBIR CARPETA -->
-                <div style="width:48%">
-                    <h:outputText value="Carpeta completa"
-                                  style="font-weight:bold;display:block;margin-bottom:8px"/>
-
-                    <input id="folderInput" type="file" style="display:none"/>
-
-                    <p:commandButton value="📁 Seleccionar carpeta"
-                                     type="button"
-                                     onclick="selectFolder()"
-                                     style="width:100%;margin-bottom:8px"/>
-
-                    <p:commandButton value="⬆️ Subir carpeta"
-                                     type="button"
-                                     onclick="uploadFolder()"
-                                     style="width:100%"
-                                     styleClass="p-button-success"/>
-
-
-                    <!-- Mostrar nombre de la carpeta seleccionada -->
-                    <div id="selectedFolderName" style="font-style: italic; color: #ccc;"></div>
-
-                    <!-- Mostrar lista de archivos con scroll -->
-                    <div id="folderFilesList"
-                         style="background:#111; color:#eee; padding:8px; height:180px; overflow-y:auto; font-family: monospace; font-size: 13px; border-radius: 4px;"></div>
-
-                    <!-- PROGRESO -->
-                    <div id="progressBarContainer" style="margin-top:10px">
-                        <div id="progressBar"></div>
+                        <p:commandLink action="#{downloadBean.goForward}"
+                                       update="@form :formDownload"
+                                       disabled="#{!downloadBean.canGoForward}"
+                                       styleClass="btn-action" style="display:flex; align-items:center; justify-content:center; text-decoration:none;">
+                            <i class="fas fa-chevron-right" style="font-size: 0.8rem;"></i>
+                        </p:commandLink>
                     </div>
 
-                    <!-- LOG -->
-                    <div id="log"
-                         style="margin-top:10px;height:160px;font-size:13px"></div>
+                    <!-- RUTA DE DIRECTORIOS -->
+                    <!-- ICONO DE INICIO -->
+                    <div class="bc-item">
+                        <p:commandLink action="#{downloadBean.goRoot}" update="@form :formDownload" styleClass="bc-link">
+                            <i class="fas fa-house bc-home-icon"></i>
+                        </p:commandLink>
+                        <i class="fas fa-chevron-right bc-separator"></i>
+                    </div>
+
+                    <ui:repeat value="#{downloadBean.breadcrumb}" var="bc" varStatus="status">
+                        <div class="bc-item">
+                            <!-- Si NO es el último, es un link clickable -->
+                            <p:commandLink action="#{downloadBean.goTo(bc)}"
+                                           update="@form :formDownload"
+                                           rendered="#{not status.last}"
+                                           styleClass="bc-link">
+                                <i class="far fa-folder"></i>
+                                #{bc.name}
+                            </p:commandLink>
+
+                            <!-- Si ES el último, es texto resaltado -->
+                            <h:panelGroup rendered="#{status.last}" styleClass="bc-current">
+                                <i class="fas fa-folder-open"></i>
+                                #{bc.name}
+                            </h:panelGroup>
+
+                            <!-- Separador (solo si no es el último) -->
+                            <h:panelGroup rendered="#{not status.last}">
+                                <i class="fas fa-chevron-right bc-separator"></i>
+                            </h:panelGroup>
+                        </div>
+                    </ui:repeat>
                 </div>
-                </p:tab>
+            </h:form>
 
 
+            <h:form id="formDownload">
+            <!-- LISTA DE ARCHIVOS DEL SERVIDOR -->
+            <div class="file-manager">
+                <ui:repeat value="#{downloadBean.serverFiles}" var="f">
+                    <div class="file-row">
+                        <div class="file-icon">
+                            <i class="#{f.isDirectory() ? 'fas fa-folder' : 'far fa-file-code'}"
+                               style="#{f.isDirectory() ? 'color: #f1c40f;' : ''}"></i>
+                        </div>
+                        <div class="file-info">
+                            <span class="name">#{f.name}</span>
+                            <span class="details">#{f.isDirectory() ? 'Directorio' : 'Archivo'}</span>
+                        </div>
+                        <div class="action-group">
+                            <p:commandButton icon="pi pi-download" styleClass="btn-action" rendered="#{not f.isDirectory()}">
+                                <p:fileDownload value="#{downloadBean.downloadFile(f)}"/>
+                            </p:commandButton>
+
+                            <p:commandButton icon="pi pi-folder-open" styleClass="btn-action" rendered="#{f.isDirectory()}" action="#{downloadBean.openDirectory(f)}" update="@form formBreadcrumb"/>
+                        </div>
+                    </div>
+                </ui:repeat>
             </div>
-            </p:tabView>
+            </h:form>
 
+        <h:form id="mainForm" enctype="multipart/form-data">
+            <!-- ZONA DE SUBIDA (TABS) -->
+            <div class="upload-container">
+                <p:tabView effect="fade">
+                    <!-- TAB 1: ARCHIVOS -->
+                    <p:tab title="Archivos">
+                        <div style="padding-top: 10px;">
+                            <p:fileUpload id="upload" listener="#{uploadBean.handleFileUpload}" mode="advanced"
+                                          multiple="true" dragDropSupport="true"
+                                          chooseLabel="Seleccionar" uploadLabel="Subir" cancelLabel="Cancelar"
+                                          oncomplete="logToTerminal('✔ Archivos subidos vía PrimeFaces')" />
+                        </div>
+                    </p:tab>
 
+                    <!-- TAB 2: CARPETAS -->
+                    <p:tab title="Directorio">
+                        <div style="padding-top: 10px;">
+                            <!-- Input nativo oculto -->
+                            <input id="folderInput" type="file" style="display:none" />
 
-        </p:panel>
+                            <button type="button" class="btn-custom" onclick="selectFolder()">
+                                <i class="fas fa-search p-mr-2"></i> Seleccionar Carpeta
+                            </button>
 
-    </h:form>
+                            <div id="folderNameDisplay" style="font-family: monospace; color: var(--text-dim); text-align: center; margin-bottom: 10px; font-size: 0.85rem;">
+                                Esperando selección...
+                            </div>
 
+                            <button type="button" class="btn-custom btn-success" onclick="uploadFolder()">
+                                <i class="fas fa-cloud-upload-alt p-mr-2"></i> Iniciar Subida
+                            </button>
 
+                            <div id="pContainer" class="progress-wrapper">
+                                <div id="pBar" class="progress-bar"></div>
+                            </div>
 
+                            <div id="progressBarContainer" style="margin-top:10px">
+                                <div id="progressBar"></div>
+                            </div>
+                        </div>
+                    </p:tab>
+                </p:tabView>
+            </div>
+        </h:form>
+        </main>
 
-
+        <!-- TERMINAL CENTRALIZADA -->
+        <div class="terminal" id="sysTerminal">
+            <div>> [SYS] BitBridge Web Client v1.0.4 initialized.</div>
+            <div>> [INFO] Conectado a Nodo: 192.168.100.191</div>
+        </div>
 
 
 

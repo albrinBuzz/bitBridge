@@ -1,0 +1,1 @@
+Guía rápida: Ejecuta bin/bitbridge.sh para iniciar el nodo.

@@ -7,6 +7,7 @@ import org.bitBridge.Client.NioDirectoryTransferManager;
 import org.bitBridge.Client.core.ClientContext;
 import org.bitBridge.shared.core.comunication.FileDirectoryCommunication;
 import org.bitBridge.shared.Logger;
+import org.bitBridge.utils.HashUtil;
 
 import java.io.File;
 
@@ -24,8 +25,10 @@ public class TransferService {
 
     }
 
-    public void enqueueFileSend(ClientInfo recipient, File file,String sender) {
-        var com = new FileDirectoryCommunication(file.getName(), file.length(), recipient.getNick(),sender);
+    public void enqueueFileSend(ClientInfo recipient, File file,String sender) throws Exception {
+        String hash= HashUtil.getFileChecksum(file);
+
+        var com = new FileDirectoryCommunication(hash,file.getName(), file.length(), recipient.getNick(),sender);
         context.executor().submit(() -> {
             try {
                 fileManager.sendFile(com, file, context.serverAddress(), context.serverPort());

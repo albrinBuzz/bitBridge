@@ -1,7 +1,9 @@
 package org.bitBridge.Client;
 
 import org.bitBridge.controller.TransferenciaController;
+import org.bitBridge.server.config.ConfigKey;
 import org.bitBridge.shared.*;
+import org.bitBridge.shared.config.ConfiguracionApp;
 import org.bitBridge.shared.core.comunication.*;
 import org.bitBridge.shared.network.ProtocolService;
 
@@ -24,8 +26,8 @@ public class NioDirectoryTransferManager implements TransferManager {
 
     public NioDirectoryTransferManager(TransferenciaController controller) {
         this.transferenciaController = controller;
-        ConfiguracionCliente config = new ConfiguracionCliente();
-        this.downloadDir = config.obtener("cliente.directorio_descargas");
+
+        this.downloadDir = ConfiguracionApp.getInstancia().obtener(ConfigKey.DOWNLOAD_DIR);
     }
 
     public void sendDirectory(File rootDir, String host, int port, String recipient) {
@@ -44,6 +46,7 @@ public class NioDirectoryTransferManager implements TransferManager {
             channel.connect(new InetSocketAddress(host, port));
 
             ProtocolService.writeNIO(channel, new Mensaje(sessionId, CommunicationType.MESSAGE));
+
             ProtocolService.writeNIO(channel, new FileDirectoryCommunication(rootDir.getName(), fileCount.get(), recipient, totalSize));
 
             FileHandshakeCommunication respuesta = waitForHandshakeNIO(channel);

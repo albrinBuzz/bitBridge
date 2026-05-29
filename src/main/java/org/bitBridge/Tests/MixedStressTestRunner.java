@@ -17,13 +17,15 @@ import java.util.concurrent.TimeUnit;
 public class MixedStressTestRunner {
     // --- CONFIGURACIÓN DE RED ---
     //static final String SERVER_IP = "192.168.100.147"; // Cambia según el test
-    static final String SERVER_IP = "192.168.100.212"; // Cambia según el test
+    //static final String SERVER_IP = "127.0.0.1";
+    static final String SERVER_IP = "192.168.100.212";
+    //static final String SERVER_IP = "192.168.100.170"; // Cambia según el test
 
     static final int PORT = 8080;
 
     // --- CONFIGURACIÓN DE ESTRÉS ---
-    static final int TOTAL_CLIENTS = 778;
-    static final int MESSAGES_PER_CLIENT = 6;
+    static final int TOTAL_CLIENTS = 175;
+    static final int MESSAGES_PER_CLIENT = 35;
     static final int TOTAL_EXPECTED = TOTAL_CLIENTS * MESSAGES_PER_CLIENT;
 
     // --- INVENTARIO DINÁMICO DE HARDWARE ---
@@ -99,6 +101,8 @@ public class MixedStressTestRunner {
         monitor.interrupt();
 
         printAndSaveFinalReport(activeClients, (endTest - startTest), hardwareInfo);
+
+        TimeUnit.SECONDS.sleep(30);
     }
 
     private static void printAndSaveFinalReport(List<Client> clients, long totalDurationMs, String hwInfo) {

@@ -1,0 +1,5 @@
+-Xms512m
+-Xmx1536m
+-XX:MaxDirectMemorySize=1024m
+-XX:+UseZGC
+-Dfile.encoding=UTF-8

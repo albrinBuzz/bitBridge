@@ -26,7 +26,7 @@ public class ServerDashboard extends JFrame {
 
     private final ServerStats stats;
     private final int port;
-    private final String localIp;
+    private  String localIp;
 
     private JTextArea txtHardware, txtNetwork, txtTelemetry;
     private DefaultTableModel threadTableModel;
@@ -35,7 +35,7 @@ public class ServerDashboard extends JFrame {
     public ServerDashboard(Server server) {
         this.stats = server.getStats();
         this.port = server.getPORT();
-        this.localIp = NetworkManager.getLocalIp();
+        //this.localIp = NetworkManager.getLocalIp();
 
         setTitle("BitBridge | HUB OPERATOR [SWING-TERMINAL]");
         setSize(1300, 900);
@@ -158,7 +158,8 @@ public class ServerDashboard extends JFrame {
                         " JVM:     %-15s | VER: %s\n" +
                         " MEMORIA: %-15s | HILOS: %d\n" +
                         " LÍMITE:  %-15s | CORES: %d",
-                NetworkManager.getLocalIp(), System.getProperty("os.name"), System.getProperty("os.arch"),
+                //NetworkManager.getLocalIp(), System.getProperty("os.name"), System.getProperty("os.arch"),
+               "", System.getProperty("os.name"), System.getProperty("os.arch"),
                 System.getProperty("java.vendor"), System.getProperty("java.version"),
                 stats.formatBytes(r.totalMemory() - r.freeMemory()), Thread.activeCount(),
                 stats.getMaxMemoryFormat(), r.availableProcessors()

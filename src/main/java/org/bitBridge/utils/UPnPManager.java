@@ -29,7 +29,7 @@ public class UPnPManager {
             }
 
             // 3. Configurar el mapeo
-            PortMapping mapping = new PortMapping(
+            /*PortMapping mapping = new PortMapping(
                     port,
                     NetworkManager.getLocalIp(),
                     PortMapping.Protocol.TCP,
@@ -40,7 +40,7 @@ public class UPnPManager {
             upnpService.getRegistry().addListener(new PortMappingListener(mapping));
 
             // 5. Buscar el Router
-            upnpService.getControlPoint().search();
+            upnpService.getControlPoint().search();*/
 
             Logger.logInfo("[UPnP] Buscando Router para mapear el puerto: " + port);
 

@@ -2,9 +2,10 @@ package org.bitBridge.view.swing;
 
 
 import com.formdev.flatlaf.FlatClientProperties;
-import org.bitBridge.Client.ConfiguracionCliente;
 import org.bitBridge.Client.UtilidadesCliente;
+import org.bitBridge.server.config.ConfigKey;
 import org.bitBridge.server.core.Server;
+import org.bitBridge.shared.config.ConfiguracionApp;
 import org.bitBridge.view.core.ConnectionState;
 import org.bitBridge.view.core.MainController;
 import org.bitBridge.view.core.ServerState;
@@ -19,9 +20,11 @@ import java.util.regex.Pattern;
 
 public class HeaderPanel extends JPanel {
     // Colores de identidad
-    private static final Color NICOTINE_ORANGE = new Color(255, 165, 0);
+    private static final Color ACCENT_COLOR = new Color(0, 122, 255); // Azul eléctrico (estilo macOS/modern)
     private static final Color SUCCESS_GREEN = new Color(46, 204, 113);
     private static final Color DANGER_RED = new Color(231, 76, 60);
+    private static final Color BG_DARK = new Color(28, 28, 30); // Fondo tipo "Slate" profundo
+    private static final Color TEXT_SECONDARY = new Color(174, 174, 178);
     private final Color COLOR_WARNING = new Color(241, 196, 15);
 
     // Componentes que MainView podría necesitar consultar
@@ -31,6 +34,7 @@ public class HeaderPanel extends JPanel {
     private JProgressBar discoveryProgress;
 
     private final MainController controller;
+    private long connectionStartTime;
 
     public HeaderPanel(MainController controller) {
         this.controller = controller;
@@ -55,9 +59,9 @@ public class HeaderPanel extends JPanel {
         JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
         panel.setOpaque(false);
 
-        JLabel lblBrand = new JLabel("BitBridge v3.0");
-        lblBrand.setFont(new Font("SansSerif", Font.BOLD, 13));
-        lblBrand.setForeground(NICOTINE_ORANGE);
+        JLabel lblBrand = new JLabel("BITBRIDGE");
+        lblBrand.setFont(new Font("Inter", Font.BOLD, 16));
+        lblBrand.setForeground(ACCENT_COLOR);
 
         lblConnectionStatus = new JLabel("● OFFLINE");
         lblConnectionStatus.setForeground(DANGER_RED);
@@ -69,10 +73,10 @@ public class HeaderPanel extends JPanel {
         txtPort.setText("8080");
 
         btnConnect = new JButton("CONECTAR");
-        btnConnect.setBackground(NICOTINE_ORANGE.darker());
+        btnConnect.setBackground(ACCENT_COLOR.darker());
         btnConnect.addActionListener(e -> handleConnection());
 
-        btnAutoConnect = new JButton("⚡ AUTO");
+        btnAutoConnect = new JButton("⚡ Conexion Automatica");
         btnAutoConnect.setForeground(Color.CYAN);
         btnAutoConnect.setBackground(new Color(40, 40, 40));
         //btnAutoConnect.addActionListener(e -> {handleConnection();});
@@ -90,7 +94,7 @@ public class HeaderPanel extends JPanel {
         panel.add(lblConnectionStatus);
         panel.add(new JLabel("Host:"));
         panel.add(txtIp);
-        panel.add(new JLabel(":"));
+        panel.add(new JLabel("Puerto :"));
         panel.add(txtPort);
         panel.add(btnConnect);
         panel.add(btnAutoConnect);
@@ -102,7 +106,7 @@ public class HeaderPanel extends JPanel {
         JPanel container = new JPanel(new FlowLayout(FlowLayout.CENTER));
         container.setOpaque(false);
         JTextField search = new JTextField(20);
-        search.putClientProperty("JTextField.placeholderText", "Búsqueda rápida en red...");
+        search.putClientProperty("JTextField.placeholderText", "Búsqueda en red...");
         container.add(new JLabel("🔍"));
         container.add(search);
         return container;
@@ -127,7 +131,7 @@ public class HeaderPanel extends JPanel {
         btnStartHub.addActionListener(e -> handleServerAction());
 
         // --- GRUPO 2: ACCIONES SECUNDARIAS (Monitor y Descargas) ---
-        JButton btnDashboard = createStyledNavButton("📊 Monitor", "Ver estadísticas en tiempo real");
+        JButton btnDashboard = createStyledNavButton("📊Rendimiento", "Ver estadísticas en tiempo real");
         btnDashboard.addActionListener(e -> new ServerDashboard(Server.getInstance()).setVisible(true));
 
         JButton btnDownloads = createStyledNavButton("📂 Descargas", "Abrir carpeta de archivos");
@@ -135,7 +139,7 @@ public class HeaderPanel extends JPanel {
 
         // --- GRUPO 3: PUENTE Y AJUSTES (Iconos) ---
         // Botón especial para el Puente Móvil con degradado o color sólido distintivo
-        JButton btnPortal = createIconButton("📱", "Puente Móvil (QR)");
+        JButton btnPortal = createIconButton("📱Web", "Interfaz Web");
         btnPortal.setForeground(new Color(162, 155, 254)); // Un color lila moderno
         btnPortal.addActionListener(e -> new ServidorLauncher().setVisible(true));
 
@@ -236,6 +240,7 @@ public class HeaderPanel extends JPanel {
             }
 
             btnConnect.setEnabled(false); // Prevenir spam
+            this.connectionStartTime = System.currentTimeMillis();
             controller.connectServer(host, portStr);
         }
     }
@@ -269,12 +274,15 @@ public class HeaderPanel extends JPanel {
 
         switch (state) {
             case CONNECTED -> {
+                long duration = System.currentTimeMillis() - connectionStartTime;
+                double seconds = duration / 1000.0;
                 lblConnectionStatus.setText("● ONLINE");
                 lblConnectionStatus.setForeground(SUCCESS_GREEN);
+                //System.out.println("Conexión establecida en: " + seconds + "S");
                 btnConnect.setText("Desconectar");
                 btnConnect.setBackground(DANGER_RED);
                 toggleInputs(false);
-                Timer fadeOut = new Timer(300, e -> discoveryProgress.setVisible(false));
+                Timer fadeOut = new Timer(100, e -> discoveryProgress.setVisible(false));
                 fadeOut.setRepeats(false);
                 fadeOut.start();
 
@@ -357,7 +365,8 @@ public class HeaderPanel extends JPanel {
         txtPort.setEnabled(enabled);
     }
     private void openDownloadsFolder() {
-        UtilidadesCliente.abrirDirectorioDescargas(new ConfiguracionCliente().obtener("cliente.directorio_descargas"));
+
+        UtilidadesCliente.abrirDirectorioDescargas(ConfiguracionApp.getInstancia().obtener(ConfigKey.DOWNLOAD_DIR));
     }
     // Getters para que el controlador obtenga los datos de los campos
     public String getIp() { return txtIp.getText(); }

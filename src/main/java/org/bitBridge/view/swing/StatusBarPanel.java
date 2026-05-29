@@ -1,6 +1,8 @@
 package org.bitBridge.view.swing;
 
 import com.formdev.flatlaf.FlatClientProperties;
+import org.bitBridge.shared.LogLevel;
+
 import javax.swing.*;
 import javax.swing.border.CompoundBorder;
 import javax.swing.border.EmptyBorder;
@@ -137,7 +139,7 @@ public class StatusBarPanel extends JPanel {
     /**
      * Agrega un log tanto a la barra de estado (breve) como a la consola (historial).
      */
-    public void addLog(String message, LogType type) {
+    public void addLog(String message, LogLevel type) {
         SwingUtilities.invokeLater(() -> {
             String time = LocalTime.now().format(timeFormatter);
 
@@ -189,8 +191,6 @@ public class StatusBarPanel extends JPanel {
             timer.start();
         });
     }
-
-    public enum LogType { INFO, SUCCESS, WARNING, ERROR }
 
     private void startIntelligentMonitoring() {
         Timer timer = new Timer(1500, e -> {

@@ -21,7 +21,7 @@ public class AutomatedTestRunner {
             // 1. Iniciar Servidor
             Server servidor = Server.getInstance();
             new Thread(servidor::startServer).start();
-            Thread.sleep(100);
+            //Thread.sleep(100);
 
 
             // 3. Emisor
@@ -33,7 +33,7 @@ public class AutomatedTestRunner {
 
             // 4. Crear el target apuntando al nick que el servidor asignó al RECEPTOR
             // Según tu log, el primero fue "fedora"
-            ClientInfo target = new ClientInfo("127.0.0.1", "fedora", port);
+            /*ClientInfo target = new ClientInfo("127.0.0.1", "fedora", port);
 
             // 5. Carpeta de prueba
             //File carpeta = new File("/home/cris/baseDatos/");
@@ -60,7 +60,7 @@ public class AutomatedTestRunner {
 
             // ESPERA CRÍTICA: Dale 1 o 2 segundos para que la red y el disco terminen
             System.out.println("[TEST] Esperando a que termine la transferencia...");
-            Thread.sleep(2000);
+            Thread.sleep(2000);*/
 
             /*verificarIntegridad(Path.of("/home/cris/ldr/el-senor-de-los-anillos-la-comunidad-del-anillo-edicion-extendida-1.0.mp4"),
                     Path.of("/home/cris/Filetalk/el-senor-de-los-anillos-la-comunidad-del-anillo-edicion-extendida-1.0.mp4"));*/

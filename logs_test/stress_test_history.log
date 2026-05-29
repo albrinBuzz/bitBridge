@@ -166,3 +166,362 @@ STATUS      : ❌ CONGESTED
 STATUS      : ❌ CONGESTED
 █████████████████████████████████████████████████████████████████
 
+
+█████████████████████████████████████████████████████████████████
+📊 BITBRIDGE PERFORMANCE BENCHMARK
+█████████████████████████████████████████████████████████████████
+🖥️  TARGET HARDWARE (SERVER):
+❓ DISPOSITIVO DESCONOCIDO
+-----------------------------------------------------------------
+🌐 ENDPOINT   : 192.168.100.170:8080
+⏱️  DURATION   : 21,20 seconds
+📅 TIMESTAMP  : 2026-02-02 20:15:26
+-----------------------------------------------------------------
+⚙️  LOAD CONFIG : 278 clients | 6 msg per client
+✅ ACKs        : 1660 / 1668
+🚀 THROUGHPUT  : 78,31 msg/sec
+📊 EFFICIENCY  : 99,52%
+STATUS      : 🔥 OPTIMAL
+█████████████████████████████████████████████████████████████████
+
+
+█████████████████████████████████████████████████████████████████
+📊 BITBRIDGE PERFORMANCE BENCHMARK
+█████████████████████████████████████████████████████████████████
+🖥️  TARGET HARDWARE (SERVER):
+🏠 [MASTER WORKSTATION - GIGABYTE B760M]
+   CPU: Intel i7-12700 (12C/20T) | 8 P-Cores | 4 E-Cores
+   RAM: 64GB DDR4 | SSD: Kingston NVMe Gen4
+   OS: Fedora 42 (Adams) | Kernel 6.18 | i3wm
+   INFO: Máxima capacidad de concurrencia.
+-----------------------------------------------------------------
+🌐 ENDPOINT   : 127.0.0.1:8080
+⏱️  DURATION   : 21,15 seconds
+📅 TIMESTAMP  : 2026-02-02 20:16:28
+-----------------------------------------------------------------
+⚙️  LOAD CONFIG : 278 clients | 6 msg per client
+✅ ACKs        : 1668 / 1668
+🚀 THROUGHPUT  : 78,85 msg/sec
+📊 EFFICIENCY  : 100,00%
+STATUS      : 🔥 OPTIMAL
+█████████████████████████████████████████████████████████████████
+
+
+█████████████████████████████████████████████████████████████████
+📊 BITBRIDGE PERFORMANCE BENCHMARK
+█████████████████████████████████████████████████████████████████
+🖥️  TARGET HARDWARE (SERVER):
+🏠 [MASTER WORKSTATION - GIGABYTE B760M]
+   CPU: Intel i7-12700 (12C/20T) | 8 P-Cores | 4 E-Cores
+   RAM: 64GB DDR4 | SSD: Kingston NVMe Gen4
+   OS: Fedora 42 (Adams) | Kernel 6.18 | i3wm
+   INFO: Máxima capacidad de concurrencia.
+-----------------------------------------------------------------
+🌐 ENDPOINT   : 127.0.0.1:8080
+⏱️  DURATION   : 21,25 seconds
+📅 TIMESTAMP  : 2026-02-02 20:19:24
+-----------------------------------------------------------------
+⚙️  LOAD CONFIG : 278 clients | 6 msg per client
+✅ ACKs        : 1644 / 1668
+🚀 THROUGHPUT  : 77,36 msg/sec
+📊 EFFICIENCY  : 98,56%
+STATUS      : 🔥 OPTIMAL
+█████████████████████████████████████████████████████████████████
+
+
+█████████████████████████████████████████████████████████████████
+📊 BITBRIDGE PERFORMANCE BENCHMARK
+█████████████████████████████████████████████████████████████████
+🖥️  TARGET HARDWARE (SERVER):
+🏠 [MASTER WORKSTATION - GIGABYTE B760M]
+   CPU: Intel i7-12700 (12C/20T) | 8 P-Cores | 4 E-Cores
+   RAM: 64GB DDR4 | SSD: Kingston NVMe Gen4
+   OS: Fedora 42 (Adams) | Kernel 6.18 | i3wm
+   INFO: Máxima capacidad de concurrencia.
+-----------------------------------------------------------------
+🌐 ENDPOINT   : 127.0.0.1:8080
+⏱️  DURATION   : 21,33 seconds
+📅 TIMESTAMP  : 2026-02-02 20:20:08
+-----------------------------------------------------------------
+⚙️  LOAD CONFIG : 278 clients | 6 msg per client
+✅ ACKs        : 1668 / 1668
+🚀 THROUGHPUT  : 78,20 msg/sec
+📊 EFFICIENCY  : 100,00%
+STATUS      : 🔥 OPTIMAL
+█████████████████████████████████████████████████████████████████
+
+
+█████████████████████████████████████████████████████████████████
+📊 BITBRIDGE PERFORMANCE BENCHMARK
+█████████████████████████████████████████████████████████████████
+🖥️  TARGET HARDWARE (SERVER):
+🏠 [MASTER WORKSTATION - GIGABYTE B760M]
+   CPU: Intel i7-12700 (12C/20T) | 8 P-Cores | 4 E-Cores
+   RAM: 64GB DDR4 | SSD: Kingston NVMe Gen4
+   OS: Fedora 42 (Adams) | Kernel 6.18 | i3wm
+   INFO: Máxima capacidad de concurrencia.
+-----------------------------------------------------------------
+🌐 ENDPOINT   : 127.0.0.1:8080
+⏱️  DURATION   : 19,39 seconds
+📅 TIMESTAMP  : 2026-02-02 20:21:23
+-----------------------------------------------------------------
+⚙️  LOAD CONFIG : 7 clients | 1 msg per client
+✅ ACKs        : 7 / 7
+🚀 THROUGHPUT  : 0,36 msg/sec
+📊 EFFICIENCY  : 100,00%
+STATUS      : 🔥 OPTIMAL
+█████████████████████████████████████████████████████████████████
+
+
+█████████████████████████████████████████████████████████████████
+📊 BITBRIDGE PERFORMANCE BENCHMARK
+█████████████████████████████████████████████████████████████████
+🖥️  TARGET HARDWARE (SERVER):
+🏠 [MASTER WORKSTATION - GIGABYTE B760M]
+   CPU: Intel i7-12700 (12C/20T) | 8 P-Cores | 4 E-Cores
+   RAM: 64GB DDR4 | SSD: Kingston NVMe Gen4
+   OS: Fedora 42 (Adams) | Kernel 6.18 | i3wm
+   INFO: Máxima capacidad de concurrencia.
+-----------------------------------------------------------------
+🌐 ENDPOINT   : 127.0.0.1:8080
+⏱️  DURATION   : 19,40 seconds
+📅 TIMESTAMP  : 2026-02-02 20:22:21
+-----------------------------------------------------------------
+⚙️  LOAD CONFIG : 7 clients | 1 msg per client
+✅ ACKs        : 7 / 7
+🚀 THROUGHPUT  : 0,36 msg/sec
+📊 EFFICIENCY  : 100,00%
+STATUS      : 🔥 OPTIMAL
+█████████████████████████████████████████████████████████████████
+
+
+█████████████████████████████████████████████████████████████████
+📊 BITBRIDGE PERFORMANCE BENCHMARK
+█████████████████████████████████████████████████████████████████
+🖥️  TARGET HARDWARE (SERVER):
+💻 [PENTIUM SERVER]
+   CPU: Intel Pentium N4200 (4C/4T) @ 1.10GHz
+   RAM: 4GB DDR3 | OS: Rocky Linux (Kernel 5.x)
+   TIPO: Nodo de Bajo Consumo
+-----------------------------------------------------------------
+🌐 ENDPOINT   : 192.168.100.212:8080
+⏱️  DURATION   : 15,61 seconds
+📅 TIMESTAMP  : 2026-02-03 23:36:03
+-----------------------------------------------------------------
+⚙️  LOAD CONFIG : 7 clients | 1 msg per client
+✅ ACKs        : 7 / 7
+🚀 THROUGHPUT  : 0,45 msg/sec
+📊 EFFICIENCY  : 100,00%
+STATUS      : 🔥 OPTIMAL
+█████████████████████████████████████████████████████████████████
+
+
+█████████████████████████████████████████████████████████████████
+📊 BITBRIDGE PERFORMANCE BENCHMARK
+█████████████████████████████████████████████████████████████████
+🖥️  TARGET HARDWARE (SERVER):
+💻 [PENTIUM SERVER]
+   CPU: Intel Pentium N4200 (4C/4T) @ 1.10GHz
+   RAM: 4GB DDR3 | OS: Rocky Linux (Kernel 5.x)
+   TIPO: Nodo de Bajo Consumo
+-----------------------------------------------------------------
+🌐 ENDPOINT   : 192.168.100.212:8080
+⏱️  DURATION   : 16,01 seconds
+📅 TIMESTAMP  : 2026-02-03 23:37:10
+-----------------------------------------------------------------
+⚙️  LOAD CONFIG : 8 clients | 8 msg per client
+✅ ACKs        : 64 / 64
+🚀 THROUGHPUT  : 4,00 msg/sec
+📊 EFFICIENCY  : 100,00%
+STATUS      : 🔥 OPTIMAL
+█████████████████████████████████████████████████████████████████
+
+
+█████████████████████████████████████████████████████████████████
+📊 BITBRIDGE PERFORMANCE BENCHMARK
+█████████████████████████████████████████████████████████████████
+🖥️  TARGET HARDWARE (SERVER):
+💻 [PENTIUM SERVER]
+   CPU: Intel Pentium N4200 (4C/4T) @ 1.10GHz
+   RAM: 4GB DDR3 | OS: Rocky Linux (Kernel 5.x)
+   TIPO: Nodo de Bajo Consumo
+-----------------------------------------------------------------
+🌐 ENDPOINT   : 192.168.100.212:8080
+⏱️  DURATION   : 15,98 seconds
+📅 TIMESTAMP  : 2026-02-03 23:37:40
+-----------------------------------------------------------------
+⚙️  LOAD CONFIG : 8 clients | 8 msg per client
+✅ ACKs        : 64 / 64
+🚀 THROUGHPUT  : 4,00 msg/sec
+📊 EFFICIENCY  : 100,00%
+STATUS      : 🔥 OPTIMAL
+█████████████████████████████████████████████████████████████████
+
+
+█████████████████████████████████████████████████████████████████
+📊 BITBRIDGE PERFORMANCE BENCHMARK
+█████████████████████████████████████████████████████████████████
+🖥️  TARGET HARDWARE (SERVER):
+💻 [PENTIUM SERVER]
+   CPU: Intel Pentium N4200 (4C/4T) @ 1.10GHz
+   RAM: 4GB DDR3 | OS: Rocky Linux (Kernel 5.x)
+   TIPO: Nodo de Bajo Consumo
+-----------------------------------------------------------------
+🌐 ENDPOINT   : 192.168.100.212:8080
+⏱️  DURATION   : 18,97 seconds
+📅 TIMESTAMP  : 2026-02-03 23:38:06
+-----------------------------------------------------------------
+⚙️  LOAD CONFIG : 89 clients | 32 msg per client
+✅ ACKs        : 2839 / 2848
+🚀 THROUGHPUT  : 149,64 msg/sec
+📊 EFFICIENCY  : 99,68%
+STATUS      : 🔥 OPTIMAL
+█████████████████████████████████████████████████████████████████
+
+
+█████████████████████████████████████████████████████████████████
+📊 BITBRIDGE PERFORMANCE BENCHMARK
+█████████████████████████████████████████████████████████████████
+🖥️  TARGET HARDWARE (SERVER):
+💻 [PENTIUM SERVER]
+   CPU: Intel Pentium N4200 (4C/4T) @ 1.10GHz
+   RAM: 4GB DDR3 | OS: Rocky Linux (Kernel 5.x)
+   TIPO: Nodo de Bajo Consumo
+-----------------------------------------------------------------
+🌐 ENDPOINT   : 192.168.100.212:8080
+⏱️  DURATION   : 20,42 seconds
+📅 TIMESTAMP  : 2026-02-03 23:38:45
+-----------------------------------------------------------------
+⚙️  LOAD CONFIG : 125 clients | 32 msg per client
+✅ ACKs        : 3998 / 4000
+🚀 THROUGHPUT  : 195,76 msg/sec
+📊 EFFICIENCY  : 99,95%
+STATUS      : 🔥 OPTIMAL
+█████████████████████████████████████████████████████████████████
+
+
+█████████████████████████████████████████████████████████████████
+📊 BITBRIDGE PERFORMANCE BENCHMARK
+█████████████████████████████████████████████████████████████████
+🖥️  TARGET HARDWARE (SERVER):
+💻 [PENTIUM SERVER]
+   CPU: Intel Pentium N4200 (4C/4T) @ 1.10GHz
+   RAM: 4GB DDR3 | OS: Rocky Linux (Kernel 5.x)
+   TIPO: Nodo de Bajo Consumo
+-----------------------------------------------------------------
+🌐 ENDPOINT   : 192.168.100.212:8080
+⏱️  DURATION   : 23,44 seconds
+📅 TIMESTAMP  : 2026-02-03 23:39:33
+-----------------------------------------------------------------
+⚙️  LOAD CONFIG : 225 clients | 35 msg per client
+✅ ACKs        : 4281 / 7875
+🚀 THROUGHPUT  : 182,61 msg/sec
+📊 EFFICIENCY  : 54,36%
+STATUS      : ❌ CONGESTED
+█████████████████████████████████████████████████████████████████
+
+
+█████████████████████████████████████████████████████████████████
+📊 BITBRIDGE PERFORMANCE BENCHMARK
+█████████████████████████████████████████████████████████████████
+🖥️  TARGET HARDWARE (SERVER):
+💻 [PENTIUM SERVER]
+   CPU: Intel Pentium N4200 (4C/4T) @ 1.10GHz
+   RAM: 4GB DDR3 | OS: Rocky Linux (Kernel 5.x)
+   TIPO: Nodo de Bajo Consumo
+-----------------------------------------------------------------
+🌐 ENDPOINT   : 192.168.100.212:8080
+⏱️  DURATION   : 18,94 seconds
+📅 TIMESTAMP  : 2026-02-03 23:40:10
+-----------------------------------------------------------------
+⚙️  LOAD CONFIG : 175 clients | 35 msg per client
+✅ ACKs        : 1295 / 1497
+🚀 THROUGHPUT  : 68,36 msg/sec
+📊 EFFICIENCY  : 86,51%
+STATUS      : ⚠️ STRESSED
+█████████████████████████████████████████████████████████████████
+
+
+█████████████████████████████████████████████████████████████████
+📊 BITBRIDGE PERFORMANCE BENCHMARK
+█████████████████████████████████████████████████████████████████
+🖥️  TARGET HARDWARE (SERVER):
+💻 [PENTIUM SERVER]
+   CPU: Intel Pentium N4200 (4C/4T) @ 1.10GHz
+   RAM: 4GB DDR3 | OS: Rocky Linux (Kernel 5.x)
+   TIPO: Nodo de Bajo Consumo
+-----------------------------------------------------------------
+🌐 ENDPOINT   : 192.168.100.212:8080
+⏱️  DURATION   : 18,93 seconds
+📅 TIMESTAMP  : 2026-02-03 23:40:33
+-----------------------------------------------------------------
+⚙️  LOAD CONFIG : 175 clients | 35 msg per client
+✅ ACKs        : 0 / 175
+🚀 THROUGHPUT  : 0,00 msg/sec
+📊 EFFICIENCY  : 0,00%
+STATUS      : ❌ CONGESTED
+█████████████████████████████████████████████████████████████████
+
+
+█████████████████████████████████████████████████████████████████
+📊 BITBRIDGE PERFORMANCE BENCHMARK
+█████████████████████████████████████████████████████████████████
+🖥️  TARGET HARDWARE (SERVER):
+💻 [PENTIUM SERVER]
+   CPU: Intel Pentium N4200 (4C/4T) @ 1.10GHz
+   RAM: 4GB DDR3 | OS: Rocky Linux (Kernel 5.x)
+   TIPO: Nodo de Bajo Consumo
+-----------------------------------------------------------------
+🌐 ENDPOINT   : 192.168.100.212:8080
+⏱️  DURATION   : 20,67 seconds
+📅 TIMESTAMP  : 2026-02-03 23:41:16
+-----------------------------------------------------------------
+⚙️  LOAD CONFIG : 175 clients | 35 msg per client
+✅ ACKs        : 4267 / 6125
+🚀 THROUGHPUT  : 206,42 msg/sec
+📊 EFFICIENCY  : 69,67%
+STATUS      : ❌ CONGESTED
+█████████████████████████████████████████████████████████████████
+
+
+█████████████████████████████████████████████████████████████████
+📊 BITBRIDGE PERFORMANCE BENCHMARK
+█████████████████████████████████████████████████████████████████
+🖥️  TARGET HARDWARE (SERVER):
+💻 [PENTIUM SERVER]
+   CPU: Intel Pentium N4200 (4C/4T) @ 1.10GHz
+   RAM: 4GB DDR3 | OS: Rocky Linux (Kernel 5.x)
+   TIPO: Nodo de Bajo Consumo
+-----------------------------------------------------------------
+🌐 ENDPOINT   : 192.168.100.212:8080
+⏱️  DURATION   : 21,95 seconds
+📅 TIMESTAMP  : 2026-02-03 23:42:54
+-----------------------------------------------------------------
+⚙️  LOAD CONFIG : 175 clients | 35 msg per client
+✅ ACKs        : 5051 / 6125
+🚀 THROUGHPUT  : 230,10 msg/sec
+📊 EFFICIENCY  : 82,47%
+STATUS      : ❌ CONGESTED
+█████████████████████████████████████████████████████████████████
+
+
+█████████████████████████████████████████████████████████████████
+📊 BITBRIDGE PERFORMANCE BENCHMARK
+█████████████████████████████████████████████████████████████████
+🖥️  TARGET HARDWARE (SERVER):
+💻 [PENTIUM SERVER]
+   CPU: Intel Pentium N4200 (4C/4T) @ 1.10GHz
+   RAM: 4GB DDR3 | OS: Rocky Linux (Kernel 5.x)
+   TIPO: Nodo de Bajo Consumo
+-----------------------------------------------------------------
+🌐 ENDPOINT   : 192.168.100.212:8080
+⏱️  DURATION   : 21,16 seconds
+📅 TIMESTAMP  : 2026-02-03 23:44:24
+-----------------------------------------------------------------
+⚙️  LOAD CONFIG : 175 clients | 35 msg per client
+✅ ACKs        : 4861 / 5481
+🚀 THROUGHPUT  : 229,68 msg/sec
+📊 EFFICIENCY  : 88,69%
+STATUS      : ⚠️ STRESSED
+█████████████████████████████████████████████████████████████████
+

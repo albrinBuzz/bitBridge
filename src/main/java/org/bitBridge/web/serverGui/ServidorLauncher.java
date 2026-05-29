@@ -355,12 +355,39 @@ public class ServidorLauncher extends JFrame {
 
     private void abrirNavegador(String url) {
         try {
-            if (Desktop.isDesktopSupported()) {
+            // Intento 1: API estándar de Java Desktop
+            if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
                 Desktop.getDesktop().browse(new URI(url));
-            } else {
-                Runtime.getRuntime().exec("xdg-open " + url);
+                return;
             }
-        } catch (Exception ignored) {}
+
+            // Intento 2: Comandos nativos por Sistema Operativo
+            String os = System.getProperty("os.name").toLowerCase(Locale.ENGLISH);
+            Runtime rt = Runtime.getRuntime();
+
+            if (os.contains("win")) {
+                // Windows
+                rt.exec("rundll32 url.dll,FileProtocolHandler " + url);
+            } else if (os.contains("mac")) {
+                // macOS
+                rt.exec("open " + url);
+            } else if (os.contains("nix") || os.contains("nux")) {
+                // Linux / Unix
+                String[] browsers = {"xdg-open", "gio open", "gnome-open", "kfmclient exec", "firefox", "google-chrome"};
+                boolean opened = false;
+                for (String cmd : browsers) {
+                    try {
+                        rt.exec(cmd + " " + url);
+                        opened = true;
+                        break;
+                    } catch (Exception ignored) {}
+                }
+                if (!opened) throw new Exception("No se encontró un navegador compatible");
+            }
+        } catch (Exception e) {
+            // Log del error para depuración
+            System.err.println("No se pudo abrir el navegador: " + e.getMessage());
+        }
     }
 
     private void cerrarPanelSeguro() {

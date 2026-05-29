@@ -1,7 +1,8 @@
 package org.bitBridge.web;
 
 
-import org.bitBridge.server.ConfiguracionServidor;
+import org.bitBridge.server.config.ConfigKey;
+import org.bitBridge.shared.config.ConfiguracionApp;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -20,8 +21,8 @@ public class FolderUploadController {
             @RequestParam("path") String relativePath
     ) {
         // 1. Obtener la base de forma agnóstica
-        ConfiguracionServidor config = ConfiguracionServidor.getInstancia();
-        String baseDirConfig = config.obtener("cliente.directorio_descargas");
+        ConfiguracionApp config = ConfiguracionApp.getInstancia();
+        String baseDirConfig = config.obtener(ConfigKey.DOWNLOAD_DIR);
 
         // Convertimos a Path (esto ya maneja los separadores de Windows/Linux automáticamente)
         Path rootBase = Paths.get(baseDirConfig).toAbsolutePath().normalize();

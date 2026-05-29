@@ -54,6 +54,7 @@ public class FileTransferService {
 
             if (receptorData == null) {
                 Logger.logError(logId + " TIMEOUT (Fase 1): El receptor no conectó su socket para la sesión " + sessionId);
+                sender.sendComunicacion(new FileHandshakeCommunication(FileHandshakeAction.ERROR_TIMEOUT, sessionId));
                 return;
             }
 
@@ -110,49 +111,42 @@ public class FileTransferService {
     /**
      * Mueve bytes directamente de un SocketChannel a otro sin usar el Heap.
      */
-    private void bridgeSocketChannels(BitBridgeClient source, BitBridgeClient dest, long totalSize) throws IOException {
-        // Usamos el canal directamente del handler
-
+    private void bridgeSocketChannels(BitBridgeClient source, BitBridgeClient dest, long totalSize) throws IOException, InterruptedException {
         ByteBuffer buffer = null;
-        try (ReadableByteChannel sChannel = source.getReadableChannel();
-             WritableByteChannel dChannel = dest.getWritableChannel()) {
+        // QUITAMOS el try-with-resources de los canales para que NO se cierren al terminar
+        ReadableByteChannel sChannel = source.getReadableChannel();
+        WritableByteChannel dChannel = dest.getWritableChannel();
 
+        try {
             buffer = BufferPool.borrow();
             long totalTransferred = 0;
 
             while (totalTransferred < totalSize) {
                 buffer.clear();
                 int read = sChannel.read(buffer);
-
-                // Si read es -1, el emisor cerró el socket inesperadamente
-                if (read == -1) {
-                    Logger.logWarn("Emisor cerró la conexión antes de terminar.");
-                    break;
-                }
+                if (read == -1) break;
 
                 buffer.flip();
                 while (buffer.hasRemaining()) {
-                    int written = dChannel.write(buffer);
-                    if (written == 0) {
-                        // Evitar bucle infinito si el receptor no acepta más datos por ahora
-                        Thread.yield();
-                    }
+                    dChannel.write(buffer);
                 }
                 totalTransferred += read;
             }
-            Logger.logInfo("Bridge finalizado. Total: " + totalTransferred + "/" + totalSize);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        } finally {
 
-            if (buffer != null) {
-                BufferPool.giveBack(buffer);
-            }
-            //source.shutDown();
-            //dest.shutDown();
-            // Al salir de este método, el hilo del WorkerPool queda libre automáticamente
+            // --- ADICIÓN CRÍTICA ---
+            // No salgas de aquí hasta que el receptor envíe el OK final o el emisor confirme
+            Logger.logInfo("Bytes movidos. Manteniendo canales abiertos para confirmación final...");
+
+        } catch (Exception e) {
+            Logger.logError("Error en bridge: " + e.getMessage());
+            throw e;
+        } finally {
+            if (buffer != null) BufferPool.giveBack(buffer);
+            // NO cerramos sChannel ni dChannel aquí.
+            // El cierre debe ser gestionado por el ciclo de vida del BitBridgeClient
         }
     }
+
     private void bridgeSocketChannelsNoShutdown(BitBridgeClient source, BitBridgeClient dest, long totalSize) throws IOException, InterruptedException {
         ByteBuffer buffer = null;
         try {

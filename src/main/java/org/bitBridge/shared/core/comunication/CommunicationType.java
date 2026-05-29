@@ -14,7 +14,10 @@ public enum CommunicationType {
     DISCONNECT((byte) 11),
     SCREEN_CAPTURE((byte) 12),
     AUDIO_STREAM((byte) 13),
-    ACK((byte) 14);
+    ACK((byte) 14),
+    DIRECTORY_QUERY((byte) 15),
+    DIRECTORY_QUERY_RESULT((byte) 16),
+    FILE_PULL_REQUEST((byte) 17);
     public final byte id;
 
     CommunicationType(byte id) {

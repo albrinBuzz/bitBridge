@@ -1,0 +1,8 @@
+# BitBridge VM Options
+-Xms512m
+-Xmx4096m
+-XX:MaxDirectMemorySize=1024m
+-XX:+UseZGC
+-XX:+ZGenerational
+-XX:SoftMaxHeapSize=1024m
+-Dfile.encoding=UTF-8c

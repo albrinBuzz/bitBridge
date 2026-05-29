@@ -1,10 +1,13 @@
 package org.bitBridge.Client.services;
 
+import org.bitBridge.Client.ClientInfo;
 import org.bitBridge.Client.FileTransferManager;
 import org.bitBridge.Client.NioDirectoryTransferManager;
 import org.bitBridge.Client.core.Client;
 import org.bitBridge.Client.core.ClientActionHandler;
 import org.bitBridge.Client.core.ClientContext;
+import org.bitBridge.Client.core.DirectoryQueryActionHandler;
+import org.bitBridge.shared.core.comunication.NodoDirectorio;
 import org.bitBridge.shared.*;
 import org.bitBridge.shared.core.comunication.*;
 
@@ -12,7 +15,9 @@ import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.SourceDataLine;
+import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.HashMap;
 import java.util.Map;
@@ -62,8 +67,18 @@ public class MessageDispatcher {
 
         // 3. Manejo de transferencias (Handshake)
         register(FileHandshakeCommunication.class, (data, cl, ctx) -> {
-            handleTransfer((FileHandshakeCommunication) data);
+            handleTransfer(data);
         });
+
+        register(DirectoryQuery.class, new DirectoryQueryActionHandler());
+
+        // 4. Manejo de respuesta de exploración de directorios
+        register(DirectoryQueryResponse.class, (data, cl, ctx) -> {
+
+            cl.handleRemoteDirectoryUpdate(data.getNodo());
+
+        });
+
 // En el método setupHandlers() de tu MessageDispatcher.java
         register(AudioFrameMessage.class, (data, cl, ctx) -> {
             AudioFrameMessage msg = (AudioFrameMessage) data;
@@ -120,6 +135,30 @@ public class MessageDispatcher {
                 }
             });
         });
+
+
+        register(FilePullRequest.class, (data, cl, ctx) -> {
+            FilePullRequest req = (FilePullRequest) data;
+            File targetFile = new File(req.getRutaRemota());
+
+            if (!targetFile.exists() || !targetFile.canRead()) {
+                Logger.logError("[PULL-FAIL] No accesible: " + req.getRutaRemota());
+                return;
+            }
+
+            ClientInfo recipient = new ClientInfo(req.getRequesterNick());
+
+            // Decidir método de envío según el tipo solicitado
+            if (req.isEsDirectorio() && targetFile.isDirectory()) {
+                Logger.logInfo("[PULL-DIR] Iniciando envío de carpeta: " + targetFile.getName());
+                cl.sendDirectoryToHost(recipient, targetFile);
+            } else {
+                Logger.logInfo("[PULL-FILE] Iniciando envío de archivo: " + targetFile.getName());
+                cl.sendFileToHost(recipient, targetFile);
+            }
+        });
+
+
     }
 
     // Helper para registrar con tipado seguro
@@ -128,7 +167,7 @@ public class MessageDispatcher {
         handlers.put(clazz, (ClientActionHandler<Object>) handler);
     }
 
-    public void dispatch(Object incoming) {
+    public void dispatch(Object incoming) throws Exception {
         if (incoming == null) return;
 
         // Buscamos el handler basado en la clase del objeto recibido

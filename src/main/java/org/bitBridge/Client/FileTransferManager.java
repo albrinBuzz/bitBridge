@@ -1,10 +1,13 @@
 package org.bitBridge.Client;
 
 import org.bitBridge.controller.TransferenciaController;
+import org.bitBridge.server.config.ConfigKey;
 import org.bitBridge.shared.*;
+import org.bitBridge.shared.config.ConfiguracionApp;
 import org.bitBridge.shared.core.comunication.*;
 import org.bitBridge.shared.network.NetworkConfig;
 import org.bitBridge.shared.network.ProtocolService;
+import org.bitBridge.utils.HashUtil;
 
 import java.io.*;
 import java.net.InetSocketAddress;
@@ -18,7 +21,7 @@ public class FileTransferManager implements TransferManager {
     private volatile boolean running = true;
     private volatile boolean paused = false;
     private final Object pauseLock = new Object();
-    private final ConfiguracionCliente configCliente;
+
     private final TransferenciaController transferenciaController;
 
     // Buffer optimizado para balancear memoria y rendimiento (128KB)
@@ -26,7 +29,7 @@ public class FileTransferManager implements TransferManager {
     //private static final int BUFFER_SIZE = 2 * 1024 * 1024;
 
     public FileTransferManager(TransferenciaController transferenciaController) {
-        this.configCliente = new ConfiguracionCliente();
+
         this.transferenciaController = transferenciaController;
     }
 
@@ -34,6 +37,7 @@ public class FileTransferManager implements TransferManager {
     public void sendFile(FileDirectoryCommunication com, File file, String SERVER_ADDRESS, int port) {
         String sessionId = "SENDER_" + new Random().nextInt(10000);
 
+        Logger.logInfo(com.getHash());
 
 
         try (SocketChannel socketChannel = SocketChannel.open()) {
@@ -75,6 +79,24 @@ public class FileTransferManager implements TransferManager {
                     long endNIO = System.nanoTime();
                     double segundos = (endNIO - startNIO) / 1_000_000_000.0;
                     Logger.logInfo("Transferencia completada en " + segundos + " seg.");
+                    /*respuesta = waitForHandshakeNIO(socketChannel);
+
+                    if (respuesta.getAction().equals(FileHandshakeAction.TRANSFER_DONE)){
+                        Logger.logInfo("Tranferencia existosa");
+
+                    } else if (respuesta.getAction().equals(FileHandshakeAction.ERROR_CHECKSUM_MISMATCH)) {
+                        Logger.logWarn("Posible error en el hash, Corrupcion de datoss");
+                        var info=respuesta.getFileInfo();
+                        if (!info.getHash().equals(com.getHash())){
+                            Logger.logError("El Hash es incorrecto");
+                        }
+                    }*/
+
+                }else if (respuesta instanceof FileHandshakeCommunication f) {
+                    Logger.logInfo(f.getAction().name());
+                    transferenciaController.notifyTranference(f.getAction());
+                }else {
+                    Logger.logInfo("Ninguna respuesta");
                 }
 
             }
@@ -89,6 +111,7 @@ public class FileTransferManager implements TransferManager {
         var info = handshakeCommunication.getFileInfo();
         long fileSize = info.getSize();
 
+        Logger.logInfo(info.getHash());
 
 
         try (SocketChannel socketChannel = SocketChannel.open()) {
@@ -96,9 +119,11 @@ public class FileTransferManager implements TransferManager {
             socketChannel.setOption(StandardSocketOptions.TCP_NODELAY, true);
             socketChannel.setOption(StandardSocketOptions.SO_SNDBUF, BUFFER_SIZE);
             socketChannel.setOption(StandardSocketOptions.SO_RCVBUF, BUFFER_SIZE);
+            socketChannel.connect(new InetSocketAddress(SERVER_ADDRESS, Integer.parseInt(port)));
+
             if (transferenciaController.notifyTranference(handshakeCommunication)) {
 
-            socketChannel.connect(new InetSocketAddress(SERVER_ADDRESS, Integer.parseInt(port)));
+
 
             if (socketChannel.isConnected()) {
 
@@ -111,7 +136,9 @@ public class FileTransferManager implements TransferManager {
                     ProtocolService.writeNIO(socketChannel, accept);
 
 
-                    String rutaFull = configCliente.obtener("cliente.directorio_descargas") + info.getName();
+                    //String rutaFull = ConfiguracionCliente.getInstancia().obtener(ConfigKey.DOWNLOAD_DIR) + info.getName();
+                    String rutaFull = ConfiguracionApp.getInstancia().obtener(ConfigKey.DOWNLOAD_DIR) +File.separator+ info.getName();
+                    Logger.logInfo(rutaFull);
 
 
                 if (confirmarInicioNIO(socketChannel, sessionId)) {
@@ -135,11 +162,37 @@ public class FileTransferManager implements TransferManager {
                             transferenciaController.updateProgressMetrics(FileTransferState.RECEIVING, idTrans, totalRead, fileSize);
                         }
                     }
+                    Logger.logInfo("Transferencia Terminada");
+                    String hash= HashUtil.getFileChecksum(new File(rutaFull));
+
+                    FileHandshakeCommunication respuesta = null;
+
+
+                    if (hash.equals(info.getHash())){
+                        Logger.logInfo("Mismo hash ");
+                        Logger.logInfo(hash);
+                        respuesta = new FileHandshakeCommunication(FileHandshakeAction.TRANSFER_DONE, sessionId);
+                    }else {
+                        Logger.logWarn("archivo corrupto");
+                        Logger.logWarn(hash);
+                        info.setHash(hash);
+                        respuesta = new FileHandshakeCommunication(FileHandshakeAction.ERROR_CHECKSUM_MISMATCH, sessionId);
+                        info.setHash(hash);
+                        respuesta.setFileInfo(info);
+                    }
                     Logger.logInfo("Archivo Guardado en "+rutaFull);
+                    ProtocolService.writeNIO(socketChannel, respuesta);
                 }
+
+
                 //restaurarMetadatos(rutaFull, info);
             }
-        }
+        }else {
+                Mensaje idMsg = new Mensaje(sessionId, CommunicationType.MESSAGE);
+                ProtocolService.writeNIO(socketChannel, idMsg);
+                FileHandshakeCommunication accept = new FileHandshakeCommunication(FileHandshakeAction.DECLINE_REQUEST, sessionId);
+                ProtocolService.writeNIO(socketChannel, accept);
+            }
         } catch (Exception e) {
             Logger.logError("Error en receiveFiles NIO: " + e.getMessage());
         }
@@ -233,7 +286,6 @@ public class FileTransferManager implements TransferManager {
                 "running=" + running +
                 ", paused=" + paused +
                 ", pauseLock=" + pauseLock +
-                ", configCliente=" + configCliente +
                 ", transferenciaController=" + transferenciaController +
                 '}';
     }

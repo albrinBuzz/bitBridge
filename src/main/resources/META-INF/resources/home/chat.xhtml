@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:h="jakarta.faces.html"
+      xmlns:f="jakarta.faces.core"
+      xmlns:p="http://primefaces.org/ui"
+      xmlns:ui="jakarta.faces.facelets">
+
+<h:head>
+    <title>BitBridge Activity | Log</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+
+    <style>
+        :root {
+        --bg-chat: #05070a;
+        --bg-header: #0d1117;
+        --accent-cyan: #00ffc8;
+        --bubble-sent: #0d2a24;
+        --bubble-received: #161b22;
+        --text-main: #f0f6fc;
+        --text-dim: #8b949e;
+        --border: #30363d;
+        --glass: rgba(255, 255, 255, 0.03);
+        }
+
+        body, html {
+        margin: 0;
+        /* Fallback para navegadores viejos */
+        height: 100vh;
+        /* Altura dinámica: se ajusta cuando la barra del navegador sube/baja */
+        height: 100dvh;
+        background-color: var(--bg-chat);
+        color: var(--text-main);
+        font-family: 'Segoe UI', system-ui, sans-serif;
+        overflow: hidden;
+    }
+
+       .main-container {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        /* Evita que el contenido se pegue a los bordes físicos del teléfono */
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+
+        /* HEADER */
+        .chat-header {
+        background: var(--bg-header);
+        padding: 10px 15px;
+        /* Soporte para notch superior si fuera necesario */
+        padding-top: calc(10px + env(safe-area-inset-top));
+        display: flex; align-items: center; gap: 12px;
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+    }
+
+        /* CUERPO - SCROLLABLE */
+
+        .chat-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 15px;
+    background-image: radial-gradient(var(--border) 0.5px, transparent 0.5px);
+    background-size: 25px 25px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+
+    /* SUAVIZADO POR HARDWARE */
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch; /* Mejora el tacto en dispositivos móviles */
+}
+
+        /* MENSAJES */
+        .msg {
+            max-width: 90%; padding: 12px; border-radius: 12px;
+            border: 1px solid var(--border); font-size: 0.9rem;
+        }
+        .msg.received { align-self: flex-start; background: var(--bubble-received); border-bottom-left-radius: 2px; }
+        .msg.sent { align-self: flex-end; background: var(--bubble-sent); border-bottom-right-radius: 2px; }
+
+        /* FILE BOX (Componente JSF) */
+        .file-box {
+            background: rgba(0, 0, 0, 0.3); border: 1px solid var(--border);
+            border-radius: 8px; padding: 10px; display: flex; align-items: center; gap: 12px;
+            margin-top: 8px; text-decoration: none; color: inherit;
+        }
+
+        /* FOOTER */
+        .chat-footer {
+        background: var(--bg-header);
+        /* Sumamos el padding normal más el espacio de seguridad del sistema (gestos de Android/iOS) */
+        padding: 12px 12px calc(12px + env(safe-area-inset-bottom)) 12px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border-top: 1px solid var(--border);
+        flex-shrink: 0;
+        z-index: 10;
+    }
+
+        .input-area {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        }
+        /* PrimeFaces Overrides para Mobile */
+        .ui-fileupload-simple .ui-button {
+            background: transparent !important; border: none !important;
+            color: var(--text-dim) !important; padding: 0 !important;
+        }
+
+        .custom-input {
+            flex: 1; background: #010409 !important; border: 1px solid var(--border) !important;
+            color: var(--text-dim) !important; border-radius: 8px; padding: 10px; font-family: monospace;
+        }
+    </style>
+</h:head>
+
+<h:body>
+    <h:form id="activityForm" prependId="false" enctype="multipart/form-data" styleClass="main-container">
+
+        <!-- HEADER FIJO -->
+        <header class="chat-header">
+            <p:commandLink action="index?faces-redirect=true" styleClass="back-btn">
+                <i class="fas fa-chevron-left"></i>
+            </p:commandLink>
+            <div style="flex:1">
+                <h2 style="margin:0; font-size: 0.9rem; letter-spacing: 1px;">Actividad Reciente</h2>
+                <span style="font-size: 0.65rem; color: var(--accent-cyan); font-family: monospace;">
+                    <i class="fas fa-circle" style="font-size: 5px; vertical-align: middle;"></i>
+                </span>
+            </div>
+            <p:commandButton icon="fas fa-sync-alt" update="chatArea" styleClass="ui-button-flat"
+                             style="color: var(--text-dim); background:transparent; border:none"/>
+        </header>
+        <div class="filter-bar" style="padding: 5px 15px; display: flex; gap: 8px; overflow-x: auto;">
+            <span class="chip active">Todos</span>
+            <span class="chip"><i class="fas fa-image"></i> Fotos</span>
+            <span class="chip"><i class="fas fa-code"></i> Java</span>
+            <span class="chip"><i class="fas fa-file-pdf"></i> Docs</span>
+        </div>
+
+        <style>
+            .chip {
+                padding: 5px 12px; border-radius: 20px; background: var(--glass);
+                border: 1px solid var(--border); font-size: 0.7rem; white-space: nowrap;
+                cursor: pointer; transition: 0.3s;
+            }
+            .chip.active { background: var(--accent-cyan); color: var(--bg-chat); border-color: var(--accent-cyan); }
+        </style>
+
+
+        <!--<p:poll interval="2"
+                update="chatArea"
+                oncomplete="updateScroll()"
+                process="@this" />-->
+
+        <!-- ÁREA DE SCRROLL -->
+        <h:panelGroup layout="block" id="chatArea" styleClass="chat-body">
+            <ui:repeat value="#{activityBean.logs}" var="log">
+                <div class="msg #{log.type eq 'SENT' ? 'sent' : 'received'}">
+                    <div style="color: #{log.type eq 'SENT' ? '#4cd137' : 'var(--accent-cyan)'}; font-size: 0.7rem; font-family: monospace; font-weight: bold; margin-bottom: 6px;">
+                        <i class="fas #{log.type eq 'SENT' ? 'fa-user-circle' : 'fa-server'}"></i> #{log.origin}
+                    </div>
+
+                    <!-- Botón de descarga simulado -->
+                    <p:commandLink ajax="false" styleClass="file-box">
+                        <p:fileDownload value="#{activityBean.downloadFile(log)}" />
+                        <i class="fas #{log.fileIcon}"></i>
+                        <div style="flex:1; overflow:hidden">
+                            <span class="name">#{log.fileName}</span>
+                            <span class="meta">#{log.fileMeta}</span>
+                        </div>
+                        <i class="fas fa-download" style="font-size: 0.7rem; opacity: 0.3;"></i>
+                    </p:commandLink>
+
+                    <div class="time">
+                        #{log.timestamp}
+                        <h:panelGroup rendered="#{log.type eq 'SENT'}">
+                            • <i class="fas fa-check-double" style="color: var(--accent-cyan);"></i>
+                        </h:panelGroup>
+                    </div>
+                </div>
+            </ui:repeat>
+        </h:panelGroup>
+        <!-- FOOTER / INPUT -->
+        <footer class="chat-footer">
+            <p:fileUpload mode="simple" skinSimple="true" auto="true"
+                          label="" icon="fas fa-paperclip"
+                          styleClass="action-btn"
+                          listener="#{activityBean.handleFileUpload}"
+                          update="chatArea msgStatus"/>
+
+            <div class="input-area">
+                <h:outputText id="msgStatus" value="#{activityBean.statusMessage}" />
+            </div>
+
+            <p:commandButton icon="fas fa-paper-plane" update="chatArea"
+                             styleClass="send-btn"
+                             style="width: 45px; height: 45px; border-radius: 12px; background: var(--accent-cyan); border:none; color: var(--bg-chat);"/>
+        </footer>
+    </h:form>
+
+    <script>
+        function updateScroll() {
+            const chatArea = document.getElementById("chatArea");
+            if (!chatArea) return;
+
+            // Margen de error para detectar si el usuario está al final
+            const threshold = 150;
+            const isAtBottom = (chatArea.scrollHeight - chatArea.scrollTop - chatArea.clientHeight) &lt; threshold;
+
+            // Solo bajamos automáticamente si el usuario ya estaba cerca del final
+            // Esto evita que el scroll "salte" mientras el usuario intenta leer algo arriba
+            if (isAtBottom) {
+                chatArea.scrollTo({
+                    top: chatArea.scrollHeight,
+                    behavior: 'smooth' // Movimiento fluido en lugar de salto brusco
+                });
+            }
+        }
+
+        // Ejecución inicial al cargar la página
+        window.onload = updateScroll;
+
+        // Hook de PrimeFaces para actualizaciones del p:poll y botones
+        $(document).on('pfAjaxComplete', function() {
+            // Un pequeño delay ayuda a que el DOM se renderice antes de calcular el scroll
+            setTimeout(updateScroll, 50);
+        });
+    </script>
+</h:body>
+</html>

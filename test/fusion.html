@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BitBridge Hub</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-deep: #0a0b10;
+            --bg-card: #161b22;
+            --bg-chat: #0d1117;
+            --accent-cyan: #00ffc8;
+            --accent-blue: #007bff;
+            --text-main: #e6edf3;
+            --border: #30363d;
+            --bubble-me: #238636;
+            --bubble-other: #21262d;
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            background-color: var(--bg-deep);
+            color: var(--text-main);
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* --- GLOBAL HEADER & NAV --- */
+        .main-header {
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 60px;
+            z-index: 100;
+        }
+
+        .nav-brand {
+            font-weight: 800;
+            color: var(--accent-cyan);
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 5px;
+            height: 100%;
+        }
+
+        .nav-item {
+            padding: 0 20px;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: 0.2s;
+            color: #8b949e;
+            font-size: 0.9rem;
+            text-decoration: none;
+        }
+
+        .nav-item:hover { color: var(--text-main); background: rgba(255,255,255,0.05); }
+        .nav-item.active {
+            color: var(--accent-cyan);
+            border-bottom-color: var(--accent-cyan);
+            background: rgba(0, 255, 200, 0.05);
+        }
+
+        /* --- CONTENT CONTAINERS --- */
+        .view-container {
+            flex: 1;
+            display: none; /* Se activa con JS */
+            overflow: hidden;
+        }
+
+        .view-container.active { display: flex; flex-direction: column; }
+
+        /* --- VIEW 1: EXPLORER (Refined) --- */
+        .explorer-grid {
+            padding: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+            overflow-y: auto;
+        }
+
+        .file-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            transition: 0.3s;
+            position: relative;
+        }
+
+        .file-card:hover { border-color: var(--accent-cyan); transform: translateY(-3px); }
+        .file-card i { font-size: 2.5rem; margin-bottom: 10px; color: #8b949e; }
+        .file-card .name { font-size: 0.85rem; word-break: break-all; display: block; }
+        .file-card .actions {
+            margin-top: 10px;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        /* --- VIEW 2: CHAT HISTORY (WhatsApp Style) --- */
+        .chat-view {
+            background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); /* Pattern sutil */
+            background-blend-mode: overlay;
+            background-color: var(--bg-chat);
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .message {
+            max-width: 85%;
+            padding: 8px;
+            border-radius: 8px;
+            position: relative;
+            font-size: 0.9rem;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        }
+
+        .message.received { align-self: flex-start; background: var(--bubble-other); }
+        .message.sent { align-self: flex-end; background: var(--bubble-me); }
+
+        .file-bubble {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(0,0,0,0.2);
+            padding: 10px;
+            border-radius: 6px;
+            color: white;
+            text-decoration: none;
+        }
+
+        .bubble-meta {
+            display: flex;
+            justify-content: flex-end;
+            font-size: 0.7rem;
+            margin-top: 4px;
+            opacity: 0.7;
+        }
+
+        /* --- INPUT AREA --- */
+        .input-area {
+            background: var(--bg-card);
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            border-top: 1px solid var(--border);
+        }
+
+        .upload-btn-circle {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            background: var(--accent-blue);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border: none;
+            font-size: 1.2rem;
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 768px) {
+            .nav-item span { display: none; }
+            .nav-item i { font-size: 1.2rem; }
+        }
+    </style>
+</head>
+<body>
+
+<header class="main-header">
+    <div class="nav-brand">
+        <i class="fas fa-network-wired"></i> <span>BitBridge Hub</span>
+    </div>
+
+    <nav class="nav-links">
+        <a href="#" class="nav-item active" onclick="switchView('explorer', this)">
+            <i class="fas fa-folder"></i>&nbsp;<span>Explorador</span>
+        </a>
+        <a href="#" class="nav-item" onclick="switchView('chat', this)">
+            <i class="fas fa-history"></i>&nbsp;<span>Actividad</span>
+        </a>
+        <a href="#" class="nav-item" title="Próximamente">
+            <i class="fas fa-chart-line"></i>&nbsp;<span>Métricas</span>
+        </a>
+    </nav>
+
+    <div class="user-status">
+        <small style="color: var(--accent-cyan)">● Online</small>
+    </div>
+</header>
+
+<!-- VISTA 1: EXPLORADOR -->
+<section id="view-explorer" class="view-container active">
+    <div style="padding: 15px 20px; border-bottom: 1px solid var(--border); display: flex; gap: 10px;">
+        <button class="nav-item" style="border: 1px solid var(--border); border-radius: 5px; padding: 5px 15px;">
+            <i class="fas fa-arrow-left"></i>
+        </button>
+        <div class="breadcrumb" style="align-self: center; font-family: monospace; color: #8b949e;">
+            /root/server/uploads
+        </div>
+    </div>
+
+    <div class="explorer-grid">
+        <div class="file-card">
+            <i class="fas fa-folder" style="color: #f1c40f;"></i>
+            <span class="name">Proyectos_Java</span>
+            <div class="actions">
+                <button class="btn-action"><i class="fas fa-external-link-alt"></i></button>
+            </div>
+        </div>
+        <div class="file-card">
+            <i class="fas fa-file-code" style="color: var(--accent-cyan);"></i>
+            <span class="name">NioEngine.java</span>
+            <div class="actions">
+                <button class="btn-action"><i class="fas fa-download"></i></button>
+            </div>
+        </div>
+        <!-- Más archivos... -->
+    </div>
+</section>
+
+<!-- VISTA 2: CHAT DE ACTIVIDAD -->
+<section id="view-chat" class="view-container">
+    <div class="chat-view">
+        <div class="chat-messages" id="chatMessages">
+
+            <!-- Mensaje Recibido (Otro nodo/Servidor) -->
+            <div class="message received">
+                <div style="font-size: 0.75rem; color: var(--accent-cyan); margin-bottom: 4px; font-weight: bold;">Servidor Central</div>
+                <a href="#" class="file-bubble">
+                    <i class="fas fa-file-archive fa-2x"></i>
+                    <div>
+                        <div class="name">backup_full_system.zip</div>
+                        <small>45.8 MB</small>
+                    </div>
+                    <i class="fas fa-download" style="margin-left: auto;"></i>
+                </a>
+                <div class="bubble-meta">20:15</div>
+            </div>
+
+            <!-- Mensaje Enviado (Este dispositivo) -->
+            <div class="message sent">
+                <a href="#" class="file-bubble">
+                    <i class="fas fa-file-image fa-2x"></i>
+                    <div>
+                        <div class="name">screenshot_debug.png</div>
+                        <small>1.2 MB</small>
+                    </div>
+                </a>
+                <div class="bubble-meta">20:42 ✓✓</div>
+            </div>
+
+        </div>
+
+        <!-- Área de carga estilo Chat -->
+        <div class="input-area">
+            <button class="upload-btn-circle" onclick="document.getElementById('chatFileInput').click()">
+                <i class="fas fa-plus"></i>
+            </button>
+            <input type="file" id="chatFileInput" style="display: none;">
+            <div style="flex: 1; background: var(--bg-deep); padding: 12px; border-radius: 20px; color: #8b949e; font-size: 0.9rem; border: 1px solid var(--border)">
+                Selecciona un archivo para enviar al servidor...
+            </div>
+            <button class="upload-btn-circle" style="background: var(--accent-cyan); color: black;">
+                <i class="fas fa-paper-plane"></i>
+            </button>
+        </div>
+    </div>
+</section>
+
+<script>
+    function switchView(viewId, element) {
+        // Desactivar todas las vistas
+        document.querySelectorAll('.view-container').forEach(v => v.classList.remove('active'));
+        // Desactivar todos los links
+        document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+
+        // Activar la seleccionada
+        document.getElementById('view-' + viewId).classList.add('active');
+        element.classList.add('active');
+    }
+
+    // Simulación de "mensaje enviado" al elegir archivo
+    document.getElementById('chatFileInput').addEventListener('change', function(e) {
+        if(this.files.length > 0) {
+            const fileName = this.files[0].name;
+            const chatMessages = document.getElementById('chatMessages');
+
+            const newMsg = document.createElement('div');
+            newMsg.className = 'message sent';
+            newMsg.innerHTML = `
+                <div class="file-bubble">
+                    <i class="fas fa-file fa-2x"></i>
+                    <div>
+                        <div class="name">${fileName}</div>
+                        <small>Subiendo...</small>
+                    </div>
+                </div>
+                <div class="bubble-meta">Ahora</div>
+            `;
+            chatMessages.appendChild(newMsg);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+    });
+</script>
+</body>
+</html>

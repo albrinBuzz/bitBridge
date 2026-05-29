@@ -18,7 +18,9 @@ public class ClientInfo implements Serializable {
         this.connectionTime = System.currentTimeMillis();
     }
 
-
+    public ClientInfo(String nick) {
+        this.nick = nick;
+    }
 
     public String getAddress() {
         return address;
@@ -47,5 +49,15 @@ public class ClientInfo implements Serializable {
 
     public String getNick() {
         return this.nick;
+    }
+
+    @Override
+    public String toString() {
+        return "ClientInfo{" +
+                "address='" + address + '\'' +
+                ", connectionTime=" + connectionTime +
+                ", nick='" + nick + '\'' +
+                ", port=" + port +
+                '}';
     }
 }

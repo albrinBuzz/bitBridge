@@ -6,8 +6,9 @@ import jakarta.faces.application.FacesMessage;
 import jakarta.faces.context.FacesContext;
 import jakarta.inject.Named;
 
-import org.bitBridge.server.ConfiguracionServidor;
+import org.bitBridge.server.config.ConfigKey;
 import org.bitBridge.shared.Logger;
+import org.bitBridge.shared.config.ConfiguracionApp;
 import org.primefaces.event.FileUploadEvent;
 import org.primefaces.model.file.UploadedFile;
 import org.primefaces.model.file.UploadedFiles;
@@ -29,10 +30,10 @@ public class FileUploadBean {
 
     @PostConstruct
     public void init() {
-        ConfiguracionServidor config = ConfiguracionServidor.getInstancia();
+        ConfiguracionApp config = ConfiguracionApp.getInstancia();
 
         // Obtenemos el path base de la config y le añadimos "Upload" de forma agnóstica
-        String baseDir = config.obtener("cliente.directorio_descargas");
+        String baseDir = config.obtener(ConfigKey.DOWNLOAD_DIR);
         this.directorioUpload = Paths.get(baseDir, "Upload");
 
         try {
