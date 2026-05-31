@@ -3,13 +3,12 @@ package org.bitBridge.Tests.rsync.rsyncRed;
 public class DemoRsyncCarpeta {
     public static void main(String[] args) {
         // 1. Inicializar el Servidor en un hilo independiente apuntando a su repositorio de destino
-        String rutaDestinoServidor = "/home/cris/bitBrige/";
+        String rutaDestinoServidor = "/home/cris/BitBridge_Shared/";
         new Thread(() -> {
             RsyncServerPush servidor = new RsyncServerPush();
             servidor.iniciar(rutaDestinoServidor);
         }).start();
 
-        //nuevo comentario
         // Dar un segundo para que el ServerSocket levante de forma segura
         try { Thread.sleep(1000); } catch (InterruptedException e) {}
 
@@ -20,8 +19,9 @@ public class DemoRsyncCarpeta {
         cliente.sincronizarCarpetaCompleta(rutaCarpetaCliente);*/
 
         // Código asociado al botón "Sincronizar hacia el Servidor (PUSH)"
+        //aqui se simula
         new Thread(() -> {
-            String miCarpetaLocal = "/home/cris/java/java/javafx/proyectos/bitBrige/bitBrige/";
+            String miCarpetaLocal = "/home/cris/BitBridge_Shared/";
             RsyncClientePush clientePush = new RsyncClientePush("192.168.100.192", 9999);
 
             System.out.println("--- Inicio de sincronización ---");

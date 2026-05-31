@@ -21,12 +21,12 @@ public class RealRsyncInPlace {
 
     public static void main(String[] args) throws Exception {
         // El archivo que será MODIFICADO directamente
-        File fileDestino = new File("/home/cris/java/javafx/proyectos/bitBrige/bitBrige/scripts/destino/BitBridge-Desktop.jar");
+        File fileDestino = new File("/home/cris/java/java/javafx/proyectos/bitBrige/bitBrige/scripts/destino/logTexto.txt");
         //File fileDestino = new File("/home/cris/java/javafx/proyectos/bitBrige/bitBrige/scripts/archivo_destino.txt");
 
         // La fuente de la verdad
         //File fileOrigen = new File("/home/cris/java/javafx/proyectos/bitBrige/bitBrige/scripts/archivo_origen.txt");
-        File fileOrigen = new File("/home/cris/java/javafx/proyectos/bitBrige/bitBrige/target/BitBridge-Desktop.jar");
+        File fileOrigen = new File("/home/cris/java/java/javafx/proyectos/bitBrige/bitBrige/scripts/origen/logTexto.txt");
 
         //prepararEscenario(fileDestino, fileOrigen);
 
