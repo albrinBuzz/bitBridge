@@ -17,7 +17,12 @@ public enum CommunicationType {
     ACK((byte) 14),
     DIRECTORY_QUERY((byte) 15),
     DIRECTORY_QUERY_RESULT((byte) 16),
-    FILE_PULL_REQUEST((byte) 17);
+    FILE_PULL_REQUEST((byte) 17),
+
+    // --- NUEVOS TIPOS PARA INTEGRACIÓN RSYNC ---
+    RSYNC_SIGNATURES((byte) 18),
+    RSYNC_DELTAS((byte) 19);
+
     public final byte id;
 
     CommunicationType(byte id) {

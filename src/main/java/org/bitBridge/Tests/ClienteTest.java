@@ -10,6 +10,6 @@ public class ClienteTest {
         Client client=new Client();
         client.conexionAutomatica();
         Thread.sleep(1000);
-        client.sendDirectoryToHost(new ClientInfo("frodo"),new File("/home/cris/BitBridge_Shared_Test"));
+        client.sendDirectoryToHost(new ClientInfo("fedo"),new File("/home/cris/BitBridge_Shared_Test"));
     }
 }

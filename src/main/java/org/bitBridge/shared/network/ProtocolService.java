@@ -7,6 +7,8 @@ import com.google.gson.Gson;
 import org.bitBridge.server.core.client.BitBridgeClient;
 import org.bitBridge.shared.Logger;
 import org.bitBridge.shared.core.comunication.*;
+import org.bitBridge.shared.core.comunication.sync.RsyncDeltaPackage;
+import org.bitBridge.shared.core.comunication.sync.RsyncSignatures;
 import org.bitBridge.shared.memory.DirectBufferPool;
 import org.msgpack.jackson.dataformat.MessagePackFactory;
 
@@ -17,6 +19,8 @@ import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
 import java.util.EnumMap;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class ProtocolService {
     private static final Gson gson = new Gson();
@@ -33,6 +37,9 @@ public class ProtocolService {
         typeRegistry.put(CommunicationType.DIRECTORY_QUERY, DirectoryQuery.class);
         typeRegistry.put(CommunicationType.DIRECTORY_QUERY_RESULT, DirectoryQueryResponse.class);
         typeRegistry.put(CommunicationType.FILE_PULL_REQUEST, FilePullRequest.class);
+
+        typeRegistry.put(CommunicationType.RSYNC_SIGNATURES, RsyncSignatures.class);
+        typeRegistry.put(CommunicationType.RSYNC_DELTAS, RsyncDeltaPackage.class);
     }
 
     /**
@@ -68,13 +75,16 @@ public class ProtocolService {
         byte[] payload = new byte[length];
         in.readFully(payload);
         String json = new String(payload, StandardCharsets.UTF_8);
-
+        logJsonString(json, type);
         try {
             return switch (type) {
                 case MESSAGE -> gson.fromJson(json, Mensaje.class);
                 case FILE, DIRECTORY -> gson.fromJson(json, FileDirectoryCommunication.class);
                 case UPDATE -> gson.fromJson(json, ClientListMessage.class);
                 case NOTIFICATION -> gson.fromJson(json, FileHandshakeCommunication.class);
+
+                case RSYNC_SIGNATURES -> gson.fromJson(json, RsyncSignatures.class);
+                case RSYNC_DELTAS -> gson.fromJson(json, RsyncDeltaPackage.class);
                 // Si el tipo no coincide, devolvemos la clase base para evitar nulls
                 default -> gson.fromJson(json, Communication.class);
             };
@@ -123,7 +133,7 @@ public class ProtocolService {
         byte[] jsonBytes = new byte[payloadLen];
         buffer.get(jsonBytes);
         String json = new String(jsonBytes, StandardCharsets.UTF_8);
-
+        logJsonString(json, type);
 
         return deserializeByType(json, type);
     }
@@ -216,6 +226,7 @@ public class ProtocolService {
             byte[] jsonBytes = new byte[jsonLen];
             body.get(jsonBytes);
             String json = new String(jsonBytes, StandardCharsets.UTF_8);
+            logJsonString(json, type);
 
             return deserializeByType(json, type);
         } finally {
@@ -338,10 +349,37 @@ public class ProtocolService {
             // Listados de carpetas -> Pool Mediano
             case DIRECTORY, DIRECTORY_QUERY, DIRECTORY_QUERY_RESULT -> DirectBufferPool.BufferType.DIRECTORY;
 
-            // Transferencia de trozos de archivos -> Pool Grande
-            case FILE, FILE_PULL_REQUEST -> DirectBufferPool.BufferType.TRANSFER;
+            case FILE, FILE_PULL_REQUEST, RSYNC_SIGNATURES, RSYNC_DELTAS -> DirectBufferPool.BufferType.TRANSFER;
+
 
             default -> DirectBufferPool.BufferType.MESSAGE;
         };
+    }
+
+    private static final com.google.gson.Gson prettyGson = new com.google.gson.GsonBuilder().setPrettyPrinting().create();
+
+
+    // Pool de hilos para procesar JSON sin bloquear el canal NIO
+    private static final ExecutorService asyncProcessor = Executors.newFixedThreadPool(2);
+    /**
+     * Toma el String JSON crudo que se acaba de leer del canal/stream,
+     * lo formatea visualmente y lo manda al Logger.
+     */
+    private static void logJsonString(String json, CommunicationType type) {
+        //Logger.logInfo(json);
+        /*try {
+            // Re-parseamos el string a un JsonElement genérico para que 'prettyGson' lo pueda indentar
+            Object jsonElement = gson.fromJson(json, Object.class);
+            String prettyJson = prettyGson.toJson(jsonElement);
+
+            Logger.logInfo(String.format(
+                    "\n▲=== [INCOMING JSON AUDIT: %s] ===▲\n%s\n▼==========================================▼",
+                    type, prettyJson
+            ))
+        } catch (Exception e) {
+            Logger.logError("[JSON-PRETTY] No se pudo formatear el JSON crudo: " + e.getMessage());
+            // Fallback: Imprimir el JSON lineal si el formateo falla
+            Logger.logInfo("[JSON-RAW-FALLBACK]: " + json);
+        }*/
     }
 }

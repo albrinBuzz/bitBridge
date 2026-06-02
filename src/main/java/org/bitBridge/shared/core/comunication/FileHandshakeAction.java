@@ -30,6 +30,7 @@ public enum FileHandshakeAction {
     ERROR_TIMEOUT,
     SERVER_BUSY,
 
+    PROCESS_DELTAS,
     /**
      * El archivo cambió en el origen mientras se enviaba.
      */

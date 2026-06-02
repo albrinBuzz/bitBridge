@@ -134,29 +134,18 @@ public class FileTransferService {
             while (totalTransferred < totalSize) {
                 buffer.clear();
                 long remainingInFile = totalSize - totalTransferred;
-                if (remainingInFile < buffer.capacity()) {
-                    buffer.limit((int) remainingInFile);
-                }
+                if (remainingInFile < buffer.capacity()) buffer.limit((int) remainingInFile);
 
                 int read = sChannel.read(buffer);
-                if (read == -1) throw new IOException("Emisor desconectó prematuramente");
-                if (read == 0) {
-                    Thread.sleep(1);
-                    continue;
-                }
+                if (read == -1) throw new IOException("Desconexión prematura emisor");
+                if (read == 0) { Thread.sleep(1); continue; }
 
                 buffer.flip();
                 while (buffer.hasRemaining()) {
-                    int written = dChannel.write(buffer);
-                    if (written == 0) {
-                        Thread.sleep(1);
-                    }
+                    if (dChannel.write(buffer) == 0) Thread.sleep(1);
                 }
                 totalTransferred += read;
             }
-        } catch (Exception e) {
-            Logger.logError("Error en bridge: " + e.getMessage());
-            throw e;
         } finally {
             if (buffer != null) BufferPool.giveBack(buffer);
         }
@@ -165,60 +154,34 @@ public class FileTransferService {
     public void relayDirectory(FileDirectoryCommunication com, BitBridgeClient sender, String sessionId) {
         String logId = "[DIR-RELAY-" + sessionId + "]";
         BitBridgeClient recipient = context.registry().findByNick(com.getRecipient());
-        if (recipient == null) {
-            Logger.logError(logId + " Receptor no encontrado.");
-            return;
-        }
+        if (recipient == null) return;
 
         try {
-            recipient.sendComunicacion(new FileHandshakeCommunication(
-                    FileHandshakeAction.SEND_REQUEST, sessionId, com));
-
+            recipient.sendComunicacion(new FileHandshakeCommunication(FileHandshakeAction.SEND_REQUEST, sessionId, com));
             BitBridgeClient dataReceiver = context.transferManager().waitForReceptor(sessionId, 20);
-            if (dataReceiver == null) {
-                Logger.logError(logId + " Timeout esperando al receptor.");
-                return;
-            }
+            if (dataReceiver == null) return;
 
             FileHandshakeAction action = context.transferManager().waitForResponseAction(sessionId, 7);
 
             if (action == FileHandshakeAction.ACCEPT_REQUEST) {
-                FileHandshakeCommunication start = new FileHandshakeCommunication(
-                        FileHandshakeAction.START_TRANSFER, sessionId, com);
-
+                FileHandshakeCommunication start = new FileHandshakeCommunication(FileHandshakeAction.START_TRANSFER, sessionId, com);
                 dataReceiver.sendComunicacion(start);
                 sender.sendComunicacion(start);
-
-                boolean transferenciaActiva = true;
-                int archivosProcesados = 0;
 
                 if (context.getNetworkEngine() instanceof NioServerEngine engine) {
                     engine.unregisterChannel((SocketChannel) sender.getReadableChannel());
                     engine.unregisterChannel((SocketChannel) dataReceiver.getReadableChannel());
-
-                    try {
-                        ((SocketChannel) sender.getReadableChannel()).configureBlocking(true);
-                        ((SocketChannel) dataReceiver.getReadableChannel()).configureBlocking(true);
-                    } catch (IOException e) {
-                        Logger.logError("Error configurando canales bloqueantes");
-                    }
-                    if (sender.getReadableChannel() instanceof SocketChannel sc) {
-                        sc.setOption(java.net.StandardSocketOptions.TCP_NODELAY, true);
-                        sc.setOption(java.net.StandardSocketOptions.SO_RCVBUF, BRIDGE_BUFFER_SIZE);
-                    }
-                    if (dataReceiver.getWritableChannel() instanceof SocketChannel sc) {
-                        sc.setOption(java.net.StandardSocketOptions.TCP_NODELAY, true);
-                        sc.setOption(java.net.StandardSocketOptions.SO_SNDBUF, BRIDGE_BUFFER_SIZE);
-                    }
+                    ((SocketChannel) sender.getReadableChannel()).configureBlocking(true);
+                    ((SocketChannel) dataReceiver.getReadableChannel()).configureBlocking(true);
                 }
+
+                boolean transferenciaActiva = true;
 
                 while (transferenciaActiva) {
                     byte[] packetData = ProtocolService.readHandshakePacket(sender);
                     Communication object = ProtocolService.fromBytes(packetData);
 
                     if (object instanceof FileDirectoryCommunication meta) {
-                        archivosProcesados++;
-
                         dataReceiver.sendComunicacion(meta);
 
                         byte[] receptorAckRaw = ProtocolService.readHandshakePacket(dataReceiver);
@@ -227,48 +190,51 @@ public class FileTransferService {
                         if (receptorResponse instanceof FileHandshakeCommunication resp) {
                             FileHandshakeAction accionReceptor = resp.getAction();
 
-                            // --- LOG SERVER: ORDEN DE OMISIÓN RELAYED ---
                             if (accionReceptor == FileHandshakeAction.SKIP_FILE) {
-                                Logger.logInfo(logId + " Relay decision -> SKIP para archivo: " + meta.getRelativePath());
+                                //Logger.logInfo(logId + " [RSYNC-RELAY] -> Omitiendo archivo completo: " + meta.getRelativePath());
                                 sender.sendComunicacion(new FileHandshakeCommunication(FileHandshakeAction.SKIP_FILE, sessionId));
                                 continue;
                             }
 
-                            // --- LOG SERVER: ORDEN DE TRANSFERENCIA RELAYED ---
-                            if (accionReceptor == FileHandshakeAction.START_TRANSFER) {
-                                if (!meta.isDirectory()) {
-                                    Logger.logInfo(logId + " Relay decision -> TRANSFER para archivo: " + meta.getRelativePath());
-                                }
-                                sender.sendComunicacion(new FileHandshakeCommunication(FileHandshakeAction.START_TRANSFER, sessionId));
+                            // --- PUENTE DE CONTROL EXCLUSIVO RSYNC ---
+                            if (accionReceptor == FileHandshakeAction.PROCESS_DELTAS) {
+                                Logger.logInfo(logId + " [RSYNC-RELAY] -> Entrando en modo diferencial para: " + meta.getRelativePath());
+                                sender.sendComunicacion(new FileHandshakeCommunication(FileHandshakeAction.PROCESS_DELTAS, sessionId));
 
+                                // 1. Mover Firmas: Receptor -> Servidor -> Emisor
+                                byte[] signaturesRaw = ProtocolService.readHandshakePacket(dataReceiver);
+                                sender.getWritableChannel().write(ByteBuffer.wrap(signaturesRaw));
+
+                                // 2. Mover Paquete de Deltas: Emisor -> Servidor -> Receptor
+                                byte[] deltasRaw = ProtocolService.readHandshakePacket(sender);
+                                dataReceiver.getWritableChannel().write(ByteBuffer.wrap(deltasRaw));
+
+                                // 3. Esperar confirmación del receptor sobre el ensamble final
+                                byte[] finalAck = ProtocolService.readHandshakePacket(dataReceiver);
+                                sender.getWritableChannel().write(ByteBuffer.wrap(finalAck));
+                                continue;
+                            }
+
+                            if (accionReceptor == FileHandshakeAction.START_TRANSFER) {
+                                sender.sendComunicacion(new FileHandshakeCommunication(FileHandshakeAction.START_TRANSFER, sessionId));
                                 if (!meta.isDirectory()) {
                                     bridgeSocketChannelsNoShutdown(sender, dataReceiver, meta.getSize());
                                     byte[] finalAckFromReceptor = ProtocolService.readHandshakePacket(dataReceiver);
-                                    sender.getWritableChannel().write(java.nio.ByteBuffer.wrap(finalAckFromReceptor));
+                                    sender.getWritableChannel().write(ByteBuffer.wrap(finalAckFromReceptor));
                                 }
                                 continue;
                             }
-                        } else {
-                            throw new IOException("Control packet inválido devuelto por el receptor.");
                         }
-                    } else if (object instanceof FileHandshakeCommunication handshake) {
-                        if (handshake.getAction() == FileHandshakeAction.TRANSFER_DONE) {
-                            transferenciaActiva = false;
-                            Logger.logInfo(logId + " Recibido TRANSFER_DONE. Finalizando relay.");
-                            dataReceiver.sendComunicacion(handshake);
-                        }
+                    } else if (object instanceof FileHandshakeCommunication handshake && handshake.getAction() == FileHandshakeAction.TRANSFER_DONE) {
+                        transferenciaActiva = false;
+                        dataReceiver.sendComunicacion(handshake);
                     }
                 }
-
                 dataReceiver.shutDown();
                 sender.shutDown();
-
-            } else {
-                sender.sendComunicacion(new FileHandshakeCommunication(FileHandshakeAction.DECLINE_REQUEST, sessionId));
             }
-
         } catch (Exception e) {
-            Logger.logError(logId + " FATAL: Error en el flujo de relay: " + e.getMessage());
+            Logger.logError(logId + " FATAL: Error en relay Rsync: " + e.getMessage());
         }
     }
 }

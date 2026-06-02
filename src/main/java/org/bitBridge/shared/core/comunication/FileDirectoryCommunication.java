@@ -100,6 +100,30 @@ public class FileDirectoryCommunication extends Communication implements Seriali
         this.hash = hash;
     }
 
+    public void setLastModified(long lastModified) {
+        this.lastModified = lastModified;
+    }
+
+    public long getLastModified() {
+        return lastModified;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public void setSize(long size) {
+        this.size = size;
+    }
+
+    public void setDirectory(boolean directory) {
+        isDirectory = directory;
+    }
+
+    public void setTotalArchivos(int totalArchivos) {
+        this.totalArchivos = totalArchivos;
+    }
+
     @Override
     public String toString() {
         return (isDirectory ? "[DIR] " : "[FILE] ") + name + " (" + size + " bytes) path: " + relativePath;

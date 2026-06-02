@@ -218,6 +218,17 @@
                     </execution>
 
                     <execution>
+                        <id>repackage-cli-cliente</id>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                        <configuration>
+                            <mainClass>org.bitBridge.Tests.ClienteTest</mainClass>
+                            <finalName>BitBridge-CLI-CLIENTE</finalName>
+                        </configuration>
+                    </execution>
+
+                    <execution>
                         <id>repackage-stress</id>
                         <goals>
                             <goal>repackage</goal>
