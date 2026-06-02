@@ -197,13 +197,47 @@ public class Server {
 
 
 
-    public  void starServerCLI() throws IOException {
+    public void starServerCLI(String[] args) throws IOException {
+        // 1. Procesamiento de argumentos
+        for (int i = 0; i < args.length; i++) {
+            String arg = args[i];
+            if (arg.equals("-h") || arg.equals("--help")) {
+                printHelp();
+                System.exit(0);
+            }
 
+            switch (arg) {
+                case "--port":
+                    if (i + 1 < args.length) {
+                        this.PORT = Integer.parseInt(args[++i]);
+                    }
+                    break;
+                case "--headless":
+                    Logger.logInfo("Modo Headless activo. Interacción de consola desactivada.");
+                    // Guardamos el estado para no iniciar la consola
+                    startServerHeadless(args);
+                    return; // Terminamos aquí si es headless
+            }
+        }
 
-        //new Thread(consoleView, "Console-Monitor").start();
+        // Si no fue headless, iniciamos la UI normal
+        new Thread(consoleView, "Console-Monitor").start();
         startServer();
     }
 
+    private void printHelp() {
+        System.out.println("Uso: java -jar bitBridge.jar [opciones]");
+        System.out.println("Opciones:");
+        System.out.println("  -h, --help        Muestra esta ayuda");
+        System.out.println("  --port <puerto>   Sobrescribe el puerto configurado");
+        System.out.println("  --headless        Inicia sin interfaz de consola (modo servidor puro)");
+    }
+
+    private void startServerHeadless(String[] args) throws IOException {
+        // Lógica para iniciar solo el servidor, sin levantar ConsoleView
+        startServer();
+        Logger.logInfo("Servidor iniciado en modo headless.");
+    }
 
     public void stopServer() {
         try {

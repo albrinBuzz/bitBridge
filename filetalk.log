@@ -28076,3 +28076,32 @@
 [00:18:46.344] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:415) -    Tiempo total: 7.01 seg
 [00:18:46.344] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:416) -    Volumen total gestionado: 1,6 GB
 [00:18:46.344] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:417) - ========================================
+[12:18:31.166] [INFO ] org.bitBridge.view.core.MainController::lambda$connectServer$0(L:127) - Intentando conectar a 34.182.156.245:8080
+[12:18:31.172] [INFO ] org.bitBridge.Client.core.Client::setConexion(L:87) - No Activo
+[12:18:31.290] [INFO ] org.bitBridge.Client.core.NioClientEngine::finishConnection(L:107) - NIO: Conexión establecida físicamente en 118 ms.
+[12:18:31.310] [INFO ] org.bitBridge.shared.memory.DirectBufferPool::initialize(L:55) - [DirectBufferPool] Memoria Off-Heap inicializada con límites seguros.
+[12:18:31.436] [WARN ] org.bitBridge.Client.core.NioClientEngine::handleServerDisconnection(L:206) - [CLIENTE] El servidor ha cerrado la conexión.
+[12:18:31.437] [INFO ] org.bitBridge.Client.core.NioClientEngine::stop(L:228) - NioClientEngine detenido correctamente.
+[12:18:31.438] [INFO ] org.bitBridge.shared.network.NetworkManager::stopAll(L:136) - [🧹] NetworkManager: Todas las instancias JmDNS cerradas.
+[12:20:49.804] [INFO ] org.bitBridge.view.core.MainController::lambda$connectServer$0(L:127) - Intentando conectar a 34.182.156.245:8080
+[12:20:49.805] [INFO ] org.bitBridge.Client.core.Client::setConexion(L:87) - No Activo
+[12:20:49.925] [INFO ] org.bitBridge.Client.core.NioClientEngine::finishConnection(L:107) - NIO: Conexión establecida físicamente en 119 ms.
+[12:20:51.439] [INFO ] org.bitBridge.view.swing.components.hosts.NetworkClientsPanel::updateAllHosts(L:87) - ClientInfo{address='45.239.211.9:55270', connectionTime=1780417250326, nick='frodo', port=8080}
+[12:21:14.568] [INFO ] org.bitBridge.view.core.MainController::lambda$connectServer$0(L:127) - Intentando conectar a 34.182.156.245:8080
+[12:21:14.578] [INFO ] org.bitBridge.Client.core.Client::setConexion(L:87) - No Activo
+[12:21:14.695] [INFO ] org.bitBridge.Client.core.NioClientEngine::finishConnection(L:107) - NIO: Conexión establecida físicamente en 117 ms.
+[12:21:14.722] [INFO ] org.bitBridge.shared.memory.DirectBufferPool::initialize(L:55) - [DirectBufferPool] Memoria Off-Heap inicializada con límites seguros.
+[12:21:15.860] [INFO ] org.bitBridge.view.swing.components.hosts.NetworkClientsPanel::updateAllHosts(L:87) - ClientInfo{address='45.239.211.9:42930', connectionTime=1780417274777, nick='frodo', port=8080}
+[12:23:40.640] [INFO ] org.bitBridge.view.swing.components.hosts.NetworkClientsPanel::updateAllHosts(L:87) - ClientInfo{address='45.239.211.9:42930', connectionTime=1780417274777, nick='frodo', port=8080}
+[12:23:40.641] [INFO ] org.bitBridge.view.swing.components.hosts.NetworkClientsPanel::updateAllHosts(L:87) - ClientInfo{address='45.239.211.9:35066', connectionTime=1780417419545, nick='fedo', port=8080}
+[12:24:12.047] [INFO ] org.bitBridge.Client.core.Client::requestFileList(L:290) - frodo
+[12:24:12.619] [INFO ] org.bitBridge.view.swing.components.explorer.RemoteExplorer::onDirectoryDataReceived(L:517) - Dato entrantes BitBridge_Shared
+[12:24:12.621] [INFO ] org.bitBridge.view.swing.components.explorer.RemoteFileTablePanel::updateData(L:229) - Sincronizando directorio local corregido: /home/cris/BitBridge_Shared
+[12:24:12.622] [INFO ] org.bitBridge.view.swing.components.explorer.RemoteFileTablePanel::updateData(L:230) - Filtro de directorio remoto: 
+[12:24:12.623] [INFO ] org.bitBridge.view.swing.components.explorer.RemoteFileTablePanel::updateData(L:260) - /home/cris/BitBridge_Shared/BitBridge_Shared_Test
+[12:24:12.624] [INFO ] org.bitBridge.view.swing.components.explorer.RemoteFileTablePanel::updateData(L:260) - /home/cris/BitBridge_Shared/testBidrige
+[12:24:52.504] [INFO ] org.bitBridge.view.swing.components.explorer.RemoteExplorer$1::windowClosing(L:106) - Explorador remoto para fedo cerrado y desuscrito.
+[12:25:06.230] [INFO ] org.bitBridge.Client.FileTransferManager::sendFile(L:40) - dc4e242769d36c3ef9374f77e7ce6506b4a4c821be0524627662d6e57969306e
+[12:25:06.264] [INFO ] org.bitBridge.view.swing.components.hosts.NetworkClientsPanel$3::done(L:294) - Transferencia exitosa a frodo
+[12:25:06.619] [INFO ] org.bitBridge.Client.FileTransferManager::receiveFiles(L:114) - dc4e242769d36c3ef9374f77e7ce6506b4a4c821be0524627662d6e57969306e
+[12:25:06.843] [INFO ] org.bitBridge.Client.FileTransferManager::receiveFiles(L:141) - /home/cris/BitBridge_Shared/texto_masivo.txt
