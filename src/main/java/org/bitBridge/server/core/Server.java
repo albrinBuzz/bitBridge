@@ -198,8 +198,9 @@ public class Server {
 
 
     public void starServerCLI(String[] args) throws IOException {
+        startServerHeadless(args);
         // 1. Procesamiento de argumentos
-        for (int i = 0; i < args.length; i++) {
+        /*for (int i = 0; i < args.length; i++) {
             String arg = args[i];
             if (arg.equals("-h") || arg.equals("--help")) {
                 printHelp();
@@ -222,7 +223,7 @@ public class Server {
 
         // Si no fue headless, iniciamos la UI normal
         new Thread(consoleView, "Console-Monitor").start();
-        startServer();
+        startServer();*/
     }
 
     private void printHelp() {

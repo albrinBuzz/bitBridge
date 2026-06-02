@@ -17,7 +17,9 @@ import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -97,6 +99,8 @@ public class ProtocolService {
      * LEER DESDE NIO: Reconstruye lo que viene de un SocketChannel o de un DataStream
      */
     public static Communication fromBytes(byte[] data) throws IOException {
+        //dumpTargetPacket(data, "[FROM-BYTES-INTERCEPT]");
+        //Logger.logInfo();
         ByteBuffer buffer = ByteBuffer.wrap(data);
 
         // 1. Leer la longitud del JSON (4 bytes - Equivale a in.readInt())
@@ -154,7 +158,7 @@ public class ProtocolService {
 
         // 2. VALIDACIÓN CRÍTICA: Evitar el error "1145655877" (bytes de texto leídos como int)
         // Si el tamaño es mayor a 1MB para un JSON de control, algo anda mal
-        if (jsonSize <= 0 || jsonSize > 1024 * 1024) {
+        if (jsonSize <= 0 || jsonSize > 10* 1024 * 1024) {
             Logger.logError("[NIO-SYNC] ¡Desfase de flujo detectado! Tamaño JSON inválido: " + jsonSize);
             throw new IOException("Protocol Desync: Invalid JSON size.");
         }
@@ -375,11 +379,146 @@ public class ProtocolService {
             Logger.logInfo(String.format(
                     "\n▲=== [INCOMING JSON AUDIT: %s] ===▲\n%s\n▼==========================================▼",
                     type, prettyJson
-            ))
+            ));
         } catch (Exception e) {
             Logger.logError("[JSON-PRETTY] No se pudo formatear el JSON crudo: " + e.getMessage());
             // Fallback: Imprimir el JSON lineal si el formateo falla
             Logger.logInfo("[JSON-RAW-FALLBACK]: " + json);
         }*/
+    }
+
+    /**
+     * Realiza un volcado de memoria (Hex/ASCII Dump) del paquete crudo en tránsito.
+     * Ideal para interceptar desincronizaciones de protocolo directamente en el Log.
+     * ▲=================== [ BITBRIDGE NETWORK SNIFFER INTERCEPT ] ===================▲
+     *  TRACE ID: [DEBUG-READ-FILE_1512-85] | Longitud Total en Tránsito: 22 bytes
+     * ─────────────────────────────────────────────────────────────────────────────────
+     *  DIRECCIÓN HEXADECIMAL     | BINARIO / HEX DUMP            | REPRESENTACIÓN ASCII
+     * ─────────────────────────────────────────────────────────────────────────────────
+     *  [Offset: 0x0000]           00 00 00 0F 00 00 00 07  4D 45 53 53 41 47 45 7B  | ........MESSAGE{
+     *  [Offset: 0x0010]           22 74 65 78 74 22 3A 22  48 6F 6C 61 22 7D        | "text":"Hola"}
+     * ▼===============================================================================▼
+     */
+
+
+    public static void dumpTargetPacket(byte[] rawPacket, String traceId) {
+        if (rawPacket == null || rawPacket.length == 0) {
+            System.out.println(traceId + " -> [DUMP] Paquete vacio o nulo.");
+            return;
+        }
+
+        // 1. Extraer metadatos del Header binario
+        int jsonLen = 0;
+        int typeLen = 0;
+        String detectedType = "UNKNOWN";
+
+        if (rawPacket.length >= 8) {
+            jsonLen = ((rawPacket[0] & 0xFF) << 24) | ((rawPacket[1] & 0xFF) << 16) |
+                    ((rawPacket[2] & 0xFF) << 8)  | (rawPacket[3] & 0xFF);
+            typeLen = ((rawPacket[4] & 0xFF) << 24) | ((rawPacket[5] & 0xFF) << 16) |
+                    ((rawPacket[6] & 0xFF) << 8)  | (rawPacket[7] & 0xFF);
+
+            if (rawPacket.length >= 8 + typeLen && typeLen > 0) {
+                detectedType = new String(rawPacket, 8, typeLen, StandardCharsets.UTF_8).trim();
+            }
+        }
+
+        // Nombres base de las columnas
+        String hOffset = "OFFSET";
+        String hHex    = "HEX DUMP";
+        String hAscii  = "REPRESENTACION ASCII";
+
+        // Inicializar anchos mínimos basados en el tamaño del texto del Header
+        int maxOffsetWidth = hOffset.length();
+        int maxHexWidth    = hHex.length();
+        int maxAsciiWidth  = hAscii.length();
+
+        // Estructuras temporales para almacenar las filas procesadas en la primera pasada
+        List<String> offsets = new ArrayList<>();
+        List<String> hexDumps = new ArrayList<>();
+        List<String> asciis   = new ArrayList<>();
+
+        // --- PRIMERA PASADA: Calcular contenidos y medir anchos maximos ---
+        for (int i = 0; i < rawPacket.length; i += 16) {
+            // Generar Offset
+            String offStr = String.format("0x%04X (%d)", i, i);
+            offsets.add(offStr);
+            if (offStr.length() > maxOffsetWidth) maxOffsetWidth = offStr.length();
+
+            int remainingInRow = Math.min(16, rawPacket.length - i);
+
+            // Generar Hex Dump
+            StringBuilder hexSb = new StringBuilder();
+            for (int j = 0; j < 16; j++) {
+                if (j < remainingInRow) {
+                    hexSb.append(String.format("%02X ", rawPacket[i + j]));
+                } else {
+                    hexSb.append("   ");
+                }
+                if (j == 7) hexSb.append(" ");
+            }
+            String hexStr = hexSb.toString().trim();
+            hexDumps.add(hexStr);
+            if (hexStr.length() > maxHexWidth) maxHexWidth = hexStr.length();
+
+            // Generar ASCII interpretado con delimitadores de cabecera
+            StringBuilder asciiSb = new StringBuilder();
+            for (int j = 0; j < remainingInRow; j++) {
+                int currentPos = i + j;
+                char c = (char) rawPacket[currentPos];
+
+                if (currentPos == 8) asciiSb.append("[");
+                if (currentPos == 8 + typeLen) asciiSb.append("]");
+
+                if (c >= 32 && c <= 126) {
+                    asciiSb.append(c);
+                } else {
+                    asciiSb.append(".");
+                }
+            }
+            String asciiStr = asciiSb.toString();
+            asciis.add(asciiStr);
+            if (asciiStr.length() > maxAsciiWidth) maxAsciiWidth = asciiStr.length();
+        }
+
+        // --- SEGUNDA PASADA: Renderizado dinamico al estilo psql (Postgres) ---
+        StringBuilder sb = new StringBuilder();
+
+        // Formato dinámico para las filas de datos y cabeceras
+        // Añadimos márgenes internos de 1 espacio a los lados de cada columna como hace Postgres
+        String headerFormat = " %-" + maxOffsetWidth + "s | %-" + maxHexWidth + "s | %-" + maxAsciiWidth + "s\n";
+        String rowFormat    = " %-" + maxOffsetWidth + "s | %-" + maxHexWidth + "s | %-" + maxAsciiWidth + "s\n";
+
+        // Imprimir metadatos generales arriba de la tabla
+        sb.append(String.format("\n-[ BITBRIDGE SNIFFER AUDIT ]--------------------------------------------------\n"));
+        sb.append(String.format(" TRACE ID      : %s\n", traceId));
+        sb.append(String.format(" PAYLOAD TOTAL : %d bytes\n", rawPacket.length));
+        sb.append(String.format(" TIPO MENSAJE  : %s (Header: %d bytes)\n", detectedType, 8 + typeLen));
+        sb.append(String.format(" JSON ESPERADO : %d bytes\n", jsonLen));
+        sb.append("------------------------------------------------------------------------------\n\n");
+
+        // 1. Escribir Header de la tabla
+        sb.append(String.format(headerFormat, hOffset, hHex, hAscii));
+
+        // 2. Escribir Línea Divisoria Dinámica de Postgres
+        // Sumamos + 2 por los espacios iniciales/finales de cada columna y + 6 por los separadores " | "
+        for (int k = 0; k < maxOffsetWidth + 2; k++) sb.append("-");
+        sb.append("+");
+        for (int k = 0; k < maxHexWidth + 2; k++) sb.append("-");
+        sb.append("+");
+        for (int k = 0; k < maxAsciiWidth + 2; k++) sb.append("-");
+        sb.append("\n");
+
+        // 3. Escribir el Cuerpo de Datos perfectamente alineado
+        for (int i = 0; i < offsets.size(); i++) {
+            sb.append(String.format(rowFormat, offsets.get(i), hexDumps.get(i), asciis.get(i)));
+        }
+
+        // Mostrar recuento final de filas al estilo psql
+        sb.append(String.format("(%d filas)\n", offsets.size()));
+
+        // Envío atómico directo al stdout estándar
+        System.out.print(sb.toString());
+        System.out.flush();
     }
 }

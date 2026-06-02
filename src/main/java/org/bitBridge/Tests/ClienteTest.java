@@ -6,10 +6,12 @@ import org.bitBridge.Client.core.Client;
 import java.io.File;
 
 public class ClienteTest {
-    public static void main(String[] args) throws InterruptedException {
+    public static void main(String[] args) throws Exception {
         Client client=new Client();
         client.conexionAutomatica();
         Thread.sleep(1000);
-        client.sendDirectoryToHost(new ClientInfo("fedo"),new File("/home/cris/BitBridge_Shared_Test"));
+        //client.enviarMensaje("hola como estan?");
+        client.sendFileToHost(new ClientInfo("fedo"),new File("/home/cris/BitBridge_Shared_Test/texto_extremo.txt"));
+        //client.sendDirectoryToHost(new ClientInfo("frodo"),new File("/home/cris/BitBridge_Shared_Test"));
     }
 }

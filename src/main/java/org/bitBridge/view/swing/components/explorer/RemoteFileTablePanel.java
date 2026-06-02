@@ -257,7 +257,7 @@ public class RemoteFileTablePanel extends JPanel {
 
             // Construcción quirúrgica: El archivo local debe vivir exactamente en la carpeta actual
             File archivoLocal = carpetaActualLocal.resolve(nombre).toFile();
-            Logger.logInfo(archivoLocal.getAbsolutePath());
+            //Logger.logInfo(archivoLocal.getAbsolutePath());
 
             if (!archivoLocal.exists()) {
                 estadoSincronizacion = "No Sincronizado (Falta archivo)";
