@@ -8,7 +8,8 @@ public enum FileHandshakeAction {
     START_TRANSFER,
     TRANSFER_INIT,
     TRANSFER_DONE,
-
+    SKIP_FILE,      // 👈 Añadir: El receptor le dice al servidor/emisor que no gaste red
+    PROCESS_DELTA,
     // --- Flujo de Integridad y Parcialidad (Nuevos) ---
     /**
      * El archivo se recibió, pero el Hash (SHA-256) no coincide.

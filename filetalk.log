@@ -19556,3 +19556,287 @@
 [17:11:02.483] [INFO ] org.bitBridge.view.swing.components.explorer.RemoteFileTablePanel::updateData(L:260) - /home/cris/BitBridge_Shared/Pictures/makis io.jpg
 [17:11:02.483] [INFO ] org.bitBridge.view.swing.components.explorer.RemoteFileTablePanel::updateData(L:260) - /home/cris/BitBridge_Shared/Pictures/BobMarley07.jpg
 [17:11:03.479] [INFO ] org.bitBridge.view.swing.components.explorer.RemoteExplorer$1::windowClosing(L:106) - Explorador remoto para fedo cerrado y desuscrito.
+[22:56:39.467] [WARN ] org.bitBridge.Client.core.NioClientEngine::handleServerDisconnection(L:206) - [CLIENTE] El servidor ha cerrado la conexión.
+[22:56:39.467] [ERROR] org.bitBridge.Client.NioDirectoryTransferManager::sendDirectory(L:93) - [EMISOR] Fallo en la inicialización: Canal cerrado
+[22:56:39.468] [INFO ] org.bitBridge.Client.core.NioClientEngine::stop(L:228) - NioClientEngine detenido correctamente.
+[22:56:41.362] [INFO ] org.bitBridge.shared.network.NetworkManager::startServerAnnouncement(L:66) - [📡] ANUNCIANDO EN: br-ad0bae11a3f6 | IP: 172.19.0.1 | Puerto: 8080
+[22:56:41.365] [INFO ] org.bitBridge.shared.network.NetworkManager::startServerAnnouncement(L:66) - [📡] ANUNCIANDO EN: br-f46d0bba577c | IP: 172.20.0.1 | Puerto: 8080
+[22:56:41.366] [INFO ] org.bitBridge.shared.network.NetworkManager::startServerAnnouncement(L:66) - [📡] ANUNCIANDO EN: wlp4s0 | IP: 192.168.100.187 | Puerto: 8080
+[22:56:44.501] [INFO ] org.bitBridge.Client.core.Client::conexionAutomatica(L:116) - [Auto] Iniciando descubrimiento mDNS...
+[22:56:44.559] [INFO ] org.bitBridge.shared.network.NetworkManager::startLookingForServers(L:92) - [🔍] Escaneando desde interfaz: 172.19.0.1
+[22:56:44.563] [INFO ] org.bitBridge.shared.network.NetworkManager::startLookingForServers(L:92) - [🔍] Escaneando desde interfaz: 172.20.0.1
+[22:56:44.564] [INFO ] org.bitBridge.shared.network.NetworkManager::startLookingForServers(L:92) - [🔍] Escaneando desde interfaz: 192.168.100.187
+[22:56:45.367] [INFO ] org.bitBridge.Client.core.Client::lambda$conexionAutomatica$0(L:124) - [mDNS] Intentando conectar a 172.19.0.1:8080
+[22:56:45.367] [INFO ] org.bitBridge.Client.core.Client::lambda$conexionAutomatica$0(L:124) - [mDNS] Intentando conectar a 192.168.100.187:8080
+[22:56:45.368] [INFO ] org.bitBridge.Client.core.Client::lambda$conexionAutomatica$0(L:124) - [mDNS] Intentando conectar a 172.20.0.1:8080
+[22:56:45.376] [INFO ] org.bitBridge.Client.core.Client::setConexion(L:87) - No Activo
+[22:56:45.376] [INFO ] org.bitBridge.Client.core.NioClientEngine::finishConnection(L:107) - NIO: Conexión establecida físicamente en 1 ms.
+[22:56:45.409] [INFO ] org.bitBridge.shared.memory.DirectBufferPool::initialize(L:55) - [DirectBufferPool] Memoria Off-Heap inicializada con límites seguros.
+[22:56:45.410] [INFO ] org.bitBridge.Client.core.Client::setConexion(L:61) - Conexión abortada: Ya existe una sesión activa.
+[22:56:45.410] [INFO ] org.bitBridge.Client.core.Client::setConexion(L:61) - Conexión abortada: Ya existe una sesión activa.
+[22:56:45.450] [INFO ] org.bitBridge.shared.memory.DirectBufferPool::initialize(L:55) - [DirectBufferPool] Memoria Off-Heap inicializada con límites seguros.
+[22:56:45.591] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::receiveDirectory(L:150) - [RECEPTOR-NIO] Solicitud recibida. Sesión: DIR_5581 | Archivo: BitBridge_Shared_Test| Longitud: 1,8 KB
+[22:56:45.594] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::sendDirectory(L:58) - Iniciando cronómetro de transferencia...
+[22:56:45.667] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:321) - ========================================
+[22:56:45.667] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:322) -    TRANSFERENCIA COMPLETADA
+[22:56:45.667] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:323) -    Tiempo total: 0,07 segundos
+[22:56:45.667] [INFO ] org.bitBridge.server.transfer.FileTransferService::relayDirectory(L:320) - [DIR-RELAY-DIR_5581] Recibido TRANSFER_DONE. Finalizando relay.
+[22:56:45.667] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:324) -    Tamaño: 1,8 KB
+[22:56:45.667] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:325) -    Velocidad media: 0,02 MB/s
+[22:56:45.667] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:326) - ========================================
+[22:56:45.668] [ERROR] org.bitBridge.Client.NioDirectoryTransferManager::receiveDirectory(L:240) - Error NIO Receive: Canal cerrado
+[22:56:47.584] [ERROR] org.bitBridge.server.transfer.TransferSessionManager::registerReceptor(L:120) - [SESSION-MGR] Sesión no encontrada después de espera: SENDER_4924
+[23:05:15.879] [WARN ] org.bitBridge.Client.core.NioClientEngine::handleServerDisconnection(L:206) - [CLIENTE] El servidor ha cerrado la conexión.
+[23:05:15.880] [INFO ] org.bitBridge.Client.core.NioClientEngine::stop(L:228) - NioClientEngine detenido correctamente.
+[23:05:17.265] [INFO ] org.bitBridge.shared.network.NetworkManager::startServerAnnouncement(L:66) - [📡] ANUNCIANDO EN: br-ad0bae11a3f6 | IP: 172.19.0.1 | Puerto: 8080
+[23:05:17.267] [INFO ] org.bitBridge.shared.network.NetworkManager::startServerAnnouncement(L:66) - [📡] ANUNCIANDO EN: br-f46d0bba577c | IP: 172.20.0.1 | Puerto: 8080
+[23:05:17.268] [INFO ] org.bitBridge.shared.network.NetworkManager::startServerAnnouncement(L:66) - [📡] ANUNCIANDO EN: wlp4s0 | IP: 192.168.100.187 | Puerto: 8080
+[23:05:19.802] [INFO ] org.bitBridge.Client.core.Client::conexionAutomatica(L:116) - [Auto] Iniciando descubrimiento mDNS...
+[23:05:19.852] [INFO ] org.bitBridge.shared.network.NetworkManager::startLookingForServers(L:92) - [🔍] Escaneando desde interfaz: 172.19.0.1
+[23:05:19.854] [INFO ] org.bitBridge.shared.network.NetworkManager::startLookingForServers(L:92) - [🔍] Escaneando desde interfaz: 172.20.0.1
+[23:05:19.855] [INFO ] org.bitBridge.shared.network.NetworkManager::startLookingForServers(L:92) - [🔍] Escaneando desde interfaz: 192.168.100.187
+[23:05:21.273] [INFO ] org.bitBridge.Client.core.Client::lambda$conexionAutomatica$0(L:124) - [mDNS] Intentando conectar a 172.20.0.1:8080
+[23:05:21.274] [INFO ] org.bitBridge.Client.core.Client::lambda$conexionAutomatica$0(L:124) - [mDNS] Intentando conectar a 172.19.0.1:8080
+[23:05:21.274] [INFO ] org.bitBridge.Client.core.Client::lambda$conexionAutomatica$0(L:124) - [mDNS] Intentando conectar a 192.168.100.187:8080
+[23:05:21.282] [INFO ] org.bitBridge.Client.core.Client::setConexion(L:87) - No Activo
+[23:05:21.282] [INFO ] org.bitBridge.Client.core.NioClientEngine::finishConnection(L:107) - NIO: Conexión establecida físicamente en 0 ms.
+[23:05:21.322] [INFO ] org.bitBridge.shared.memory.DirectBufferPool::initialize(L:55) - [DirectBufferPool] Memoria Off-Heap inicializada con límites seguros.
+[23:05:21.323] [INFO ] org.bitBridge.Client.core.Client::setConexion(L:61) - Conexión abortada: Ya existe una sesión activa.
+[23:05:21.323] [INFO ] org.bitBridge.Client.core.Client::setConexion(L:61) - Conexión abortada: Ya existe una sesión activa.
+[23:05:21.376] [INFO ] org.bitBridge.shared.memory.DirectBufferPool::initialize(L:55) - [DirectBufferPool] Memoria Off-Heap inicializada con límites seguros.
+[23:05:30.390] [INFO ] org.bitBridge.Client.core.Client::conexionAutomatica(L:116) - [Auto] Iniciando descubrimiento mDNS...
+[23:05:30.436] [INFO ] org.bitBridge.shared.network.NetworkManager::startLookingForServers(L:92) - [🔍] Escaneando desde interfaz: 172.19.0.1
+[23:05:30.439] [INFO ] org.bitBridge.shared.network.NetworkManager::startLookingForServers(L:92) - [🔍] Escaneando desde interfaz: 172.20.0.1
+[23:05:30.440] [INFO ] org.bitBridge.shared.network.NetworkManager::startLookingForServers(L:92) - [🔍] Escaneando desde interfaz: 192.168.100.187
+[23:05:30.723] [INFO ] org.bitBridge.Client.core.Client::lambda$conexionAutomatica$0(L:124) - [mDNS] Intentando conectar a 192.168.100.187:8080
+[23:05:30.741] [INFO ] org.bitBridge.Client.core.Client::setConexion(L:87) - No Activo
+[23:05:30.741] [INFO ] org.bitBridge.Client.core.NioClientEngine::finishConnection(L:107) - NIO: Conexión establecida físicamente en 1 ms.
+[23:05:30.782] [INFO ] org.bitBridge.shared.memory.DirectBufferPool::initialize(L:55) - [DirectBufferPool] Memoria Off-Heap inicializada con límites seguros.
+[23:05:31.456] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::receiveDirectory(L:138) - [RECEPTOR-NIO] Solicitud recibida. Sesión: DIR_1450 | Archivo: BitBridge_Shared_Test| Longitud: 1,8 KB
+[23:05:31.458] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::sendDirectory(L:54) - Iniciando cronómetro de transferencia...
+[23:05:31.477] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:278) - ========================================
+[23:05:31.478] [INFO ] org.bitBridge.server.transfer.FileTransferService::relayDirectory(L:256) - [DIR-RELAY-DIR_1450] Recibido TRANSFER_DONE. Finalizando relay.
+[23:05:31.478] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:279) -    TRANSFERENCIA COMPLETADA
+[23:05:31.478] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:280) -    Tiempo total: 0,02 segundos
+[23:05:31.478] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:281) -    Tamaño: 1,8 KB
+[23:05:31.479] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:282) -    Velocidad media: 0,09 MB/s
+[23:05:31.479] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:283) - ========================================
+[23:05:31.480] [ERROR] org.bitBridge.Client.NioDirectoryTransferManager::receiveDirectory(L:228) - Error NIO Receive: Canal cerrado
+[23:05:33.452] [ERROR] org.bitBridge.server.transfer.TransferSessionManager::registerReceptor(L:120) - [SESSION-MGR] Sesión no encontrada después de espera: SENDER_5827
+[23:05:56.246] [WARN ] org.bitBridge.Client.core.NioClientEngine::handleServerDisconnection(L:206) - [CLIENTE] El servidor ha cerrado la conexión.
+[23:05:56.246] [INFO ] org.bitBridge.Client.core.NioClientEngine::stop(L:228) - NioClientEngine detenido correctamente.
+[23:05:56.688] [INFO ] org.bitBridge.shared.network.NetworkManager::startServerAnnouncement(L:66) - [📡] ANUNCIANDO EN: br-ad0bae11a3f6 | IP: 172.19.0.1 | Puerto: 8080
+[23:05:56.691] [INFO ] org.bitBridge.shared.network.NetworkManager::startServerAnnouncement(L:66) - [📡] ANUNCIANDO EN: br-f46d0bba577c | IP: 172.20.0.1 | Puerto: 8080
+[23:05:56.692] [INFO ] org.bitBridge.shared.network.NetworkManager::startServerAnnouncement(L:66) - [📡] ANUNCIANDO EN: wlp4s0 | IP: 192.168.100.187 | Puerto: 8080
+[23:06:00.824] [INFO ] org.bitBridge.Client.core.Client::conexionAutomatica(L:116) - [Auto] Iniciando descubrimiento mDNS...
+[23:06:00.871] [INFO ] org.bitBridge.shared.network.NetworkManager::startLookingForServers(L:92) - [🔍] Escaneando desde interfaz: 172.19.0.1
+[23:06:00.873] [INFO ] org.bitBridge.shared.network.NetworkManager::startLookingForServers(L:92) - [🔍] Escaneando desde interfaz: 172.20.0.1
+[23:06:00.874] [INFO ] org.bitBridge.shared.network.NetworkManager::startLookingForServers(L:92) - [🔍] Escaneando desde interfaz: 192.168.100.187
+[23:06:01.691] [INFO ] org.bitBridge.Client.core.Client::lambda$conexionAutomatica$0(L:124) - [mDNS] Intentando conectar a 172.19.0.1:8080
+[23:06:01.701] [INFO ] org.bitBridge.Client.core.Client::setConexion(L:87) - No Activo
+[23:06:01.701] [INFO ] org.bitBridge.Client.core.NioClientEngine::finishConnection(L:107) - NIO: Conexión establecida físicamente en 1 ms.
+[23:06:01.737] [INFO ] org.bitBridge.shared.memory.DirectBufferPool::initialize(L:55) - [DirectBufferPool] Memoria Off-Heap inicializada con límites seguros.
+[23:06:01.773] [INFO ] org.bitBridge.shared.memory.DirectBufferPool::initialize(L:55) - [DirectBufferPool] Memoria Off-Heap inicializada con límites seguros.
+[23:06:01.898] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::receiveDirectory(L:138) - [RECEPTOR-NIO] Solicitud recibida. Sesión: DIR_1889 | Archivo: BitBridge_Shared_Test| Longitud: 1,8 KB
+[23:06:01.900] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::sendDirectory(L:54) - Iniciando cronómetro de transferencia...
+[23:06:01.981] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:278) - ========================================
+[23:06:01.981] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:279) -    TRANSFERENCIA COMPLETADA
+[23:06:01.982] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:280) -    Tiempo total: 0,08 segundos
+[23:06:01.982] [INFO ] org.bitBridge.server.transfer.FileTransferService::relayDirectory(L:256) - [DIR-RELAY-DIR_1889] Recibido TRANSFER_DONE. Finalizando relay.
+[23:06:01.982] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:281) -    Tamaño: 1,8 KB
+[23:06:01.982] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:282) -    Velocidad media: 0,02 MB/s
+[23:06:01.982] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:283) - ========================================
+[23:06:01.983] [ERROR] org.bitBridge.Client.NioDirectoryTransferManager::receiveDirectory(L:228) - Error NIO Receive: Canal cerrado
+[23:06:03.888] [ERROR] org.bitBridge.server.transfer.TransferSessionManager::registerReceptor(L:120) - [SESSION-MGR] Sesión no encontrada después de espera: SENDER_3705
+[23:06:14.533] [INFO ] org.bitBridge.Client.core.Client::conexionAutomatica(L:116) - [Auto] Iniciando descubrimiento mDNS...
+[23:06:14.581] [INFO ] org.bitBridge.shared.network.NetworkManager::startLookingForServers(L:92) - [🔍] Escaneando desde interfaz: 172.19.0.1
+[23:06:14.584] [INFO ] org.bitBridge.shared.network.NetworkManager::startLookingForServers(L:92) - [🔍] Escaneando desde interfaz: 172.20.0.1
+[23:06:14.584] [INFO ] org.bitBridge.shared.network.NetworkManager::startLookingForServers(L:92) - [🔍] Escaneando desde interfaz: 192.168.100.187
+[23:06:14.848] [INFO ] org.bitBridge.Client.core.Client::lambda$conexionAutomatica$0(L:124) - [mDNS] Intentando conectar a 192.168.100.187:8080
+[23:06:14.848] [INFO ] org.bitBridge.Client.core.Client::lambda$conexionAutomatica$0(L:124) - [mDNS] Intentando conectar a 172.19.0.1:8080
+[23:06:14.860] [INFO ] org.bitBridge.Client.core.Client::setConexion(L:87) - No Activo
+[23:06:14.860] [INFO ] org.bitBridge.Client.core.NioClientEngine::finishConnection(L:107) - NIO: Conexión establecida físicamente en 1 ms.
+[23:06:14.902] [INFO ] org.bitBridge.shared.memory.DirectBufferPool::initialize(L:55) - [DirectBufferPool] Memoria Off-Heap inicializada con límites seguros.
+[23:06:14.903] [INFO ] org.bitBridge.Client.core.Client::setConexion(L:61) - Conexión abortada: Ya existe una sesión activa.
+[23:06:15.593] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::receiveDirectory(L:138) - [RECEPTOR-NIO] Solicitud recibida. Sesión: DIR_5590 | Archivo: BitBridge_Shared_Test| Longitud: 1,8 KB
+[23:06:15.595] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::sendDirectory(L:54) - Iniciando cronómetro de transferencia...
+[23:06:15.609] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:278) - ========================================
+[23:06:15.609] [INFO ] org.bitBridge.server.transfer.FileTransferService::relayDirectory(L:256) - [DIR-RELAY-DIR_5590] Recibido TRANSFER_DONE. Finalizando relay.
+[23:06:15.609] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:279) -    TRANSFERENCIA COMPLETADA
+[23:06:15.610] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:280) -    Tiempo total: 0,01 segundos
+[23:06:15.610] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:281) -    Tamaño: 1,8 KB
+[23:06:15.610] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:282) -    Velocidad media: 0,13 MB/s
+[23:06:15.610] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:283) - ========================================
+[23:06:15.611] [ERROR] org.bitBridge.Client.NioDirectoryTransferManager::receiveDirectory(L:228) - Error NIO Receive: Canal cerrado
+[23:06:17.597] [ERROR] org.bitBridge.server.transfer.TransferSessionManager::registerReceptor(L:120) - [SESSION-MGR] Sesión no encontrada después de espera: SENDER_9577
+[23:06:35.585] [INFO ] org.bitBridge.Client.core.Client::conexionAutomatica(L:116) - [Auto] Iniciando descubrimiento mDNS...
+[23:06:35.628] [INFO ] org.bitBridge.shared.network.NetworkManager::startLookingForServers(L:92) - [🔍] Escaneando desde interfaz: 172.19.0.1
+[23:06:35.631] [INFO ] org.bitBridge.shared.network.NetworkManager::startLookingForServers(L:92) - [🔍] Escaneando desde interfaz: 172.20.0.1
+[23:06:35.632] [INFO ] org.bitBridge.shared.network.NetworkManager::startLookingForServers(L:92) - [🔍] Escaneando desde interfaz: 192.168.100.187
+[23:06:35.906] [INFO ] org.bitBridge.Client.core.Client::lambda$conexionAutomatica$0(L:124) - [mDNS] Intentando conectar a 192.168.100.187:8080
+[23:06:35.916] [INFO ] org.bitBridge.Client.core.Client::setConexion(L:87) - No Activo
+[23:06:35.917] [INFO ] org.bitBridge.Client.core.NioClientEngine::finishConnection(L:107) - NIO: Conexión establecida físicamente en 0 ms.
+[23:06:35.950] [INFO ] org.bitBridge.shared.memory.DirectBufferPool::initialize(L:55) - [DirectBufferPool] Memoria Off-Heap inicializada con límites seguros.
+[23:06:36.641] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::receiveDirectory(L:138) - [RECEPTOR-NIO] Solicitud recibida. Sesión: DIR_6638 | Archivo: BitBridge_Shared_Test| Longitud: 1,8 KB
+[23:06:36.642] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::sendDirectory(L:54) - Iniciando cronómetro de transferencia...
+[23:06:36.658] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:278) - ========================================
+[23:06:36.658] [INFO ] org.bitBridge.server.transfer.FileTransferService::relayDirectory(L:256) - [DIR-RELAY-DIR_6638] Recibido TRANSFER_DONE. Finalizando relay.
+[23:06:36.658] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:279) -    TRANSFERENCIA COMPLETADA
+[23:06:36.658] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:280) -    Tiempo total: 0,02 segundos
+[23:06:36.658] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:281) -    Tamaño: 1,8 KB
+[23:06:36.658] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:282) -    Velocidad media: 0,11 MB/s
+[23:06:36.658] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:283) - ========================================
+[23:06:36.659] [ERROR] org.bitBridge.Client.NioDirectoryTransferManager::receiveDirectory(L:228) - Error NIO Receive: Canal cerrado
+[23:06:38.642] [ERROR] org.bitBridge.server.transfer.TransferSessionManager::registerReceptor(L:120) - [SESSION-MGR] Sesión no encontrada después de espera: SENDER_2296
+[23:07:28.706] [INFO ] org.bitBridge.Client.core.Client::conexionAutomatica(L:116) - [Auto] Iniciando descubrimiento mDNS...
+[23:07:28.751] [INFO ] org.bitBridge.shared.network.NetworkManager::startLookingForServers(L:92) - [🔍] Escaneando desde interfaz: 172.19.0.1
+[23:07:28.753] [INFO ] org.bitBridge.shared.network.NetworkManager::startLookingForServers(L:92) - [🔍] Escaneando desde interfaz: 172.20.0.1
+[23:07:28.754] [INFO ] org.bitBridge.shared.network.NetworkManager::startLookingForServers(L:92) - [🔍] Escaneando desde interfaz: 192.168.100.187
+[23:07:29.012] [INFO ] org.bitBridge.Client.core.Client::lambda$conexionAutomatica$0(L:124) - [mDNS] Intentando conectar a 192.168.100.187:8080
+[23:07:29.021] [INFO ] org.bitBridge.Client.core.Client::setConexion(L:87) - No Activo
+[23:07:29.022] [INFO ] org.bitBridge.Client.core.NioClientEngine::finishConnection(L:107) - NIO: Conexión establecida físicamente en 0 ms.
+[23:07:29.060] [INFO ] org.bitBridge.shared.memory.DirectBufferPool::initialize(L:55) - [DirectBufferPool] Memoria Off-Heap inicializada con límites seguros.
+[23:07:29.767] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::receiveDirectory(L:138) - [RECEPTOR-NIO] Solicitud recibida. Sesión: DIR_9761 | Archivo: BitBridge_Shared_Test| Longitud: 1,8 KB
+[23:07:29.770] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::sendDirectory(L:54) - Iniciando cronómetro de transferencia...
+[23:07:29.791] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:278) - ========================================
+[23:07:29.791] [INFO ] org.bitBridge.server.transfer.FileTransferService::relayDirectory(L:256) - [DIR-RELAY-DIR_9761] Recibido TRANSFER_DONE. Finalizando relay.
+[23:07:29.791] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:279) -    TRANSFERENCIA COMPLETADA
+[23:07:29.791] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:280) -    Tiempo total: 0,02 segundos
+[23:07:29.792] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:281) -    Tamaño: 1,8 KB
+[23:07:29.792] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:282) -    Velocidad media: 0,09 MB/s
+[23:07:29.792] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:283) - ========================================
+[23:07:29.792] [ERROR] org.bitBridge.Client.NioDirectoryTransferManager::receiveDirectory(L:228) - Error NIO Receive: Canal cerrado
+[23:07:31.767] [ERROR] org.bitBridge.server.transfer.TransferSessionManager::registerReceptor(L:120) - [SESSION-MGR] Sesión no encontrada después de espera: SENDER_641
+[23:09:12.870] [WARN ] org.bitBridge.Client.core.NioClientEngine::handleServerDisconnection(L:206) - [CLIENTE] El servidor ha cerrado la conexión.
+[23:09:12.870] [INFO ] org.bitBridge.Client.core.NioClientEngine::stop(L:228) - NioClientEngine detenido correctamente.
+[23:09:13.946] [INFO ] org.bitBridge.shared.network.NetworkManager::startServerAnnouncement(L:66) - [📡] ANUNCIANDO EN: br-ad0bae11a3f6 | IP: 172.19.0.1 | Puerto: 8080
+[23:09:13.948] [INFO ] org.bitBridge.shared.network.NetworkManager::startServerAnnouncement(L:66) - [📡] ANUNCIANDO EN: br-f46d0bba577c | IP: 172.20.0.1 | Puerto: 8080
+[23:09:13.949] [INFO ] org.bitBridge.shared.network.NetworkManager::startServerAnnouncement(L:66) - [📡] ANUNCIANDO EN: wlp4s0 | IP: 192.168.100.187 | Puerto: 8080
+[23:09:19.186] [INFO ] org.bitBridge.Client.core.Client::conexionAutomatica(L:116) - [Auto] Iniciando descubrimiento mDNS...
+[23:09:19.230] [INFO ] org.bitBridge.shared.network.NetworkManager::startLookingForServers(L:92) - [🔍] Escaneando desde interfaz: 172.19.0.1
+[23:09:19.233] [INFO ] org.bitBridge.shared.network.NetworkManager::startLookingForServers(L:92) - [🔍] Escaneando desde interfaz: 172.20.0.1
+[23:09:19.233] [INFO ] org.bitBridge.shared.network.NetworkManager::startLookingForServers(L:92) - [🔍] Escaneando desde interfaz: 192.168.100.187
+[23:09:19.495] [INFO ] org.bitBridge.Client.core.Client::lambda$conexionAutomatica$0(L:124) - [mDNS] Intentando conectar a 192.168.100.187:8080
+[23:09:19.504] [INFO ] org.bitBridge.Client.core.Client::setConexion(L:87) - No Activo
+[23:09:19.504] [INFO ] org.bitBridge.Client.core.NioClientEngine::finishConnection(L:107) - NIO: Conexión establecida físicamente en 1 ms.
+[23:09:19.558] [INFO ] org.bitBridge.shared.memory.DirectBufferPool::initialize(L:55) - [DirectBufferPool] Memoria Off-Heap inicializada con límites seguros.
+[23:09:19.611] [INFO ] org.bitBridge.shared.memory.DirectBufferPool::initialize(L:55) - [DirectBufferPool] Memoria Off-Heap inicializada con límites seguros.
+[23:09:20.260] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::receiveDirectory(L:140) - [RECEPTOR-NIO] Solicitud recibida. Sesión: DIR_251 | Archivo: BitBridge_Shared_Test| Longitud: 1,8 KB
+[23:09:20.262] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::sendDirectory(L:54) - Iniciando cronómetro de transferencia...
+[23:09:20.270] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::receiveDirectory(L:176) - [RECEPTOR] -> [SALTADO] Coincide tamaño: BitBridge_Shared_Test/generar_pruebas.sh (1,6 KB)
+[23:09:20.270] [INFO ] org.bitBridge.server.transfer.FileTransferService::relayDirectory(L:232) - [DIR-RELAY-DIR_251] Relay decision -> SKIP para archivo: BitBridge_Shared_Test/generar_pruebas.sh
+[23:09:20.271] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::enviarRecursivoNIO(L:93) - [SENDER] -> [OMITIDO] (Ya existe en destino): BitBridge_Shared_Test/generar_pruebas.sh (1,6 KB)
+[23:09:20.274] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::receiveDirectory(L:176) - [RECEPTOR] -> [SALTADO] Coincide tamaño: BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/constante.txt (29 B)
+[23:09:20.274] [INFO ] org.bitBridge.server.transfer.FileTransferService::relayDirectory(L:232) - [DIR-RELAY-DIR_251] Relay decision -> SKIP para archivo: BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/constante.txt
+[23:09:20.275] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::enviarRecursivoNIO(L:93) - [SENDER] -> [OMITIDO] (Ya existe en destino): BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/constante.txt (29 B)
+[23:09:20.276] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::receiveDirectory(L:176) - [RECEPTOR] -> [SALTADO] Coincide tamaño: BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/modificado.txt (32 B)
+[23:09:20.276] [INFO ] org.bitBridge.server.transfer.FileTransferService::relayDirectory(L:232) - [DIR-RELAY-DIR_251] Relay decision -> SKIP para archivo: BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/modificado.txt
+[23:09:20.277] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::enviarRecursivoNIO(L:93) - [SENDER] -> [OMITIDO] (Ya existe en destino): BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/modificado.txt (32 B)
+[23:09:20.278] [WARN ] org.bitBridge.Client.NioDirectoryTransferManager::receiveDirectory(L:182) - [RECEPTOR] -> [SALTADO] Existe pero difiere en tamaño (Local: 37 B vs Red: 52 B): BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/nuevo_archivo.txt
+[23:09:20.278] [INFO ] org.bitBridge.server.transfer.FileTransferService::relayDirectory(L:232) - [DIR-RELAY-DIR_251] Relay decision -> SKIP para archivo: BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/nuevo_archivo.txt
+[23:09:20.278] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::enviarRecursivoNIO(L:93) - [SENDER] -> [OMITIDO] (Ya existe en destino): BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/nuevo_archivo.txt (52 B)
+[23:09:20.279] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::receiveDirectory(L:176) - [RECEPTOR] -> [SALTADO] Coincide tamaño: BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/foto.jpg (27 B)
+[23:09:20.279] [INFO ] org.bitBridge.server.transfer.FileTransferService::relayDirectory(L:232) - [DIR-RELAY-DIR_251] Relay decision -> SKIP para archivo: BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/foto.jpg
+[23:09:20.280] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::enviarRecursivoNIO(L:93) - [SENDER] -> [OMITIDO] (Ya existe en destino): BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/foto.jpg (27 B)
+[23:09:20.280] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::receiveDirectory(L:176) - [RECEPTOR] -> [SALTADO] Coincide tamaño: BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/holaQueTal.txt (13 B)
+[23:09:20.281] [INFO ] org.bitBridge.server.transfer.FileTransferService::relayDirectory(L:232) - [DIR-RELAY-DIR_251] Relay decision -> SKIP para archivo: BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/holaQueTal.txt
+[23:09:20.281] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::enviarRecursivoNIO(L:93) - [SENDER] -> [OMITIDO] (Ya existe en destino): BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/holaQueTal.txt (13 B)
+[23:09:20.283] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::receiveDirectory(L:176) - [RECEPTOR] -> [SALTADO] Coincide tamaño: BitBridge_Shared_Test/bitbridge_sandbox_plano/destino/constante.txt (29 B)
+[23:09:20.284] [INFO ] org.bitBridge.server.transfer.FileTransferService::relayDirectory(L:232) - [DIR-RELAY-DIR_251] Relay decision -> SKIP para archivo: BitBridge_Shared_Test/bitbridge_sandbox_plano/destino/constante.txt
+[23:09:20.284] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::enviarRecursivoNIO(L:93) - [SENDER] -> [OMITIDO] (Ya existe en destino): BitBridge_Shared_Test/bitbridge_sandbox_plano/destino/constante.txt (29 B)
+[23:09:20.285] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::receiveDirectory(L:176) - [RECEPTOR] -> [SALTADO] Coincide tamaño: BitBridge_Shared_Test/bitbridge_sandbox_plano/destino/modificado.txt (33 B)
+[23:09:20.286] [INFO ] org.bitBridge.server.transfer.FileTransferService::relayDirectory(L:232) - [DIR-RELAY-DIR_251] Relay decision -> SKIP para archivo: BitBridge_Shared_Test/bitbridge_sandbox_plano/destino/modificado.txt
+[23:09:20.286] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::enviarRecursivoNIO(L:93) - [SENDER] -> [OMITIDO] (Ya existe en destino): BitBridge_Shared_Test/bitbridge_sandbox_plano/destino/modificado.txt (33 B)
+[23:09:20.286] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:285) - ========================================
+[23:09:20.287] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:286) -    TRANSFERENCIA COMPLETADA
+[23:09:20.287] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:287) -    Tiempo total: 0,02 segundos
+[23:09:20.287] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:288) -    Tamaño total analizado: 1,8 KB
+[23:09:20.287] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:289) -    Velocidad media: 0,07 MB/s
+[23:09:20.287] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:290) - ========================================
+[23:09:20.287] [INFO ] org.bitBridge.server.transfer.FileTransferService::relayDirectory(L:257) - [DIR-RELAY-DIR_251] Recibido TRANSFER_DONE. Finalizando relay.
+[23:09:20.289] [ERROR] org.bitBridge.Client.NioDirectoryTransferManager::receiveDirectory(L:235) - Error NIO Receive: Canal cerrado
+[23:09:22.246] [ERROR] org.bitBridge.server.transfer.TransferSessionManager::registerReceptor(L:120) - [SESSION-MGR] Sesión no encontrada después de espera: SENDER_335
+[23:10:39.261] [INFO ] org.bitBridge.Client.core.Client::conexionAutomatica(L:116) - [Auto] Iniciando descubrimiento mDNS...
+[23:10:39.304] [INFO ] org.bitBridge.shared.network.NetworkManager::startLookingForServers(L:92) - [🔍] Escaneando desde interfaz: 172.19.0.1
+[23:10:39.307] [INFO ] org.bitBridge.shared.network.NetworkManager::startLookingForServers(L:92) - [🔍] Escaneando desde interfaz: 172.20.0.1
+[23:10:39.307] [INFO ] org.bitBridge.shared.network.NetworkManager::startLookingForServers(L:92) - [🔍] Escaneando desde interfaz: 192.168.100.187
+[23:10:39.583] [INFO ] org.bitBridge.Client.core.Client::lambda$conexionAutomatica$0(L:124) - [mDNS] Intentando conectar a 172.19.0.1:8080
+[23:10:39.592] [INFO ] org.bitBridge.Client.core.Client::setConexion(L:87) - No Activo
+[23:10:39.594] [INFO ] org.bitBridge.Client.core.NioClientEngine::finishConnection(L:107) - NIO: Conexión establecida físicamente en 1 ms.
+[23:10:39.629] [INFO ] org.bitBridge.shared.memory.DirectBufferPool::initialize(L:55) - [DirectBufferPool] Memoria Off-Heap inicializada con límites seguros.
+[23:10:40.322] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::receiveDirectory(L:140) - [RECEPTOR-NIO] Solicitud recibida. Sesión: DIR_315 | Archivo: BitBridge_Shared_Test| Longitud: 1,9 KB
+[23:10:40.324] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::sendDirectory(L:54) - Iniciando cronómetro de transferencia...
+[23:10:40.330] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::receiveDirectory(L:176) - [RECEPTOR] -> [SALTADO] Coincide tamaño: BitBridge_Shared_Test/generar_pruebas.sh (1,6 KB)
+[23:10:40.331] [INFO ] org.bitBridge.server.transfer.FileTransferService::relayDirectory(L:232) - [DIR-RELAY-DIR_315] Relay decision -> SKIP para archivo: BitBridge_Shared_Test/generar_pruebas.sh
+[23:10:40.335] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::receiveDirectory(L:176) - [RECEPTOR] -> [SALTADO] Coincide tamaño: BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/constante.txt (29 B)
+[23:10:40.336] [INFO ] org.bitBridge.server.transfer.FileTransferService::relayDirectory(L:232) - [DIR-RELAY-DIR_315] Relay decision -> SKIP para archivo: BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/constante.txt
+[23:10:40.336] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::receiveDirectory(L:176) - [RECEPTOR] -> [SALTADO] Coincide tamaño: BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/modificado.txt (32 B)
+[23:10:40.337] [INFO ] org.bitBridge.server.transfer.FileTransferService::relayDirectory(L:232) - [DIR-RELAY-DIR_315] Relay decision -> SKIP para archivo: BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/modificado.txt
+[23:10:40.338] [WARN ] org.bitBridge.Client.NioDirectoryTransferManager::receiveDirectory(L:182) - [RECEPTOR] -> [SALTADO] Existe pero difiere en tamaño (Local: 37 B vs Red: 52 B): BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/nuevo_archivo.txt
+[23:10:40.338] [INFO ] org.bitBridge.server.transfer.FileTransferService::relayDirectory(L:232) - [DIR-RELAY-DIR_315] Relay decision -> SKIP para archivo: BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/nuevo_archivo.txt
+[23:10:40.339] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::receiveDirectory(L:176) - [RECEPTOR] -> [SALTADO] Coincide tamaño: BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/foto.jpg (27 B)
+[23:10:40.339] [INFO ] org.bitBridge.server.transfer.FileTransferService::relayDirectory(L:232) - [DIR-RELAY-DIR_315] Relay decision -> SKIP para archivo: BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/foto.jpg
+[23:10:40.340] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::receiveDirectory(L:176) - [RECEPTOR] -> [SALTADO] Coincide tamaño: BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/holaQueTal.txt (13 B)
+[23:10:40.340] [INFO ] org.bitBridge.server.transfer.FileTransferService::relayDirectory(L:232) - [DIR-RELAY-DIR_315] Relay decision -> SKIP para archivo: BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/holaQueTal.txt
+[23:10:40.341] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::receiveDirectory(L:195) - [RECEPTOR] -> [DESCARGANDO NUEVO]: BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/eesteEsELARachivo.txt (78 B)
+[23:10:40.341] [INFO ] org.bitBridge.server.transfer.FileTransferService::relayDirectory(L:240) - [DIR-RELAY-DIR_315] Relay decision -> TRANSFER para archivo: BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/eesteEsELARachivo.txt
+[23:10:40.342] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::enviarRecursivoNIO(L:109) - [SENDER] -> [ENVIANDO NUEVO]: BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/eesteEsELARachivo.txt (78 B)
+[23:10:40.380] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::receiveDirectory(L:176) - [RECEPTOR] -> [SALTADO] Coincide tamaño: BitBridge_Shared_Test/bitbridge_sandbox_plano/destino/constante.txt (29 B)
+[23:10:40.381] [INFO ] org.bitBridge.server.transfer.FileTransferService::relayDirectory(L:232) - [DIR-RELAY-DIR_315] Relay decision -> SKIP para archivo: BitBridge_Shared_Test/bitbridge_sandbox_plano/destino/constante.txt
+[23:10:40.382] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::receiveDirectory(L:176) - [RECEPTOR] -> [SALTADO] Coincide tamaño: BitBridge_Shared_Test/bitbridge_sandbox_plano/destino/modificado.txt (33 B)
+[23:10:40.383] [INFO ] org.bitBridge.server.transfer.FileTransferService::relayDirectory(L:232) - [DIR-RELAY-DIR_315] Relay decision -> SKIP para archivo: BitBridge_Shared_Test/bitbridge_sandbox_plano/destino/modificado.txt
+[23:10:40.383] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:285) - ========================================
+[23:10:40.383] [INFO ] org.bitBridge.server.transfer.FileTransferService::relayDirectory(L:257) - [DIR-RELAY-DIR_315] Recibido TRANSFER_DONE. Finalizando relay.
+[23:10:40.384] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:286) -    TRANSFERENCIA COMPLETADA
+[23:10:40.384] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:287) -    Tiempo total: 0,06 segundos
+[23:10:40.384] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:288) -    Tamaño total analizado: 1,9 KB
+[23:10:40.384] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:289) -    Velocidad media: 0,03 MB/s
+[23:10:40.384] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:290) - ========================================
+[23:10:40.385] [ERROR] org.bitBridge.Client.NioDirectoryTransferManager::receiveDirectory(L:235) - Error NIO Receive: Canal cerrado
+[23:10:42.319] [ERROR] org.bitBridge.server.transfer.TransferSessionManager::registerReceptor(L:120) - [SESSION-MGR] Sesión no encontrada después de espera: SENDER_6204
+[23:12:11.192] [INFO ] org.bitBridge.Client.core.Client::conexionAutomatica(L:116) - [Auto] Iniciando descubrimiento mDNS...
+[23:12:11.242] [INFO ] org.bitBridge.shared.network.NetworkManager::startLookingForServers(L:92) - [🔍] Escaneando desde interfaz: 172.19.0.1
+[23:12:11.246] [INFO ] org.bitBridge.shared.network.NetworkManager::startLookingForServers(L:92) - [🔍] Escaneando desde interfaz: 172.20.0.1
+[23:12:11.247] [INFO ] org.bitBridge.shared.network.NetworkManager::startLookingForServers(L:92) - [🔍] Escaneando desde interfaz: 192.168.100.187
+[23:12:11.526] [INFO ] org.bitBridge.Client.core.Client::lambda$conexionAutomatica$0(L:124) - [mDNS] Intentando conectar a 192.168.100.187:8080
+[23:12:11.536] [INFO ] org.bitBridge.Client.core.Client::setConexion(L:87) - No Activo
+[23:12:11.537] [INFO ] org.bitBridge.Client.core.NioClientEngine::finishConnection(L:107) - NIO: Conexión establecida físicamente en 1 ms.
+[23:12:11.571] [INFO ] org.bitBridge.shared.memory.DirectBufferPool::initialize(L:55) - [DirectBufferPool] Memoria Off-Heap inicializada con límites seguros.
+[23:12:12.256] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::receiveDirectory(L:140) - [RECEPTOR-NIO] Solicitud recibida. Sesión: DIR_2253 | Archivo: BitBridge_Shared_Test| Longitud: 1,9 KB
+[23:12:12.258] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::sendDirectory(L:54) - Iniciando cronómetro de transferencia...
+[23:12:12.266] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::receiveDirectory(L:195) - [RECEPTOR] -> [DESCARGANDO NUEVO]: BitBridge_Shared_Test/generar_pruebas.sh (1,6 KB)
+[23:12:12.267] [INFO ] org.bitBridge.server.transfer.FileTransferService::relayDirectory(L:240) - [DIR-RELAY-DIR_2253] Relay decision -> TRANSFER para archivo: BitBridge_Shared_Test/generar_pruebas.sh
+[23:12:12.267] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::enviarRecursivoNIO(L:109) - [SENDER] -> [ENVIANDO NUEVO]: BitBridge_Shared_Test/generar_pruebas.sh (1,6 KB)
+[23:12:12.301] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::receiveDirectory(L:195) - [RECEPTOR] -> [DESCARGANDO NUEVO]: BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/constante.txt (29 B)
+[23:12:12.301] [INFO ] org.bitBridge.server.transfer.FileTransferService::relayDirectory(L:240) - [DIR-RELAY-DIR_2253] Relay decision -> TRANSFER para archivo: BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/constante.txt
+[23:12:12.302] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::enviarRecursivoNIO(L:109) - [SENDER] -> [ENVIANDO NUEVO]: BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/constante.txt (29 B)
+[23:12:12.304] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::receiveDirectory(L:195) - [RECEPTOR] -> [DESCARGANDO NUEVO]: BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/modificado.txt (32 B)
+[23:12:12.305] [INFO ] org.bitBridge.server.transfer.FileTransferService::relayDirectory(L:240) - [DIR-RELAY-DIR_2253] Relay decision -> TRANSFER para archivo: BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/modificado.txt
+[23:12:12.305] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::enviarRecursivoNIO(L:109) - [SENDER] -> [ENVIANDO NUEVO]: BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/modificado.txt (32 B)
+[23:12:12.307] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::receiveDirectory(L:195) - [RECEPTOR] -> [DESCARGANDO NUEVO]: BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/nuevo_archivo.txt (52 B)
+[23:12:12.308] [INFO ] org.bitBridge.server.transfer.FileTransferService::relayDirectory(L:240) - [DIR-RELAY-DIR_2253] Relay decision -> TRANSFER para archivo: BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/nuevo_archivo.txt
+[23:12:12.308] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::enviarRecursivoNIO(L:109) - [SENDER] -> [ENVIANDO NUEVO]: BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/nuevo_archivo.txt (52 B)
+[23:12:12.310] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::receiveDirectory(L:195) - [RECEPTOR] -> [DESCARGANDO NUEVO]: BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/foto.jpg (27 B)
+[23:12:12.311] [INFO ] org.bitBridge.server.transfer.FileTransferService::relayDirectory(L:240) - [DIR-RELAY-DIR_2253] Relay decision -> TRANSFER para archivo: BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/foto.jpg
+[23:12:12.311] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::enviarRecursivoNIO(L:109) - [SENDER] -> [ENVIANDO NUEVO]: BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/foto.jpg (27 B)
+[23:12:12.313] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::receiveDirectory(L:195) - [RECEPTOR] -> [DESCARGANDO NUEVO]: BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/holaQueTal.txt (13 B)
+[23:12:12.313] [INFO ] org.bitBridge.server.transfer.FileTransferService::relayDirectory(L:240) - [DIR-RELAY-DIR_2253] Relay decision -> TRANSFER para archivo: BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/holaQueTal.txt
+[23:12:12.313] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::enviarRecursivoNIO(L:109) - [SENDER] -> [ENVIANDO NUEVO]: BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/holaQueTal.txt (13 B)
+[23:12:12.314] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::receiveDirectory(L:195) - [RECEPTOR] -> [DESCARGANDO NUEVO]: BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/eesteEsELARachivo.txt (78 B)
+[23:12:12.315] [INFO ] org.bitBridge.server.transfer.FileTransferService::relayDirectory(L:240) - [DIR-RELAY-DIR_2253] Relay decision -> TRANSFER para archivo: BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/eesteEsELARachivo.txt
+[23:12:12.315] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::enviarRecursivoNIO(L:109) - [SENDER] -> [ENVIANDO NUEVO]: BitBridge_Shared_Test/bitbridge_sandbox_plano/origen/eesteEsELARachivo.txt (78 B)
+[23:12:12.317] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::receiveDirectory(L:195) - [RECEPTOR] -> [DESCARGANDO NUEVO]: BitBridge_Shared_Test/bitbridge_sandbox_plano/destino/constante.txt (29 B)
+[23:12:12.317] [INFO ] org.bitBridge.server.transfer.FileTransferService::relayDirectory(L:240) - [DIR-RELAY-DIR_2253] Relay decision -> TRANSFER para archivo: BitBridge_Shared_Test/bitbridge_sandbox_plano/destino/constante.txt
+[23:12:12.318] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::enviarRecursivoNIO(L:109) - [SENDER] -> [ENVIANDO NUEVO]: BitBridge_Shared_Test/bitbridge_sandbox_plano/destino/constante.txt (29 B)
+[23:12:12.319] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::receiveDirectory(L:195) - [RECEPTOR] -> [DESCARGANDO NUEVO]: BitBridge_Shared_Test/bitbridge_sandbox_plano/destino/modificado.txt (33 B)
+[23:12:12.320] [INFO ] org.bitBridge.server.transfer.FileTransferService::relayDirectory(L:240) - [DIR-RELAY-DIR_2253] Relay decision -> TRANSFER para archivo: BitBridge_Shared_Test/bitbridge_sandbox_plano/destino/modificado.txt
+[23:12:12.320] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::enviarRecursivoNIO(L:109) - [SENDER] -> [ENVIANDO NUEVO]: BitBridge_Shared_Test/bitbridge_sandbox_plano/destino/modificado.txt (33 B)
+[23:12:12.321] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:285) - ========================================
+[23:12:12.321] [INFO ] org.bitBridge.server.transfer.FileTransferService::relayDirectory(L:257) - [DIR-RELAY-DIR_2253] Recibido TRANSFER_DONE. Finalizando relay.
+[23:12:12.321] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:286) -    TRANSFERENCIA COMPLETADA
+[23:12:12.322] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:287) -    Tiempo total: 0,06 segundos
+[23:12:12.322] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:288) -    Tamaño total analizado: 1,9 KB
+[23:12:12.322] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:289) -    Velocidad media: 0,03 MB/s
+[23:12:12.322] [INFO ] org.bitBridge.Client.NioDirectoryTransferManager::mostrarEstadisticasFinales(L:290) - ========================================
+[23:12:12.323] [ERROR] org.bitBridge.Client.NioDirectoryTransferManager::receiveDirectory(L:235) - Error NIO Receive: Canal cerrado
+[23:12:14.260] [ERROR] org.bitBridge.server.transfer.TransferSessionManager::registerReceptor(L:120) - [SESSION-MGR] Sesión no encontrada después de espera: SENDER_6625
