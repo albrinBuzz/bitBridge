@@ -1,16 +1,13 @@
 package org.bitBridge.shared.network;
 
-
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.formdev.flatlaf.json.Json;
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import io.github.classgraph.ClassGraph;
+import io.github.classgraph.ScanResult;
 import org.bitBridge.server.core.client.BitBridgeClient;
 import org.bitBridge.shared.Logger;
 import org.bitBridge.shared.core.comunication.*;
-import org.bitBridge.shared.core.comunication.sync.RsyncDeltaPackage;
-import org.bitBridge.shared.core.comunication.sync.RsyncSignatures;
 import org.bitBridge.shared.memory.DirectBufferPool;
-import org.msgpack.jackson.dataformat.MessagePackFactory;
 
 import java.io.*;
 import java.nio.ByteBuffer;
@@ -18,163 +15,144 @@ import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class ProtocolService {
     private static final Gson gson = new Gson();
+    private static final Gson prettyGson = new GsonBuilder().setPrettyPrinting().create();
 
-    private static final Map<CommunicationType, Class<? extends Communication>> typeRegistry = new EnumMap<>(CommunicationType.class);
+    // Paquete base común donde residen las clases de datos
+// Cambia esto para que use "comunication" (con una sola m, como tu carpeta) y termine en ".model.basic."
+    private static final String PACKET_PACKAGE = "org.bitBridge.shared.core.comunication.";
+    private static final Map<String, Class<?>> dynamicClassRegistry = new HashMap<>();
+
+    // Caché de clases para evitar penalizaciones de rendimiento por reflexión en el loop NIO
+    private static final Map<String, Class<?>> classCache = new ConcurrentHashMap<>();
 
     static {
-        typeRegistry.put(CommunicationType.MESSAGE, Mensaje.class);
-        typeRegistry.put(CommunicationType.FILE, FileDirectoryCommunication.class);
-        typeRegistry.put(CommunicationType.DIRECTORY, FileDirectoryCommunication.class);
-        typeRegistry.put(CommunicationType.UPDATE, ClientListMessage.class);
-        typeRegistry.put(CommunicationType.NOTIFICATION, FileHandshakeCommunication.class);
-        typeRegistry.put(CommunicationType.ACK, MessageAck.class);
-        typeRegistry.put(CommunicationType.DIRECTORY_QUERY, DirectoryQuery.class);
-        typeRegistry.put(CommunicationType.DIRECTORY_QUERY_RESULT, DirectoryQueryResponse.class);
-        typeRegistry.put(CommunicationType.FILE_PULL_REQUEST, FilePullRequest.class);
+        long startTime = System.currentTimeMillis();
 
-        typeRegistry.put(CommunicationType.RSYNC_SIGNATURES, RsyncSignatures.class);
-        typeRegistry.put(CommunicationType.RSYNC_DELTAS, RsyncDeltaPackage.class);
+        // Escaneamos el paquete raíz de comunicaciones de forma completamente recursiva
+        try (ScanResult scanResult = new ClassGraph()
+                .acceptPackages("org.bitBridge.shared.core.comunication")
+                .scan()) {
+
+            // Buscamos todas las clases que extiendan de tu clase base abstracta
+            List<Class<?>> communicationSubclasses = scanResult
+                    .getSubclasses(Communication.class.getName())
+                    .loadClasses();
+
+            for (Class<?> clazz : communicationSubclasses) {
+                // El Key será el nombre simple (ej: "Mensaje", "RsyncDeltaPackage")
+                dynamicClassRegistry.put(clazz.getSimpleName(), clazz);
+            }
+
+            long duration = System.currentTimeMillis() - startTime;
+            Logger.logInfo("[ProtocolService] Escaneo dinámico completado en " + duration + "ms. " +
+                    "Se indexaron " + dynamicClassRegistry.size() + " paquetes de red de forma automática.");
+
+        } catch (Exception e) {
+            Logger.logError("[ProtocolService] Error crítico inicializando el registro dinámico de paquetes: " + e.getMessage());
+        }
     }
 
     /**
-     * Escribe un objeto Communication en el stream usando el formato:
-     * [INT: Tamaño] [UTF: Tipo] [BYTES: JSON]
+     * Escribe un objeto Communication en el stream usando el formato compatible:
+     * [INT: Tamaño JSON] [INT: Tamaño Tipo] [BYTES: Nombre Clase] [BYTES: JSON]
      */
     public static void writeFormattedPayload(DataOutputStream out, Communication comm) throws IOException {
         String json = gson.toJson(comm);
-        byte[] payload = json.getBytes(StandardCharsets.UTF_8);
+        byte[] jsonBytes = json.getBytes(StandardCharsets.UTF_8);
+        byte[] typeBytes = comm.getCommunicationId().getBytes(StandardCharsets.UTF_8);
 
-        out.writeInt(payload.length);          // 4 bytes
-        out.writeUTF(comm.getType().name());    // Nombre del Enum
-        out.write(payload);                     // El JSON crudo
+        out.writeInt(jsonBytes.length);          // 4 bytes
+        out.writeInt(typeBytes.length);          // 4 bytes simétricos
+        out.write(typeBytes);                     // Nombre de la clase como bytes
+        out.write(jsonBytes);                    // El JSON crudo
         out.flush();
     }
 
     /**
-     * Permite registrar nuevos tipos desde cualquier parte del proyecto
-     * (Incluso desde módulos externos o plugins)
-     */
-    public static void registerType(CommunicationType type, Class<? extends Communication> clazz) {
-        typeRegistry.put(type, clazz);
-    }
-
-    /**
-     * Lee y reconstruye el objeto desde el stream
+     * Lee y reconstruye el objeto desde el stream (Firma mantenida para compatibilidad)
      */
     public static Communication readFormattedPayload(DataInputStream in) throws IOException {
-        int length = in.readInt();
-        String typeStr = in.readUTF();
-        CommunicationType type = CommunicationType.valueOf(typeStr);
+        int jsonLen = in.readInt();
+        int typeLen = in.readInt();
 
-        byte[] payload = new byte[length];
-        in.readFully(payload);
-        String json = new String(payload, StandardCharsets.UTF_8);
-        logJsonString(json, type);
-        try {
-            return switch (type) {
-                case MESSAGE -> gson.fromJson(json, Mensaje.class);
-                case FILE, DIRECTORY -> gson.fromJson(json, FileDirectoryCommunication.class);
-                case UPDATE -> gson.fromJson(json, ClientListMessage.class);
-                case NOTIFICATION -> gson.fromJson(json, FileHandshakeCommunication.class);
+        byte[] typeBytes = new byte[typeLen];
+        in.readFully(typeBytes);
+        String className = new String(typeBytes, StandardCharsets.UTF_8).trim();
 
-                case RSYNC_SIGNATURES -> gson.fromJson(json, RsyncSignatures.class);
-                case RSYNC_DELTAS -> gson.fromJson(json, RsyncDeltaPackage.class);
-                // Si el tipo no coincide, devolvemos la clase base para evitar nulls
-                default -> gson.fromJson(json, Communication.class);
-            };
-        } catch (Exception e) {
-            // Si el JSON estaba mal formado para esa clase específica
-            throw new IOException("Error haciendo casting de JSON a " + type + ": " + e.getMessage());
-        }
+        byte[] jsonBytes = new byte[jsonLen];
+        in.readFully(jsonBytes);
+        String json = new String(jsonBytes, StandardCharsets.UTF_8);
+
+        logJsonString(json, className);
+        return deserializeByClassName(json, className);
     }
+
     /**
-     * LEER DESDE NIO: Reconstruye lo que viene de un SocketChannel o de un DataStream
+     * LEER DESDE NIO: Reconstruye lo que viene de un SocketChannel o de un DataStream alternativo.
      */
     public static Communication fromBytes(byte[] data) throws IOException {
-        //dumpTargetPacket(data, "[FROM-BYTES-INTERCEPT]");
-        //Logger.logInfo();
+        dumpTargetPacket(data, "THREAD-" + Thread.currentThread().getName());
         ByteBuffer buffer = ByteBuffer.wrap(data);
 
-        // 1. Leer la longitud del JSON (4 bytes - Equivale a in.readInt())
         if (buffer.remaining() < 8) throw new IOException("Paquete demasiado corto (falta longitud)");
 
-        int payloadLen = buffer.getInt();
-
-        // 2. Leer la longitud del tipo (2 bytes - Equivale al prefijo de readUTF())
-        if (buffer.remaining() < 2) throw new IOException("Paquete corrupto (falta longitud de tipo)");
+        int jsonLen = buffer.getInt();
         int typeLen = buffer.getInt();
 
-        // 3. Leer el nombre del tipo
-        if (buffer.remaining() < typeLen) throw new IOException("Paquete incompleto (falta nombre de tipo)");
+        if (buffer.remaining() < typeLen) throw new IOException("Paquete incompleto (falta identificador)");
         byte[] typeBytes = new byte[typeLen];
         buffer.get(typeBytes);
-        // ProtocolService.java
-        String typeStr = new String(typeBytes, StandardCharsets.UTF_8).trim();
-       // Logger.logInfo("Tipo de comunicacion [" + typeStr + "]");
+        String className = new String(typeBytes, StandardCharsets.UTF_8).trim();
 
-        if (typeStr.isEmpty()) {
+        if (className.isEmpty()) {
             throw new IOException("Protocol Desync: Nombre de tipo vacío detectado.");
         }
 
-        CommunicationType type;
-        try {
-            type = CommunicationType.valueOf(typeStr);
-        } catch (IllegalArgumentException e) {
-            throw new IOException("Protocol Desync: Tipo desconocido [" + typeStr + "]");
-        }
-
-        // 4. Leer el JSON usando el payloadLen obtenido al inicio
-        // Usamos payloadLen para ser exactos, aunque buffer.remaining() debería coincidir
-        if (buffer.remaining() < payloadLen) throw new IOException("Paquete incompleto (faltan bytes de JSON)");
-        byte[] jsonBytes = new byte[payloadLen];
+        if (buffer.remaining() < jsonLen) throw new IOException("Paquete incompleto (faltan bytes de JSON)");
+        byte[] jsonBytes = new byte[jsonLen];
         buffer.get(jsonBytes);
         String json = new String(jsonBytes, StandardCharsets.UTF_8);
-        logJsonString(json, type);
 
-        return deserializeByType(json, type);
+        logJsonString(json, className);
+
+        return deserializeByClassName(json, className);
     }
+
+    /**
+     * MÉTODOS DE RED NIO CONSERVADOS PARA RETROCOMPATIBILIDAD ABSOLUTA
+     */
 
     public static byte[] readHandshakePacket(BitBridgeClient client) throws IOException {
         ReadableByteChannel channel = client.getReadableChannel();
 
-        // 1. Leer el Header (6 bytes: 4 para Int size, 2 para Short type)
         ByteBuffer header = ByteBuffer.allocate(8);
         while (header.hasRemaining()) {
             int read = channel.read(header);
-            if (read == -1) throw new IOException("Conexión cerrada durante lectura de header");
+            if (read == -1) throw new IOException("Conexión cerrada durante lectura de header handshake");
         }
         header.flip();
 
         int jsonSize = header.getInt();
         int typeSize = header.getInt();
 
-        // 2. VALIDACIÓN CRÍTICA: Evitar el error "1145655877" (bytes de texto leídos como int)
-        // Si el tamaño es mayor a 1MB para un JSON de control, algo anda mal
-        if (jsonSize <= 0 || jsonSize > 10* 1024 * 1024) {
+        if (jsonSize <= 0 || jsonSize > 10 * 1024 * 1024) {
             Logger.logError("[NIO-SYNC] ¡Desfase de flujo detectado! Tamaño JSON inválido: " + jsonSize);
             throw new IOException("Protocol Desync: Invalid JSON size.");
         }
 
-        // 3. Leer el Payload exacto
-        // Importante: No creamos un buffer con el header de nuevo, ya lo procesamos
-        // En ProtocolService.java dentro de readHandshakePacket
-
         ByteBuffer payload = ByteBuffer.allocate(typeSize + jsonSize);
         while (payload.hasRemaining()) {
             int read = channel.read(payload);
-            if (read == -1) throw new IOException("Conexión cerrada durante lectura de payload");
+            if (read == -1) throw new IOException("Conexión cerrada durante lectura de payload handshake");
         }
 
-        // 4. Reconstruir el paquete completo para ProtocolService.fromBytes
-        // ProtocolService espera: [4 bytes size][2 bytes typeSize][Bytes...]
         ByteBuffer fullPacket = ByteBuffer.allocate(8 + typeSize + jsonSize);
         header.rewind();
         fullPacket.put(header);
@@ -184,12 +162,10 @@ public class ProtocolService {
         return fullPacket.array();
     }
 
-
     public static Communication readNIO(SocketChannel channel) throws IOException {
-        // 1. Leer el Header (6 bytes: 4 para JSON + 2 para Tipo)
         ByteBuffer header = ByteBuffer.allocate(8);
         while (header.hasRemaining()) {
-            if (channel.read(header) == -1) throw new IOException("Canal cerrado");
+            if (channel.read(header) == -1) throw new IOException("Canal cerrado en lectura de Header");
         }
         header.flip();
 
@@ -197,32 +173,23 @@ public class ProtocolService {
         int typeLen = header.getInt();
         int bodySize = typeLen + jsonLen;
 
-        // 2. Leer el cuerpo completo (Tipo + JSON)
-        // Creamos un buffer con el tamaño exacto del contenido faltante
         ByteBuffer typeNameBuffer = ByteBuffer.allocate(typeLen);
         while (typeNameBuffer.hasRemaining()) {
             channel.read(typeNameBuffer);
         }
-        String typeStr = new String(typeNameBuffer.array(), StandardCharsets.UTF_8);
-        CommunicationType type = CommunicationType.valueOf(typeStr);
+        String className = new String(typeNameBuffer.array(), StandardCharsets.UTF_8).trim();
 
-        // 3. OBTENER BUFFER DEL POOL ESPECIALIZADO
-        DirectBufferPool.BufferType poolType = getPoolForType(type);
+        // Obtención dinámica del pool según la clase
+        DirectBufferPool.BufferType poolType = getPoolForClassName(className);
         ByteBuffer body = DirectBufferPool.acquire(poolType, 100);
 
-        // Si el mensaje es más grande que el buffer del pool (ej. un directorio gigante),
-        // usamos heap para no crashear
         if (body == null || body.capacity() < bodySize) {
             if (body != null) DirectBufferPool.release(body);
             body = ByteBuffer.allocate(bodySize);
         }
 
         try {
-            // 4. Leer el JSON restante (el type ya lo leímos arriba)
-            ByteBuffer jsonPart = body.duplicate();
-            jsonPart.limit(jsonLen); // Solo leemos lo que falta
-
-            while (body.position() < bodySize - typeLen) { // Ajustar según tu protocolo exacto
+            while (body.position() < bodySize - typeLen) {
                 channel.read(body);
             }
             body.flip();
@@ -230,47 +197,14 @@ public class ProtocolService {
             byte[] jsonBytes = new byte[jsonLen];
             body.get(jsonBytes);
             String json = new String(jsonBytes, StandardCharsets.UTF_8);
-            logJsonString(json, type);
 
-            return deserializeByType(json, type);
+            logJsonString(json, className);
+
+            return deserializeByClassName(json, className);
         } finally {
             DirectBufferPool.release(body);
         }
     }
-
-    private static Communication deserializeByType(String json, CommunicationType type) throws IOException {
-        try {
-            Class<? extends Communication> clazz = typeRegistry.get(type);
-
-            if (clazz == null) {
-                Logger.logWarn("Tipo desconocido: " + type + ". Usando clase base Communication.");
-                return gson.fromJson(json, Communication.class);
-            }
-
-            return gson.fromJson(json, clazz);
-        } catch (Exception e) {
-            throw new IOException("Error deserializando " + type + ": " + e.getMessage());
-        }
-    }
-
-    /*private static Communication deserializeByType(String json, CommunicationType type) throws IOException {
-        try {
-            return switch (type) {
-                case MESSAGE -> gson.fromJson(json, Mensaje.class);
-                case FILE, DIRECTORY -> gson.fromJson(json, FileDirectoryCommunication.class);
-                case UPDATE -> gson.fromJson(json, ClientListMessage.class);
-                case NOTIFICATION -> gson.fromJson(json, FileHandshakeCommunication.class);
-                default -> gson.fromJson(json, Communication.class);
-            };
-        } catch (Exception e) {
-            throw new IOException("Error en JSON para " + type + ": " + e.getMessage());
-        }
-    }*/
-
-    /**
-     * ESCRIBIR PARA NIO: Debe replicar exactamente el formato de DataOutputStream
-     * [INT: Payload Len] [SHORT: Type Len] [BYTES: Type Name] [BYTES: JSON]
-     */
 
     public static void writeNIO(SocketChannel channel, Communication comm) throws IOException {
         ByteBuffer buffer = toNioBuffer(comm, 100);
@@ -281,8 +215,6 @@ public class ProtocolService {
                 channel.write(buffer);
             }
         } finally {
-            // Solo liberar si es DIRECTO (del pool).
-            // Los de Heap los limpia el Garbage Collector solo.
             if (buffer.isDirect()) {
                 DirectBufferPool.release(buffer);
             }
@@ -293,27 +225,15 @@ public class ProtocolService {
         String json = gson.toJson(comm);
 
         byte[] jsonBytes = json.getBytes(StandardCharsets.UTF_8);
-        byte[] typeBytes = comm.getType().name().getBytes(StandardCharsets.UTF_8);
+        byte[] typeBytes = comm.getCommunicationId().getBytes(StandardCharsets.UTF_8);
 
-        // Cambia el 2 por un 4
         int totalSize = 4 + 4 + typeBytes.length + jsonBytes.length;
-        DirectBufferPool.BufferType targetPool = getPoolForType(comm.getType());
-        // 1. Si es más grande que el buffer del pool (8KB), usamos HEAP
-        // El Heap no causa Memory Leaks nativos y es gestionado por el GC.
-        /*if (totalSize > 8192) {
-            //return null;
-            ByteBuffer heapBuffer = ByteBuffer.allocate(totalSize);
-            fillBuffer(heapBuffer, jsonBytes, typeBytes);
-            return heapBuffer;
-        }*/
+        DirectBufferPool.BufferType targetPool = getPoolForClassName(comm.getCommunicationId());
 
-        // 2. Uso del Pool solo para lo que realmente cabe
         ByteBuffer buffer = DirectBufferPool.acquire(targetPool, timeout);
         if (buffer == null || buffer.capacity() < totalSize) {
-            // Si el pool nos dio un buffer pequeño pero el JSON creció de más, lo devolvemos
             if (buffer != null) DirectBufferPool.release(buffer);
 
-            // Creamos uno en HEAP como red de seguridad
             ByteBuffer fallback = ByteBuffer.allocate(totalSize);
             fillBuffer(fallback, jsonBytes, typeBytes);
             return fallback;
@@ -325,17 +245,12 @@ public class ProtocolService {
 
     private static void fillBuffer(ByteBuffer buffer, byte[] json, byte[] type) {
         buffer.clear();
-
-
         int totalNeeded = 4 + 4 + type.length + json.length;
 
-        // 2. Verificación de seguridad
         if (buffer.capacity() < totalNeeded) {
-            throw new RuntimeException("Buffer insuficiente. Capacidad: " +
-                    buffer.capacity() + " | Necesario: " + totalNeeded);
+            throw new RuntimeException("Buffer insuficiente. Capacidad: " + buffer.capacity() + " | Necesario: " + totalNeeded);
         }
 
-        // 3. Escritura explícita y simétrica
         buffer.putInt(json.length);
         buffer.putInt(type.length);
         buffer.put(type);
@@ -344,181 +259,237 @@ public class ProtocolService {
         buffer.flip();
     }
 
+    /**
+     * Deserializador Dinámico basado en Reflexión con Caché Atómica.
+     */
 
-    private static DirectBufferPool.BufferType getPoolForType(CommunicationType type) {
-        return switch (type) {
-            // Mensajes de control, ACKs y Notificaciones -> Pool Pequeño
-            case MESSAGE, ACK, NOTIFICATION, UPDATE -> DirectBufferPool.BufferType.MESSAGE;
-
-            // Listados de carpetas -> Pool Mediano
-            case DIRECTORY, DIRECTORY_QUERY, DIRECTORY_QUERY_RESULT -> DirectBufferPool.BufferType.DIRECTORY;
-
-            case FILE, FILE_PULL_REQUEST, RSYNC_SIGNATURES, RSYNC_DELTAS -> DirectBufferPool.BufferType.TRANSFER;
-
-
-            default -> DirectBufferPool.BufferType.MESSAGE;
+    private static Communication deserializeByClassName(String json, String className) throws IOException {
+        // Normalización de compatibilidad con clientes CLI antiguos
+        String fixedClassName = switch (className.toUpperCase()) {
+            case "MESSAGE" -> "Mensaje";
+            case "ACK" -> "MessageAck";
+            case "HANDSHAKE" -> "FileHandshakeCommunication";
+            default -> className;
         };
+
+        // Búsqueda directa O(1) en el mapa indexado por ClassGraph
+        Class<?> clazz = dynamicClassRegistry.get(className);
+
+        if (clazz == null) {
+            Logger.logError("[PROTOCOL DESYNC] No se encontró la clase '" + fixedClassName +
+                    "' en ninguna subcarpeta de comunicación indexada.");
+            throw new IOException("Fallo de deserialización: " + fixedClassName);
+        }
+
+        try {
+            return (Communication) gson.fromJson(json, clazz);
+        } catch (Exception e) {
+            throw new IOException("Error deserializando clase [" + fixedClassName + "]: " + e.getMessage());
+        }
     }
 
-    private static final com.google.gson.Gson prettyGson = new com.google.gson.GsonBuilder().setPrettyPrinting().create();
-
-
-    // Pool de hilos para procesar JSON sin bloquear el canal NIO
-    private static final ExecutorService asyncProcessor = Executors.newFixedThreadPool(2);
     /**
-     * Toma el String JSON crudo que se acaba de leer del canal/stream,
-     * lo formatea visualmente y lo manda al Logger.
+     * Mapeo de pools off-heap 100% DINÁMICO guiado por anotaciones.
+     * ¡Ya no requiere actualizar ningún switch manual!
      */
-    private static void logJsonString(String json, CommunicationType type) {
-        //Logger.logInfo(json);
-        /*try {
-            // Re-parseamos el string a un JsonElement genérico para que 'prettyGson' lo pueda indentar
-            Object jsonElement = gson.fromJson(json, Object.class);
-            String prettyJson = prettyGson.toJson(jsonElement);
+    public static DirectBufferPool.BufferType getPoolForClassName(String className) {
+        // 1. Normalizamos el nombre por compatibilidad con clientes viejos
+        String fixedClassName = switch (className.toUpperCase()) {
+            case "MESSAGE" -> "Mensaje";
+            case "ACK" -> "MessageAck";
+            case "HANDSHAKE" -> "FileHandshakeCommunication";
+            default -> className;
+        };
 
-            Logger.logInfo(String.format(
-                    "\n▲=== [INCOMING JSON AUDIT: %s] ===▲\n%s\n▼==========================================▼",
-                    type, prettyJson
-            ));
+        // 2. Buscamos la clase real en nuestro registro dinámico indexado por ClassGraph
+        Class<?> clazz = dynamicClassRegistry.get(fixedClassName);
+
+        if (clazz == null) {
+            // Si de verdad no existe la clase, aplicamos el fallback seguro
+            return DirectBufferPool.BufferType.MESSAGE;
+        }
+
+        // 3. Extraemos la anotación directamente del objeto Class real
+        if (clazz.isAnnotationPresent(BufferPoolMapping.class)) {
+            BufferPoolMapping mapping = clazz.getAnnotation(BufferPoolMapping.class);
+            //Logger.logInfo(clazz.getSimpleName());
+            return mapping.value(); // Retorna MESSAGE, DIRECTORY o TRANSFER perfectamente
+        }
+
+        // Fallback si la clase existe pero olvidaste ponerle la anotación
+        return DirectBufferPool.BufferType.MESSAGE;
+    }
+
+
+
+    private static void logJsonString(String json, String className) {
+        /*try {
+            // Parseamos el JSON crudo a un elemento genérico de Gson para formatearlo limpiamente
+            com.google.gson.JsonElement jsonElement = com.google.gson.JsonParser.parseString(json);
+            String prettyJsonString = prettyGson.toJson(jsonElement);
+
+            Logger.logInfo("\n📥 [PACKET SNIFFER] -> Clase: " + className +
+                    "\n" + "─".repeat(50) +
+                    "\n" + prettyJsonString +
+                    "\n" + "─".repeat(50));
         } catch (Exception e) {
-            Logger.logError("[JSON-PRETTY] No se pudo formatear el JSON crudo: " + e.getMessage());
-            // Fallback: Imprimir el JSON lineal si el formateo falla
-            Logger.logInfo("[JSON-RAW-FALLBACK]: " + json);
+            // Fallback defensivo si el JSON viene corrupto o incompleto para no tirar la lectura de red
+            Logger.logWarn("[ProtocolService] No se pudo formatear el JSON entrante para '" + className + "': " + e.getMessage());
         }*/
     }
 
     /**
-     * Realiza un volcado de memoria (Hex/ASCII Dump) del paquete crudo en tránsito.
-     * Ideal para interceptar desincronizaciones de protocolo directamente en el Log.
-     * ▲=================== [ BITBRIDGE NETWORK SNIFFER INTERCEPT ] ===================▲
-     *  TRACE ID: [DEBUG-READ-FILE_1512-85] | Longitud Total en Tránsito: 22 bytes
-     * ─────────────────────────────────────────────────────────────────────────────────
-     *  DIRECCIÓN HEXADECIMAL     | BINARIO / HEX DUMP            | REPRESENTACIÓN ASCII
-     * ─────────────────────────────────────────────────────────────────────────────────
-     *  [Offset: 0x0000]           00 00 00 0F 00 00 00 07  4D 45 53 53 41 47 45 7B  | ........MESSAGE{
-     *  [Offset: 0x0010]           22 74 65 78 74 22 3A 22  48 6F 6C 61 22 7D        | "text":"Hola"}
-     * ▼===============================================================================▼
+     * Mapeo heredado e inalterado para métodos externos heredados que aún invoquen este registro manual.
+     * @deprecated El sistema ahora autodesubre los tipos dinámicamente mediante el nombre de la clase.
+     */
+    /*@Deprecated
+    public static void registerType(CommunicationType type, Class<? extends Communication> clazz) {
+        // Mantenido únicamente por firmas de compatibilidad binaria externa.
+    }*/
+
+    /**
+     * Realiza una autopsia anatómica y dinámica de un paquete en bruto.
+     * Se adapta dinámicamente al tamaño real del buffer y segmenta las capas
+     * de control (Header JSON, Header Tipo, Payload Clase y Payload JSON).
+     *
+     * @param rawPacket El arreglo de bytes crudo capturado directamente del canal de red.
+     * @param traceId   Identificador del contexto o hilo de ejecución.
      */
 
-
     public static void dumpTargetPacket(byte[] rawPacket, String traceId) {
-        if (rawPacket == null || rawPacket.length == 0) {
-            System.out.println(traceId + " -> [DUMP] Paquete vacio o nulo.");
+        if (rawPacket == null) {
+            Logger.logWarn("⚠️ [DYNAMIC SNIFFER] Paquete nulo recibido.");
             return;
         }
 
-        // 1. Extraer metadatos del Header binario
-        int jsonLen = 0;
-        int typeLen = 0;
-        String detectedType = "UNKNOWN";
+        int totalBytes = rawPacket.length;
 
-        if (rawPacket.length >= 8) {
+        // --- LECTURA DINÁMICA DE CABECERAS (Defensa contra desbordamientos) ---
+        Integer jsonLen = null;
+        Integer typeLen = null;
+
+        if (totalBytes >= 4) {
             jsonLen = ((rawPacket[0] & 0xFF) << 24) | ((rawPacket[1] & 0xFF) << 16) |
                     ((rawPacket[2] & 0xFF) << 8)  | (rawPacket[3] & 0xFF);
+        }
+        if (totalBytes >= 8) {
             typeLen = ((rawPacket[4] & 0xFF) << 24) | ((rawPacket[5] & 0xFF) << 16) |
                     ((rawPacket[6] & 0xFF) << 8)  | (rawPacket[7] & 0xFF);
-
-            if (rawPacket.length >= 8 + typeLen && typeLen > 0) {
-                detectedType = new String(rawPacket, 8, typeLen, StandardCharsets.UTF_8).trim();
-            }
         }
 
-        // Nombres base de las columnas
-        String hOffset = "OFFSET";
-        String hHex    = "HEX DUMP";
-        String hAscii  = "REPRESENTACION ASCII";
+        // --- MAPEO DE FRONTERAS DINÁMICAS ---
+        int finalHeaderB = Math.min(8, totalBytes);
+        int finalClassPayload = (typeLen != null) ? Math.min(8 + typeLen, totalBytes) : finalHeaderB;
+        int expectedTotal = (jsonLen != null && typeLen != null) ? (8 + jsonLen + typeLen) : -1;
 
-        // Inicializar anchos mínimos basados en el tamaño del texto del Header
-        int maxOffsetWidth = hOffset.length();
-        int maxHexWidth    = hHex.length();
-        int maxAsciiWidth  = hAscii.length();
+        // --- RECONSTRUCCIÓN DE STRINGS SOBRE LA MARCHA ---
+        String extractedClassName = "N/A";
+        if (typeLen != null && totalBytes > 8) {
+            int bytesToRead = Math.min(typeLen, totalBytes - 8);
+            extractedClassName = new String(rawPacket, 8, bytesToRead, StandardCharsets.UTF_8).trim();
+        }
 
-        // Estructuras temporales para almacenar las filas procesadas en la primera pasada
-        List<String> offsets = new ArrayList<>();
-        List<String> hexDumps = new ArrayList<>();
-        List<String> asciis   = new ArrayList<>();
+        String extractedJsonSnippet = "N/A";
+        if (typeLen != null && jsonLen != null && totalBytes > (8 + typeLen)) {
+            int start = 8 + typeLen;
+            int bytesToRead = Math.min(jsonLen, totalBytes - start);
+            String rawJson = new String(rawPacket, start, bytesToRead, StandardCharsets.UTF_8);
+            extractedJsonSnippet = rawJson.length() > 60 ? rawJson.substring(0, 57) + "..." : rawJson;
+            //extractedJsonSnippet=rawJson.toString();
+        }
 
-        // --- PRIMERA PASADA: Calcular contenidos y medir anchos maximos ---
-        for (int i = 0; i < rawPacket.length; i += 16) {
-            // Generar Offset
-            String offStr = String.format("0x%04X (%d)", i, i);
-            offsets.add(offStr);
-            if (offStr.length() > maxOffsetWidth) maxOffsetWidth = offStr.length();
+        // --- CONSTRUCCIÓN DEL REPORTE VISUAL ---
+        StringBuilder dump = new StringBuilder();
+        dump.append("\n╔═════════════════════════════════════════════════════════════════════════╗\n");
+        dump.append(String.format("║ 🛰️  BITBRIDGE LIVE TELEMETRY RADAR      │ Trace: %-22s ║\n", traceId));
+        dump.append("╚═════════════════════════════════════════════════════════════════════════╝\n");
 
-            int remainingInRow = Math.min(16, rawPacket.length - i);
+        // 📊 DATOS DINÁMICOS DEL PAQUETE EN BRUTO (Estilo Human Readable)
 
-            // Generar Hex Dump
-            StringBuilder hexSb = new StringBuilder();
-            for (int j = 0; j < 16; j++) {
-                if (j < remainingInRow) {
-                    hexSb.append(String.format("%02X ", rawPacket[i + j]));
+
+        // Análisis de integridad de la trama
+        dump.append("\n  ───[ DIAGNÓSTICO DE LA PILA TCP ]───\n");
+        if (expectedTotal == -1) {
+            dump.append("  🚨 ESTATUS: CRÍTICO - El paquete no contiene suficientes bytes de cabecera.\n");
+        } else if (totalBytes < expectedTotal) {
+            dump.append(String.format("  ⚠️  ESTATUS: FRAGMENTADO - Faltan %s por llegar (Esperados: %s)\n",
+                    formatHumanReadable(expectedTotal - totalBytes), formatHumanReadable(expectedTotal)));
+        } else if (totalBytes > expectedTotal) {
+            dump.append(String.format("  🚨 ESTATUS: OVERFLOW / BASURA - Sobran %s en el buffer (Esperados: %s)\n",
+                    formatHumanReadable(totalBytes - expectedTotal), formatHumanReadable(expectedTotal)));
+        } else {
+            dump.append("  ✅ ESTATUS: PERFECTO - Trama íntegra y alineada correctamente.\n");
+        }
+
+        dump.append("\n  🧠 MAPA ANATÓMICO DE MEMORIA (BYTE-BY-BYTE SEGMENTATION):\n");
+        dump.append("  ").append("─".repeat(73)).append("\n");
+        dump.append("  OFFSET    │ HEXADECIMAL DATA LAYER                           │ ASCII TEXT LAYER\n");
+        dump.append("  ").append("─".repeat(73)).append("\n");
+
+        // Renderizado de la matriz de memoria
+        for (int rowStart = 0; rowStart < totalBytes; rowStart += 16) {
+            dump.append(String.format("  %08X │ ", rowStart));
+            int rowEnd = Math.min(rowStart + 16, totalBytes);
+
+            // Capa Hexadecimal
+            for (int i = rowStart; i < rowStart + 16; i++) {
+                if (i < rowEnd) {
+                    int b = rawPacket[i] & 0xFF;
+                    if (i < 4) {
+                        dump.append(String.format("%02X* ", b));
+                    } else if (i < 8) {
+                        dump.append(String.format("%02X' ", b));
+                    } else if (i < finalClassPayload) {
+                        dump.append(String.format("%02X. ", b));
+                    } else {
+                        dump.append(String.format("%02X  ", b));
+                    }
                 } else {
-                    hexSb.append("   ");
+                    dump.append("    ");
                 }
-                if (j == 7) hexSb.append(" ");
+
+                if (i == rowStart + 7) {
+                    dump.append("│ ");
+                }
             }
-            String hexStr = hexSb.toString().trim();
-            hexDumps.add(hexStr);
-            if (hexStr.length() > maxHexWidth) maxHexWidth = hexStr.length();
 
-            // Generar ASCII interpretado con delimitadores de cabecera
-            StringBuilder asciiSb = new StringBuilder();
-            for (int j = 0; j < remainingInRow; j++) {
-                int currentPos = i + j;
-                char c = (char) rawPacket[currentPos];
+            dump.append("│ ");
 
-                if (currentPos == 8) asciiSb.append("[");
-                if (currentPos == 8 + typeLen) asciiSb.append("]");
-
-                if (c >= 32 && c <= 126) {
-                    asciiSb.append(c);
+            // Capa ASCII Dinámica
+            for (int i = rowStart; i < rowEnd; i++) {
+                byte b = rawPacket[i];
+                if (b >= 32 && b < 127) {
+                    dump.append((char) b);
                 } else {
-                    asciiSb.append(".");
+                    if (i < 4) dump.append("🟥");
+                    else if (i < 8) dump.append("🟨");
+                    else dump.append(".");
                 }
             }
-            String asciiStr = asciiSb.toString();
-            asciis.add(asciiStr);
-            if (asciiStr.length() > maxAsciiWidth) maxAsciiWidth = asciiStr.length();
+            dump.append("\n");
         }
 
-        // --- SEGUNDA PASADA: Renderizado dinamico al estilo psql (Postgres) ---
-        StringBuilder sb = new StringBuilder();
+        dump.append("  📊 TELEMETRÍA DE LA TRAMA:\n");
+        dump.append(String.format("  ├── 📐 Tamaño en Red       : %s\n", formatHumanReadable(totalBytes)));
+        dump.append(String.format("  ├── 🟥 [Header A] Vol. JSON: %s\n", (jsonLen != null) ? formatHumanReadable(jsonLen) : "INCOMPLETO"));
+        dump.append(String.format("  ├── 🟨 [Header B] Vol. Tipo: %s\n", (typeLen != null) ? formatHumanReadable(typeLen) : "INCOMPLETO"));
+        dump.append(String.format("  ├── 🏷️  Clase Identificada : [%s]\n", extractedClassName));
+        dump.append(String.format("  └── 📄 Payload JSON        : %s\n", extractedJsonSnippet));
+        dump.append("  ").append("─".repeat(73)).append("\n");
+        dump.append("  Marcadores: XX* [Long. JSON] │ XX' [Long. Tipo] │ XX. [Identificador] │ XX [Cuerpo JSON]\n");
 
-        // Formato dinámico para las filas de datos y cabeceras
-        // Añadimos márgenes internos de 1 espacio a los lados de cada columna como hace Postgres
-        String headerFormat = " %-" + maxOffsetWidth + "s | %-" + maxHexWidth + "s | %-" + maxAsciiWidth + "s\n";
-        String rowFormat    = " %-" + maxOffsetWidth + "s | %-" + maxHexWidth + "s | %-" + maxAsciiWidth + "s\n";
+        Logger.logInfo(dump.toString());
+    }
 
-        // Imprimir metadatos generales arriba de la tabla
-        sb.append(String.format("\n-[ BITBRIDGE SNIFFER AUDIT ]--------------------------------------------------\n"));
-        sb.append(String.format(" TRACE ID      : %s\n", traceId));
-        sb.append(String.format(" PAYLOAD TOTAL : %d bytes\n", rawPacket.length));
-        sb.append(String.format(" TIPO MENSAJE  : %s (Header: %d bytes)\n", detectedType, 8 + typeLen));
-        sb.append(String.format(" JSON ESPERADO : %d bytes\n", jsonLen));
-        sb.append("------------------------------------------------------------------------------\n\n");
-
-        // 1. Escribir Header de la tabla
-        sb.append(String.format(headerFormat, hOffset, hHex, hAscii));
-
-        // 2. Escribir Línea Divisoria Dinámica de Postgres
-        // Sumamos + 2 por los espacios iniciales/finales de cada columna y + 6 por los separadores " | "
-        for (int k = 0; k < maxOffsetWidth + 2; k++) sb.append("-");
-        sb.append("+");
-        for (int k = 0; k < maxHexWidth + 2; k++) sb.append("-");
-        sb.append("+");
-        for (int k = 0; k < maxAsciiWidth + 2; k++) sb.append("-");
-        sb.append("\n");
-
-        // 3. Escribir el Cuerpo de Datos perfectamente alineado
-        for (int i = 0; i < offsets.size(); i++) {
-            sb.append(String.format(rowFormat, offsets.get(i), hexDumps.get(i), asciis.get(i)));
+    /**
+     * Convierte un tamaño en bytes a un string formateado y legible (-h).
+     */
+    private static String formatHumanReadable(long bytes) {
+        if (bytes < 1024) {
+            return bytes + " B";
         }
-
-        // Mostrar recuento final de filas al estilo psql
-        sb.append(String.format("(%d filas)\n", offsets.size()));
-
-        // Envío atómico directo al stdout estándar
-        System.out.print(sb.toString());
-        System.out.flush();
+        int exp = (int) (Math.log(bytes) / Math.log(1024));
+        char pre = "KMGTPE".charAt(exp - 1);
+        return String.format("%.2f %sB (%d bytes)", bytes / Math.pow(1024, exp), pre, bytes);
     }
 }

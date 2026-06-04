@@ -17,7 +17,6 @@
 
 
 package org.bitBridge.Client.core;
-import org.bitBridge.Client.services.MessageDispatcher;
 
 import org.bitBridge.shared.core.comunication.Communication;
 import org.bitBridge.shared.Logger;

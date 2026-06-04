@@ -4,9 +4,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 
 import org.bitBridge.Client.core.Client;
-import org.bitBridge.shared.core.comunication.CommunicationType;
 import org.bitBridge.shared.Logger;
-import org.bitBridge.shared.core.comunication.Mensaje;
+import org.bitBridge.shared.core.comunication.model.basic.Mensaje;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -83,7 +82,7 @@ public class HomeController {
         if (client != null) {
             try {
                 // Crear el mensaje a enviar
-                Mensaje mensaje = new Mensaje(message, CommunicationType.MESSAGE);
+                Mensaje mensaje = new Mensaje(message);
 
                 // Enviar el mensaje al cliente a través del ObjectOutputStream
                 client.enviarMensaje(message);

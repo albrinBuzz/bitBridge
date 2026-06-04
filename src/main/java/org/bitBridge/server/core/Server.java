@@ -15,15 +15,15 @@ import org.bitBridge.server.config.ConfigKey;
 import org.bitBridge.server.NetworkServer;
 import org.bitBridge.server.core.client.*;
 import org.bitBridge.server.console.ConsoleView;
+import org.bitBridge.server.handlers.NicknameService;
 import org.bitBridge.server.network.NetworkUtils;
 import org.bitBridge.server.stats.ServerStats;
 import org.bitBridge.server.transfer.TransferSessionManager;
 import org.bitBridge.shared.LogLevel;
 import org.bitBridge.shared.config.ConfiguracionApp;
-import org.bitBridge.shared.core.comunication.ClientListMessage;
-import org.bitBridge.shared.core.comunication.CommunicationType;
+import org.bitBridge.shared.core.comunication.model.basic.ClientListMessage;
 import org.bitBridge.shared.Logger;
-import org.bitBridge.shared.core.comunication.Mensaje;
+import org.bitBridge.shared.core.comunication.model.basic.Mensaje;
 
 import org.bitBridge.shared.network.ServerNetworkEngine;
 import org.bitBridge.shared.network.NetworkManager;
@@ -382,7 +382,7 @@ public class Server {
     }*/
 
     public void broadcastMessage(String message, BitBridgeClient excludeClient) {
-        Mensaje msg = new Mensaje(message, CommunicationType.MESSAGE);
+        Mensaje msg = new Mensaje(message);
         //stats.addMessage(message);
 
         // No bloqueamos todo el servidor mientras iteramos
@@ -405,7 +405,7 @@ public class Server {
                     Thread.sleep(1000);
 
                     List<ClientInfo> currentClients = registry.getAllClientInfos();
-                    ClientListMessage updateMsg = new ClientListMessage(CommunicationType.UPDATE, currentClients);
+                    ClientListMessage updateMsg = new ClientListMessage(currentClients);
 
                     // Enviamos a todos
                     registry.getAllHandlers().forEach(h -> h.sendComunicacion(updateMsg));

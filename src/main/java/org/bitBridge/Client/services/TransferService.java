@@ -2,10 +2,10 @@ package org.bitBridge.Client.services;
 
 
 import org.bitBridge.Client.ClientInfo;
-import org.bitBridge.Client.FileTransferManager;
-import org.bitBridge.Client.NioDirectoryTransferManager;
+import org.bitBridge.Client.managers.FileTransferManager;
+import org.bitBridge.Client.managers.NioDirectoryTransferManager;
 import org.bitBridge.Client.core.ClientContext;
-import org.bitBridge.shared.core.comunication.FileDirectoryCommunication;
+import org.bitBridge.shared.core.comunication.model.basic.FileDirectoryCommunication;
 import org.bitBridge.shared.Logger;
 import org.bitBridge.utils.HashUtil;
 

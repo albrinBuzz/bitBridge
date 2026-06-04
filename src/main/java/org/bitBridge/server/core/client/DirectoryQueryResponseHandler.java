@@ -2,13 +2,10 @@ package org.bitBridge.server.core.client;
 
 //package org.bitBridge.Client.services.handlers;
 
-import org.bitBridge.Client.core.Client;
-import org.bitBridge.server.core.client.CommunicationExchange;
-import org.bitBridge.server.core.client.CommunicationHandler;
 import org.bitBridge.shared.Logger;
 import org.bitBridge.shared.core.comunication.Communication;
-import org.bitBridge.shared.core.comunication.DirectoryQueryResponse;
-import org.bitBridge.shared.core.comunication.NodoDirectorio;
+import org.bitBridge.shared.core.comunication.model.basic.DirectoryQueryResponse;
+import org.bitBridge.shared.core.comunication.model.basic.NodoDirectorio;
 
 import java.util.List;
 
@@ -35,7 +32,7 @@ public class DirectoryQueryResponseHandler implements CommunicationHandler {
         }
 
         // Obtenemos los hijos (ya serializados desde el servidor)
-        List<NodoDirectorio> hijosRecibidos = nodoRaiz.getHijosRed();
+        List<NodoDirectorio> hijosRecibidos = nodoRaiz.getHijos();
 
 
 

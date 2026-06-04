@@ -5,9 +5,9 @@ import org.bitBridge.server.core.client.BitBridgeClient;
 import org.bitBridge.server.core.ServerContext;
 import org.bitBridge.shared.*;
 import org.bitBridge.shared.core.comunication.Communication;
-import org.bitBridge.shared.core.comunication.FileDirectoryCommunication;
+import org.bitBridge.shared.core.comunication.model.basic.FileDirectoryCommunication;
 import org.bitBridge.shared.core.comunication.FileHandshakeAction;
-import org.bitBridge.shared.core.comunication.FileHandshakeCommunication;
+import org.bitBridge.shared.core.comunication.model.basic.FileHandshakeCommunication;
 import org.bitBridge.shared.memory.BufferPool;
 import org.bitBridge.shared.network.ProtocolService;
 
@@ -18,6 +18,8 @@ import java.nio.channels.SocketChannel;
 import java.nio.channels.WritableByteChannel;
 import java.util.Random;
 
+import static org.bitBridge.server.transfer.TransferSessionManager.PREFIX_DATA;
+
 public class FileTransferService {
 
     private final ServerContext context;
@@ -27,111 +29,124 @@ public class FileTransferService {
         this.context = context;
     }
 
-    public void handleForwardFile(BitBridgeClient sender, FileDirectoryCommunication communication) {
-        String logId = "[SERV-FILE-RSYNC-" + new Random().nextInt(100) + "]";
+
+    public void handleForwardFile(FileDirectoryCommunication com, BitBridgeClient sender, String sessionId) {
+        String logId = "[FILE-RELAY-" + sessionId + "]";
+        BitBridgeClient recipient = context.registry().findByNick(com.getRecipient());
+        if (recipient == null) {
+            Logger.logError(logId + " Receptor no encontrado en el registro: " + com.getRecipient());
+            return;
+        }
+
         try {
-            String recipientNick = communication.getRecipient();
-            BitBridgeClient recipient = context.registry().findByNick(recipientNick);
+            // 1. Notificar al hilo de control del receptor que hay un archivo entrante
+            recipient.sendComunicacion(new FileHandshakeCommunication(FileHandshakeAction.SEND_REQUEST, sessionId, com));
 
-            if (recipient == null) {
-                Logger.logError(logId + " Destinatario offline: " + recipientNick);
+            // 2. Esperar que el socket secundario de datos del RECEPTOR se conecte al pool
+            BitBridgeClient dataReceiver = context.transferManager().waitForReceptor(sessionId, 30);
+            if (dataReceiver == null) {
+                Logger.logError(logId + " Abortando: El socket secundario del receptor nunca llegó.");
                 return;
             }
 
-            String sessionId = "FILE_" + new Random().nextInt(1000, 9999);
-
-            // 1. Enviar solicitud de handshake al receptor con la metadata del archivo
-            FileHandshakeCommunication request = new FileHandshakeCommunication(
-                    FileHandshakeAction.SEND_REQUEST, sessionId, communication);
-            recipient.sendComunicacion(request);
-
-            // 2. Esperar a que el receptor asocie su socket de datos dedicado
-            BitBridgeClient receptorData = context.transferManager().waitForReceptor(sessionId, 30);
-            if (receptorData == null) {
-                Logger.logError(logId + " TIMEOUT: El receptor no conectó su socket.");
-                sender.sendComunicacion(new FileHandshakeCommunication(FileHandshakeAction.ERROR_TIMEOUT, sessionId));
-                return;
-            }
-
-            // 3. Esperar la acción de respuesta del receptor (Accept / Decline)
-            FileHandshakeAction action = context.transferManager().waitForResponseAction(sessionId, 30);
+            // 3. Esperar la confirmación de aceptación del hilo de control del receptor
+            FileHandshakeAction action = context.transferManager().waitForResponseAction(sessionId, 7);
 
             if (action == FileHandshakeAction.ACCEPT_REQUEST) {
-                FileHandshakeCommunication start = new FileHandshakeCommunication(
-                        FileHandshakeAction.START_TRANSFER, sessionId, communication);
+                // Construir el handshake de inicio oficial con el token unificado
+                FileHandshakeCommunication start = new FileHandshakeCommunication(FileHandshakeAction.START_TRANSFER, sessionId, com);
 
-                // Despachar señal de tubería lista a ambos clientes
-                receptorData.sendComunicacion(start);
+                // Desbloquear los canales de datos de ambos extremos
+                dataReceiver.sendComunicacion(start);
                 sender.sendComunicacion(start);
 
-                // Cambiar canales a modo bloqueante para maximizar la estabilidad en transferencias masivas
-                SocketChannel senderChannel = (SocketChannel) sender.getReadableChannel();
-                SocketChannel receptorChannel = (SocketChannel) receptorData.getReadableChannel();
-
+                // Pasar canales NIO a modo Bloqueante para la transferencia lineal segura en el Relay
                 if (context.getNetworkEngine() instanceof NioServerEngine engine) {
-                    engine.unregisterChannel(senderChannel);
-                    engine.unregisterChannel(receptorChannel);
-                    senderChannel.configureBlocking(true);
-                    receptorChannel.configureBlocking(true);
+                    engine.unregisterChannel((SocketChannel) sender.getReadableChannel());
+                    engine.unregisterChannel((SocketChannel) dataReceiver.getReadableChannel());
+                    ((SocketChannel) sender.getReadableChannel()).configureBlocking(true);
+                    ((SocketChannel) dataReceiver.getReadableChannel()).configureBlocking(true);
                 }
 
-                // --- ORQUESTACIÓN DEL PROTOCOLO DE NEGOCIACIÓN RSYNC (Modo Estructurado) ---
-                byte[] receptorActionRaw = ProtocolService.readHandshakePacket(receptorData);
-                Communication receptorResponse = ProtocolService.fromBytes(receptorActionRaw);
+                // ====================================================================
+                // 🚨 LOGICA EXTRÁIDA DIRECTAMENTE DE RELAY_DIRECTORY
+                // ====================================================================
 
-                if (receptorResponse instanceof FileHandshakeCommunication resp) {
-                    FileHandshakeAction accionReceptor = resp.getAction();
+                // El emisor (Sender) enviará inmediatamente el objeto FileDirectoryCommunication específico
+                byte[] packetData = ProtocolService.readHandshakePacket(sender);
+                Communication object = ProtocolService.fromBytes(packetData);
 
-                    // CASO A: Archivo idéntico (Quick Check existoso) -> Abortar y omitir de inmediato
-                    if (accionReceptor == FileHandshakeAction.SKIP_FILE) {
-                        Logger.logInfo(logId + " -> Omitiendo archivo individual (Idéntico en destino).");
-                        sender.sendComunicacion(new FileHandshakeCommunication(FileHandshakeAction.SKIP_FILE, sessionId));
-                        return;
-                    }
+                if (object instanceof FileDirectoryCommunication meta) {
+                    // Reenviar los metadatos al receptor por el canal de datos
+                    dataReceiver.sendComunicacion(meta);
 
-                    // CASO B: Archivo modificado/diferente -> Flujo delta por bloques rolling-hash
-                    if (accionReceptor == FileHandshakeAction.PROCESS_DELTAS) {
-                        Logger.logInfo(logId + " -> Entrando en modo diferencial (Rsync Delta).");
+                    // Leer la decisión del receptor basada en sus metadatos locales (SKIP, PROCESS_DELTAS o START_TRANSFER)
+                    byte[] receptorAckRaw = ProtocolService.readHandshakePacket(dataReceiver);
+                    Communication receptorResponse = ProtocolService.fromBytes(receptorAckRaw);
 
-                        // Notificar al emisor que configure su ventana móvil para deltas
-                        sender.sendComunicacion(new FileHandshakeCommunication(FileHandshakeAction.PROCESS_DELTAS, sessionId));
+                    if (receptorResponse instanceof FileHandshakeCommunication resp) {
+                        FileHandshakeAction accionReceptor = resp.getAction();
 
-                        // Fase 1: Mover Firmas (Receptor -> Servidor -> Emisor)
-                        byte[] signaturesRaw = ProtocolService.readHandshakePacket(receptorData);
-                        Communication signaturesObj = ProtocolService.fromBytes(signaturesRaw);
-                        ProtocolService.writeNIO(senderChannel, signaturesObj); // Reinyecta los 4 bytes de tamaño al inicio
+                        // --- CASO 1: OMITIR ARCHIVO (SKIP) ---
+                        if (accionReceptor == FileHandshakeAction.SKIP_FILE) {
+                            Logger.logInfo(logId + " [RSYNC] Archivo idéntico en destino. Omitiendo transmisión.");
+                            sender.sendComunicacion(new FileHandshakeCommunication(FileHandshakeAction.SKIP_FILE, sessionId));
+                        }
 
-                        // Fase 2: Mover Paquete de Deltas (Emisor -> Servidor -> Receptor)
-                        byte[] deltasRaw = ProtocolService.readHandshakePacket(sender);
-                        Communication deltasObj = ProtocolService.fromBytes(deltasRaw);
-                        ProtocolService.writeNIO(receptorChannel, deltasObj);
+                        // --- CASO 2: MODO DIFERENCIAL RSYNC ---
+                        else if (accionReceptor == FileHandshakeAction.PROCESS_DELTAS) {
+                            Logger.logWarn(logId + " [RSYNC-RELAY] -> Entrando en modo diferencial para archivo único: " + meta.getName());
+                            sender.sendComunicacion(new FileHandshakeCommunication(FileHandshakeAction.PROCESS_DELTAS, sessionId));
 
-                        // Fase 3: Confirmación Final de Ensamblado (Receptor -> Servidor -> Emisor)
-                        byte[] finalAckRaw = ProtocolService.readHandshakePacket(receptorData);
-                        Communication finalAckObj = ProtocolService.fromBytes(finalAckRaw);
-                        ProtocolService.writeNIO(senderChannel, finalAckObj);
-                        return;
-                    }
+                            // 1. Firmas: Receptor -> Servidor -> Emisor
+                            byte[] signaturesRaw = ProtocolService.readHandshakePacket(dataReceiver);
+                            sender.getWritableChannel().write(ByteBuffer.wrap(signaturesRaw));
 
-                    // CASO C: Archivo nuevo -> Transferencia tradicional Zero-Copy de alta velocidad
-                    if (accionReceptor == FileHandshakeAction.START_TRANSFER) {
-                        sender.sendComunicacion(new FileHandshakeCommunication(FileHandshakeAction.START_TRANSFER, sessionId));
+                            // 2. Deltas: Emisor -> Servidor -> Receptor
+                            byte[] deltasRaw = ProtocolService.readHandshakePacket(sender);
+                            dataReceiver.getWritableChannel().write(ByteBuffer.wrap(deltasRaw));
 
-                        // Tubería directa controlada por el Pool de memoria Off-Heap
-                        bridgeSocketChannelsNoShutdown(sender, receptorData, communication.getSize());
+                            // 3. Confirmación de reconstrucción exitosa: Receptor -> Servidor -> Emisor
+                            byte[] finalAck = ProtocolService.readHandshakePacket(dataReceiver);
+                            sender.getWritableChannel().write(ByteBuffer.wrap(finalAck));
+                        }
 
-                        // Reenviar ACK final del receptor hacia el emisor para cerrar de forma limpia
-                        byte[] finalAckFromReceptorRaw = ProtocolService.readHandshakePacket(receptorData);
-                        Communication finalAckObj = ProtocolService.fromBytes(finalAckFromReceptorRaw);
-                        ProtocolService.writeNIO(senderChannel, finalAckObj);
+                        // --- CASO 3: TRASPASO COMPLETO (ZERO-COPY) ---
+                        else if (accionReceptor == FileHandshakeAction.START_TRANSFER) {
+                            Logger.logInfo(logId + " [TRANSFERENCIA LIMPIA] Enviando flujo completo...");
+                            sender.sendComunicacion(new FileHandshakeCommunication(FileHandshakeAction.START_TRANSFER, sessionId));
+
+                            // Transferencia masiva cruda de bytes
+                            bridgeSocketChannelsNoShutdown(sender, dataReceiver, meta.getSize());
+
+                            // Reenviar el ACK final de confirmación de escritura física en disco del receptor al emisor
+                            byte[] finalAckFromReceptor = ProtocolService.readHandshakePacket(dataReceiver);
+                            sender.getWritableChannel().write(ByteBuffer.wrap(finalAckFromReceptor));
+                        }
                     }
                 }
+
+                // ====================================================================
+                // 🚨 CIERRE ESTRUCTURAL DE LA SESIÓN INDIVIDUAL
+                // ====================================================================
+                // El emisor enviará un TRANSFER_DONE para cerrar formalmente el pipeline
+                byte[] finalPacket = ProtocolService.readHandshakePacket(sender);
+                Communication finalComm = ProtocolService.fromBytes(finalPacket);
+
+                if (finalComm instanceof FileHandshakeCommunication handshake && handshake.getAction() == FileHandshakeAction.TRANSFER_DONE) {
+                    dataReceiver.sendComunicacion(handshake);
+                }
+
+                // Desconexión física e higiénica de los sockets temporales de datos
+                //dataReceiver.shutDown();
+                //sender.shutDown();
+                Logger.logInfo(logId + " Sesión de relay para archivo individual finalizada correctamente.");
+
             } else {
-                sender.sendComunicacion(new FileHandshakeCommunication(FileHandshakeAction.DECLINE_REQUEST, sessionId));
+                Logger.logWarn(logId + " Solicitud individual rechazada por el receptor o expirada.");
             }
         } catch (Exception e) {
-            Logger.logError(logId + " Error interno en rsync individual: " + e.getMessage());
-            e.printStackTrace();
+            Logger.logError(logId + " FATAL: Error en relay de archivo individual: " + e.getMessage());
         }
     }
 
@@ -200,7 +215,7 @@ public class FileTransferService {
 
         try {
             recipient.sendComunicacion(new FileHandshakeCommunication(FileHandshakeAction.SEND_REQUEST, sessionId, com));
-            BitBridgeClient dataReceiver = context.transferManager().waitForReceptor(sessionId, 20);
+            BitBridgeClient dataReceiver = context.transferManager().waitForReceptor(sessionId, 30);
             if (dataReceiver == null) return;
 
             FileHandshakeAction action = context.transferManager().waitForResponseAction(sessionId, 7);

@@ -1,7 +1,7 @@
 package org.bitBridge.models;
 
 
-import org.bitBridge.Client.TransferManager;
+import org.bitBridge.Client.managers.TransferManager;
 import org.bitBridge.shared.FileTransferState;
 
 public class Transferencia {

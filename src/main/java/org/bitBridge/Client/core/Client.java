@@ -2,7 +2,6 @@ package org.bitBridge.Client.core;
 
 
 import org.bitBridge.Client.ClientInfo;
-import org.bitBridge.Client.services.MessageDispatcher;
 import org.bitBridge.Client.services.MessageTracker;
 import org.bitBridge.Client.services.TransferService;
 import org.bitBridge.Observers.HostsObserver;
@@ -12,6 +11,9 @@ import org.bitBridge.controller.TransferenciaController;
 import org.bitBridge.shared.*;
 import org.bitBridge.shared.config.ConfiguracionApp;
 import org.bitBridge.shared.core.comunication.*;
+import org.bitBridge.shared.core.comunication.model.basic.DirectoryQuery;
+import org.bitBridge.shared.core.comunication.model.basic.Mensaje;
+import org.bitBridge.shared.core.comunication.model.basic.NodoDirectorio;
 import org.bitBridge.shared.network.ClientNetworkEngine;
 import org.bitBridge.shared.network.NetworkManager;
 
@@ -88,7 +90,7 @@ public class Client {
             }
 
             // 4. Enviar identificación inicial
-            Mensaje saludo = new Mensaje(hostName, CommunicationType.MESSAGE);
+            Mensaje saludo = new Mensaje(hostName);
             enviarComunicacion(saludo);
             //onConnectionSuccess();
         } catch (IOException e) {
@@ -184,7 +186,7 @@ public class Client {
 
     public void enviarMensaje(String mensaje) throws IOException {
         messageTracker.trackNewMessage();
-        enviarComunicacion(new Mensaje(mensaje, CommunicationType.MESSAGE));
+        enviarComunicacion(new Mensaje(mensaje));
     }
 
     public void sendScreenSnapshot(ClientInfo recipient){

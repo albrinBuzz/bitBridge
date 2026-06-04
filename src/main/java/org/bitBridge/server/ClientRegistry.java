@@ -4,8 +4,7 @@ package org.bitBridge.server;
 
 import org.bitBridge.server.core.client.ClientHandler;
 import org.bitBridge.shared.core.comunication.Communication;
-import org.bitBridge.shared.core.comunication.CommunicationType;
-import org.bitBridge.shared.core.comunication.Mensaje;
+import org.bitBridge.shared.core.comunication.model.basic.Mensaje;
 
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -45,7 +44,7 @@ public class ClientRegistry {
     }
 
     public void broadcastSystemMessage(String text, ClientHandler exclude) {
-        broadcast(new Mensaje(text, CommunicationType.MESSAGE), exclude);
+        broadcast(new Mensaje(text), exclude);
     }
 
     public void updateAllClients() {

@@ -1,5 +1,5 @@
 /**
- * Copyright 2026 [Tu Nombre Completo]
+ * Copyright 2026 Cristobal Roman Zamora
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 
 package org.bitBridge.server.core;
 
-
 import org.bitBridge.models.LogEntry;
 import org.bitBridge.server.config.ConfigKey;
 import org.bitBridge.server.core.client.BitBridgeClient;
@@ -26,7 +25,6 @@ import org.bitBridge.shared.config.ConfiguracionApp;
 import org.bitBridge.shared.core.comunication.Communication;
 import org.bitBridge.shared.Logger;
 import org.bitBridge.shared.network.ServerNetworkEngine;
-
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -39,22 +37,25 @@ import java.util.function.Consumer;
 public class NioServerEngine implements ServerNetworkEngine {
     private ServerSocketChannel serverChannel;
     private final ServerContext context;
-    private Selector bossSelector;
     private final AtomicInteger TOTALCONECTIONS = new AtomicInteger(0);
-    // Configuración de Sub-Reactors
-    private final int workerCount = Runtime.getRuntime().availableProcessors();
-    //private final int workerCount = 4;
+
+    // 🚨 CORREGIDO: Única fuente de verdad para el conteo de hilos worker
+    private int workerCount;
     private SubReactor[] workers;
     private final AtomicInteger roundRobin = new AtomicInteger(0);
-    ConfiguracionApp config = ConfiguracionApp.getInstancia();
-
-    public NioServerEngine(ServerContext context) { this.context = context; }
+    private final ConfiguracionApp config = ConfiguracionApp.getInstancia();
     private Consumer<LogEntry> logListener;
+
+    public NioServerEngine(ServerContext context) {
+        this.context = context;
+    }
 
     @Override
     public String start(int port) throws IOException {
         notify("Inicializando Sub-Reactors...", LogLevel.INFO);
-        int workerCount = config.obtenerInt(ConfigKey.NET_WORKER_THREADS,
+
+        // 🚨 CORREGIDO: Asignación directa a la variable de instancia de la clase
+        this.workerCount = config.obtenerInt(ConfigKey.NET_WORKER_THREADS,
                 Runtime.getRuntime().availableProcessors() * 4);
 
         // 1. Inicializar Workers (Sub-Reactors)
@@ -64,10 +65,9 @@ public class NioServerEngine implements ServerNetworkEngine {
             new Thread(workers[i], "NIO-Worker-" + i).start();
         }
 
-        //this.bossSelector = Selector.open();
-        // 2. Configurar el Main Reactor (Boss) para aceptar conexiones
+        // 2. Configurar el Main Reactor (Boss) para escuchar en la red
         serverChannel = ServerSocketChannel.open();
-        serverChannel.configureBlocking(false); // El accept puede ser bloqueante en su propio hilo
+        serverChannel.configureBlocking(false);
         serverChannel.setOption(StandardSocketOptions.SO_REUSEADDR, true);
         serverChannel.bind(new InetSocketAddress(port));
 
@@ -76,23 +76,20 @@ public class NioServerEngine implements ServerNetworkEngine {
 
         String startMsg = String.format("Motor NIO activo en puerto %d con %d workers", port, workerCount);
         notify(startMsg, LogLevel.SUCCESS);
-        // IMPORTANTE: No usamos Logger.log aquí si queremos que la UI lo maneje,
-        // pero lo retornamos para el CompletableFuture
         return startMsg;
     }
-
-
 
     private void acceptLoop() {
         while (serverChannel.isOpen()) {
             try {
-                int maxConnections = config.obtenerInt(ConfigKey.NET_MAX_CONN, 1000);
+                int maxConnections = config.obtenerInt(ConfigKey.NET_MAX_CONN, 100000);
                 boolean useNoDelay = config.obtenerBoolean(ConfigKey.NET_NODELAY, true);
 
                 SocketChannel clientChannel = serverChannel.accept();
                 if (clientChannel != null) {
+                    // 🚨 CORREGIDO: Validación atómica sin alterar el estado antes de tiempo
                     if (TOTALCONECTIONS.get() >= maxConnections) {
-                        Logger.logInfo("Se alcanzo la cantida de maxima de conexiones");
+                        Logger.logWarn("Límite de conexiones alcanzado (" + maxConnections + "). Conexión rechazada.");
                         notify("Límite de conexiones alcanzado (" + maxConnections + ")", LogLevel.WARNING);
                         clientChannel.close();
                         continue;
@@ -100,18 +97,25 @@ public class NioServerEngine implements ServerNetworkEngine {
 
                     clientChannel.configureBlocking(false);
                     clientChannel.setOption(StandardSocketOptions.TCP_NODELAY, useNoDelay);
+
+                    // 🔒 ENTORNO NUBE: Forzar KeepAlive de TCP para limpiar conexiones muertas por Firewalls
+                    clientChannel.setOption(StandardSocketOptions.SO_KEEPALIVE, true);
+
                     TOTALCONECTIONS.incrementAndGet();
-                    // Balanceo Round-Robin hacia los Sub-Reactors
+
+                    // 🚨 CORREGIDO: Math.abs evita romper el índice si roundRobin llega a desbordar el Integer.MAX_VALUE
                     int index = Math.abs(roundRobin.getAndIncrement() % workerCount);
                     workers[index].registerChannel(clientChannel);
                 }
             } catch (IOException e) {
-                if (serverChannel.isOpen()) Logger.logError("Error aceptando conexión: " + e.getMessage());
+                if (serverChannel.isOpen()) {
+                    Logger.logError("Error aceptando conexión: " + e.getMessage());
+                }
             }
         }
     }
 
-    // Clase interna para el manejo de I/O en hilos separados
+    // Clase interna para el aislamiento de tareas I/O
     private class SubReactor implements Runnable {
         private final Selector workerSelector;
         private final int id;
@@ -121,20 +125,25 @@ public class NioServerEngine implements ServerNetworkEngine {
             this.id = id;
             this.workerSelector = Selector.open();
         }
+
         public void registerChannel(SocketChannel channel) {
             pendingTasks.add(() -> {
                 try {
-                    // Dentro de SubReactor.registerChannel
                     NioClientHandler handler = new NioClientHandler(channel, context);
-
                     SelectionKey key = channel.register(workerSelector, SelectionKey.OP_READ, handler);
                     handler.setSelectionKey(key);
-
                 } catch (ClosedChannelException e) {
                     Logger.logError("Error registrando canal en Worker-" + id);
+                    // 🚨 CORREGIDO: Sanar el contador si el canal se murió antes de entrar al selector
+                    TOTALCONECTIONS.decrementAndGet();
                 }
             });
-            // Despierta al selector para que procese la cola pendingTasks
+            workerSelector.wakeup();
+        }
+
+        // 🚨 NUEVO: Permite inyectar cambios de estado de llaves de forma segura en el hilo correcto
+        public void queueTask(Runnable task) {
+            pendingTasks.add(task);
             workerSelector.wakeup();
         }
 
@@ -142,13 +151,13 @@ public class NioServerEngine implements ServerNetworkEngine {
         public void run() {
             while (workerSelector.isOpen()) {
                 try {
-                    // 1. Ejecutar tareas de registro pendientes antes del select
+                    // 1. Consumir tareas de registro o mutación pendientes de forma síncrona
                     Runnable task;
                     while ((task = pendingTasks.poll()) != null) {
                         task.run();
                     }
 
-                    // 2. Ahora sí, esperar eventos de red
+                    // 2. Bloqueo controlado esperando eventos de sockets sin CPU Burn
                     if (workerSelector.select() <= 0) continue;
 
                     var keys = workerSelector.selectedKeys();
@@ -156,19 +165,23 @@ public class NioServerEngine implements ServerNetworkEngine {
                     while (iter.hasNext()) {
                         SelectionKey key = iter.next();
                         iter.remove();
+
                         if (key.isValid() && key.isReadable()) {
-                            ((NioClientHandler) key.attachment()).processRead();
+                            NioClientHandler handler = (NioClientHandler) key.attachment();
+                            if (handler != null) {
+                                handler.processRead();
+                            }
                         }
                     }
                 } catch (Exception e) {
-                    Logger.logError("Error en Sub-Reactor " + id + ": " + e.getMessage());
+                    Logger.logError("Error crítico en Sub-Reactor " + id + ": " + e.getMessage());
                 }
             }
         }
     }
-// ... dentro de NioServerEngine ...
 
     public void unregisterChannel(SocketChannel channel) {
+        if (channel == null) return;
         boolean found = false;
         for (SubReactor worker : workers) {
             SelectionKey key = channel.keyFor(worker.workerSelector);
@@ -179,35 +192,39 @@ public class NioServerEngine implements ServerNetworkEngine {
                 break;
             }
         }
-        // Decrementar siempre que se cierre, independientemente de si estaba en un selector
-        // para mantener el balance con el incrementAndGet() del acceptLoop
         TOTALCONECTIONS.decrementAndGet();
     }
 
     public void disableRead(BitBridgeClient handler) {
+        if (handler == null) return;
         SocketChannel channel = handler.getSocketChannel();
         for (SubReactor worker : workers) {
             SelectionKey key = channel.keyFor(worker.workerSelector);
             if (key != null) {
-                // Cambiamos los ops a 0 (deja de escuchar lectura)
-                key.interestOps(0);
-                worker.workerSelector.wakeup();
+                // 🚨 CORREGIDO: La mutación se delega al hilo del worker para evitar data races en el selector
+                worker.queueTask(() -> {
+                    if (key.isValid()) {
+                        key.interestOps(0);
+                    }
+                });
                 return;
             }
         }
     }
 
     public void setReadEnabled(BitBridgeClient handler, boolean enabled) {
+        if (handler == null) return;
         SocketChannel channel = handler.getSocketChannel();
-        // Encontrar el worker que gestiona este canal
         for (SubReactor worker : workers) {
             SelectionKey key = channel.keyFor(worker.workerSelector);
-            if (key != null && key.isValid()) {
-                int ops = enabled ? SelectionKey.OP_READ : 0;
-                if (key.interestOps() != ops) {
-                    key.interestOps(ops);
-                    worker.workerSelector.wakeup();
-                }
+            if (key != null) {
+
+                worker.queueTask(() -> {
+                    if (key.isValid()) {
+                        int ops = enabled ? SelectionKey.OP_READ : 0;
+                        key.interestOps(ops);
+                    }
+                });
                 return;
             }
         }
@@ -215,29 +232,31 @@ public class NioServerEngine implements ServerNetworkEngine {
 
     @Override
     public void sendTo(String clientId, Communication payload) throws IOException {
-        // Buscamos al cliente por su ID en el registry
-        /*var client = context.registry().getClient(clientId);
-        if (client != null) {
-            client.sendComunicacion(payload);
-        }*/
+        // Lógica de ruteo del negocio
     }
 
     @Override
-    public void setLogListener(Consumer<LogEntry> listener) {
-        this.logListener = listener;
-    }
+    public void setLogListener(Consumer<LogEntry> listener) { this.logListener = listener; }
 
     @Override
-    public Consumer<LogEntry> getLogListener() {
-        return logListener;
-    }
-
+    public Consumer<LogEntry> getLogListener() { return logListener; }
 
     private void notify(String msg, LogLevel type) {
         if (logListener != null) {
             logListener.accept(new LogEntry(msg, type));
         }
     }
-    @Override public void stop() throws IOException { serverChannel.close(); }
-    @Override public boolean isActive() { return serverChannel.isOpen(); }
+
+    @Override
+    public void stop() throws IOException {
+        if (serverChannel != null) serverChannel.close();
+        if (workers != null) {
+            for (SubReactor worker : workers) {
+                if (worker.workerSelector != null) worker.workerSelector.close();
+            }
+        }
+    }
+
+    @Override
+    public boolean isActive() { return serverChannel != null && serverChannel.isOpen(); }
 }

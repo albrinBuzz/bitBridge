@@ -4,6 +4,9 @@ import org.bitBridge.Client.ClientInfo;
 import org.bitBridge.server.core.ServerContext;
 import org.bitBridge.shared.*;
 import org.bitBridge.shared.core.comunication.*;
+import org.bitBridge.shared.core.comunication.model.basic.FileDirectoryCommunication;
+import org.bitBridge.shared.core.comunication.model.basic.FileHandshakeCommunication;
+import org.bitBridge.shared.core.comunication.model.basic.Mensaje;
 import org.bitBridge.shared.network.ProtocolService;
 
 import java.io.*;
@@ -12,8 +15,6 @@ import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.WritableByteChannel;
-import java.util.HashMap;
-import java.util.Map;
 
 public class ClientHandler implements Runnable,BitBridgeClient {
     private final Socket clientSocket;
@@ -22,7 +23,6 @@ public class ClientHandler implements Runnable,BitBridgeClient {
     private DataOutputStream salida;
 
     public String nick;
-    private final Map<CommunicationType, ActionHandler> actionHandlers = new HashMap<>();
 
     public ClientHandler(Socket socket, ServerContext context) {
         this.clientSocket = socket;
@@ -69,7 +69,7 @@ public class ClientHandler implements Runnable,BitBridgeClient {
         } else {
             this.nick = context.getServer().getUniqueNick(contenido);
             context.getServer().registerClient(this, 8080);
-            sendComunicacion(new Mensaje("Conectado como: " + nick, CommunicationType.MESSAGE));
+            sendComunicacion(new Mensaje("Conectado como: " + nick));
             context.getServer().broadcastMessage("[ " + nick + "] Se ha unido al Chat", this);
         }
     }

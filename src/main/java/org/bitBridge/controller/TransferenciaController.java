@@ -2,13 +2,13 @@ package org.bitBridge.controller;
 
 
 
-import org.bitBridge.Client.TransferManager;
+import org.bitBridge.Client.managers.TransferManager;
 import org.bitBridge.Observers.TransferencesObserver;
 import org.bitBridge.models.TransferProgress;
 import org.bitBridge.models.Transferencia;
 import org.bitBridge.shared.*;
 import org.bitBridge.shared.core.comunication.FileHandshakeAction;
-import org.bitBridge.shared.core.comunication.FileHandshakeCommunication;
+import org.bitBridge.shared.core.comunication.model.basic.FileHandshakeCommunication;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -166,11 +166,13 @@ public class TransferenciaController {
 
     public boolean notifyTranference(FileHandshakeCommunication handshakeCommunication)
     {
-        return true;
-         /*if (transferencesObserver!=null){
+
+         if (transferencesObserver!=null){
              return transferencesObserver.notifyTranference(handshakeCommunication);
          }
-        else return true;*/
+        else
+        return true;
+
     }
     public void notifyTranference(FileHandshakeAction action){
         transferencesObserver.notifyTranference(action);

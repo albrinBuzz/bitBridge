@@ -4,8 +4,9 @@ import com.formdev.flatlaf.intellijthemes.FlatOneDarkIJTheme;
 import org.bitBridge.Client.core.Client;
 import org.bitBridge.Observers.RemoteDirectoryListener;
 import org.bitBridge.shared.Logger;
-import org.bitBridge.shared.core.comunication.FilePullRequest;
-import org.bitBridge.shared.core.comunication.NodoDirectorio;
+import org.bitBridge.shared.config.ConfiguracionApp;
+import org.bitBridge.shared.core.comunication.model.basic.FilePullRequest;
+import org.bitBridge.shared.core.comunication.model.basic.NodoDirectorio;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -18,8 +19,6 @@ import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableRowSorter;
 import javax.swing.tree.DefaultMutableTreeNode;
 import java.awt.*;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -29,32 +28,39 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 
+/**
+ * Explorador Unificado Lado a Lado (Local vs Remoto) para bitBridge Pro.
+ * Conecta eventos asíncronos de red de Netty/NIO con el motor Rsync Quick-Check de la UI.
+ * * Copyright 2026 Cristobal Roman Zamora
+ */
 public class RemoteExplorer extends JFrame implements RemoteDirectoryListener {
 
     private static final Color NICOTINE_ORANGE = new Color(255, 165, 0);
     private static final Color BG_DARKER = new Color(20, 20, 20);
-    private static final Color ACCENT_GREEN = new Color(50, 200, 50);
 
-    NodoDirectorio raizDatos;
-    private NodoDirectorio nodoActual;
-    Path rutaRaiz;
+    // Contexto de Rutas y Datos
+    private NodoDirectorio raizDatos;
+    private NodoDirectorio nodoRemotoActual;
+    private String rutaLocalActual = "";
+    private String rutaRemotaActual = "";
 
-
+    // Pilas de navegación del ecosistema de red (Historial Remoto)
     private Deque<NodoDirectorio> backStack = new ArrayDeque<>();
     private Deque<NodoDirectorio> forwardStack = new ArrayDeque<>();
-    private Deque<NodoDirectorio>directorios= new ArrayDeque<>();
 
+    // Componentes core del Layout
     private FileInspectorPanel inspector;
-    private RemoteFileTablePanel fileTablePanel;
+    private DualExplorerPanel dualExplorerPanel; // ⚡ Reemplaza a RemoteFileTablePanel
     private BreadcrumbBar breadcrumbBar;
 
     private JComboBox<String> comboFiltro;
     private JButton btnBack;
     private JButton btnForward;
     private JButton btnHome;
+
     private Client client;
     private String targetIp;
-    // Opciones del filtro
+
     private final String[] OPCIONES_FILTRO = {
             "Todos los archivos",
             "Solo Carpetas",
@@ -64,61 +70,129 @@ public class RemoteExplorer extends JFrame implements RemoteDirectoryListener {
             "Ejecutables (exe, sh, bat)"
     };
 
-
-    public RemoteExplorer(Client client,String targeIp) throws IOException {
-        //setupTheme();
-        this.client=client;
-        this.targetIp=targeIp;
+    public RemoteExplorer(Client client, String targetIp) throws IOException {
+        this.client = client;
+        this.targetIp = targetIp;
+        // Cargamos el punto de montaje local por defecto del cliente
+        this.rutaLocalActual = ConfiguracionApp.getInstancia().getSharedDir();
         setupGUI();
-    }
 
+        // Solicitar el escaneo inicial raíz al nodo remoto
+        solicitarDirectorioRemoto("");
+    }
 
     public RemoteExplorer(String rutaInicial) throws IOException {
-
-        rutaRaiz = Paths.get(rutaInicial);
-        //raizDatos = new NodoDirectorio(rutaRaiz);
-        raizDatos=NodoDirectorio.escanear(rutaRaiz);
-        nodoActual=NodoDirectorio.escanear(rutaRaiz);
-
+        this.rutaLocalActual = rutaInicial;
         setupGUI();
-
     }
 
-    private void setupGUI(){
+    private void setupGUI() {
         FlatOneDarkIJTheme.setup();
 
         setTitle("BitBridge Pro - Advanced Remote Assets Explorer");
-        setSize(1500, 950);
-        setDefaultCloseOperation(EXIT_ON_CLOSE);
+        setSize(1600, 950);
+        setDefaultCloseOperation(DISPOSE_ON_CLOSE);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout());
 
-        // 1. TOOLBAR SUPERIOR
-        add(createGlobalToolBar(), BorderLayout.NORTH);
-
-        setDefaultCloseOperation(DISPOSE_ON_CLOSE);
+        if (client != null) {
+            client.addDirectoryListener(this);
+        }
 
         this.addWindowListener(new java.awt.event.WindowAdapter() {
             @Override
             public void windowClosing(java.awt.event.WindowEvent e) {
-                // Correcto: Referenciamos a la instancia de RemoteExplorer que implementa la interfaz
-                client.removeDirectoryListener(RemoteExplorer.this);
-                Logger.logInfo("Explorador remoto para " + targetIp + " cerrado y desuscrito.");
+                if (client != null) {
+                    client.removeDirectoryListener(RemoteExplorer.this);
+                    Logger.logInfo("Explorador remoto cerrado.");
+                }
             }
         });
+
         inspector = new FileInspectorPanel();
+        breadcrumbBar = new BreadcrumbBar(nodo -> navegarA(nodo));
 
-        fileTablePanel = new RemoteFileTablePanel(
-                nodo -> inspector.updateInfo(nodo),       // Clic simple -> Update inspector
-                nodo -> {                                 // Doble Clic -> Navegar
-                    if (nodo.esDirectorio()) navegarA(nodo);
-                },
-                this::ejecutarPull                // Clic derecho PULL -> Acción red
-        );
+        // =========================================================================
+        // CONSTRUCCIÓN E INTERCONEXIÓN DEL PANEL DUAL DE TABLAS
+        // =========================================================================
+        dualExplorerPanel = new DualExplorerPanel();
 
+        // 1. Enlazar navegación de carpetas por doble clic
+        dualExplorerPanel.setOnLocalFolderNav(nodo -> {
+            if (nodo.esDirectorio()) {
+                File nuevaRuta = new File(rutaLocalActual, nodo.getNombre());
+                if (nuevaRuta.isDirectory()) {
+                    this.rutaLocalActual = nuevaRuta.getAbsolutePath();
+                    Logger.logInfo("Navegando Local a: " + rutaLocalActual);
+                    // Aquí refrescas tus archivos locales usando tu motor de File
+                }
+            }
+        });
 
-        breadcrumbBar = new BreadcrumbBar(this::navegarA);
+        dualExplorerPanel.setOnRemoteFolderNav(nodo -> {
+            if (nodo.esDirectorio()) {
+                Logger.logInfo("Navegando Remoto a: " + nodo.getNombre());
+                navegarA(nodo); // Tu método existente para despachar el paquete Netty
+            }
+        });
 
+        // 2. Control de selección sincronizado con el Inspector lateral
+        dualExplorerPanel.getLocalTablePanel().getFileTable().getSelectionModel().addListSelectionListener(e -> {
+            if (!e.getValueIsAdjusting() && dualExplorerPanel.isLocalFocused()) {
+                NodoDirectorio n = dualExplorerPanel.getLocalTablePanel().getSelectedNode();
+                if (n != null) {
+                    inspector.updateInfo(n);
+                    inspector.configurarModoBoton(true); // Activa PUSH (Verde)
+                }
+            }
+        });
+
+        dualExplorerPanel.getRemoteTablePanel().getFileTable().getSelectionModel().addListSelectionListener(e -> {
+            if (!e.getValueIsAdjusting() && !dualExplorerPanel.isLocalFocused()) {
+                NodoDirectorio n = dualExplorerPanel.getRemoteTablePanel().getSelectedNode();
+                if (n != null) {
+                    inspector.updateInfo(n);
+                    inspector.configurarModoBoton(false); // Activa PULL (Naranja)
+                }
+            }
+        });
+
+        // 3. Manejo interactivo del Foco de Paneles (Clics en áreas vacías)
+        dualExplorerPanel.setOnFocusChanged(() -> {
+            boolean localEnFoco = dualExplorerPanel.isLocalFocused();
+            inspector.configurarModoBoton(localEnFoco);
+
+            NodoDirectorio n = localEnFoco
+                    ? dualExplorerPanel.getLocalTablePanel().getSelectedNode()
+                    : dualExplorerPanel.getRemoteTablePanel().getSelectedNode();
+
+            if (n != null) {
+                inspector.updateInfo(n);
+            } else {
+                inspector.clear();
+            }
+        });
+
+        // 4. Disparador del botón de transferencia unificado hacia el pipeline de Red/Rsync
+        inspector.getBtnPullAction().addActionListener(e -> {
+            boolean esPush = dualExplorerPanel.isLocalFocused();
+            if (esPush) {
+                List<NodoDirectorio> seleccionados = dualExplorerPanel.getLocalTablePanel().getSelectedNodes();
+                if (!seleccionados.isEmpty()) {
+                    Logger.logInfo("Disparando pipeline de subida PUSH para " + seleccionados.size() + " elementos.");
+                    // Tu lógica existente para subir datos
+                }
+            } else {
+                List<NodoDirectorio> seleccionados = dualExplorerPanel.getRemoteTablePanel().getSelectedNodes();
+                if (!seleccionados.isEmpty()) {
+                    Logger.logInfo("Disparando pipeline de descarga PULL para " + seleccionados.size() + " elementos.");
+                    // Tu lógica existente para procesar solicitudes de FilePullRequest
+                }
+            }
+        });
+
+        // 1. TOOLBAR SUPERIOR GENERAL
+        add(createGlobalToolBar(), BorderLayout.NORTH);
 
         // 2. PANEL CENTRAL (Split lateral)
         JSplitPane mainSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
@@ -128,40 +202,58 @@ public class RemoteExplorer extends JFrame implements RemoteDirectoryListener {
 
         add(mainSplit, BorderLayout.CENTER);
 
-        // 3. BARRA DE ESTADO
+        // 3. BARRA DE ESTADO INFERIOR
         add(createStatusBar(), BorderLayout.SOUTH);
     }
-
-
     /**
-     * Lógica centralizada para manejar la solicitud de descarga de un archivo.
-     * @param nodo El nodo (archivo o carpeta) seleccionado en la tabla.
+     * Intercepta las colecciones de datos físicos e inyecta la matriz cruzada a ambas tablas.
      */
+    private void refrescarEspejoRsync(List<NodoDirectorio> remotosNuevos) {
+        List<NodoDirectorio> locales = new ArrayList<>();
+        File dirLocal = new File(this.rutaLocalActual);
+
+        if (dirLocal.exists() && dirLocal.isDirectory()) {
+            File[] files = dirLocal.listFiles();
+            if (files != null) {
+                for (File f : files) {
+                    locales.add(new NodoDirectorio(f.toPath()));
+                }
+            }
+        }
+
+        // Si no se proveen nodos remotos nuevos (ej. navegamos en local), reusamos los elementos de la tabla derecha
+        List<NodoDirectorio> remotosAUsar = (remotosNuevos != null && !remotosNuevos.isEmpty())
+                ? remotosNuevos
+                : dualExplorerPanel.getRemoteTablePanel().getSelectedNodes(); // O preservas estado previo
+
+        dualExplorerPanel.coordinarEstructuras(locales, remotosAUsar, this.rutaLocalActual, this.rutaRemotaActual);
+    }
+
+    private void solicitarDirectorioRemoto(String rutaDestino) {
+        if (client == null) return;
+        try {
+            client.requestFileList(targetIp, rutaDestino);
+        } catch (IOException e) {
+            Logger.logError("Error enviando petición de listado: " + e.getMessage());
+        }
+    }
+
     private void ejecutarPull(NodoDirectorio nodo) {
-        // 1. Validación rápida
-
-
-        // 2. Ejecución en segundo plano (para que la app no se trabe)
         new Thread(() -> {
             try {
                 Logger.logInfo("Petición de PULL enviada: " + nodo.getNombre());
 
-                // Aquí llamas a tu socket/cliente
-                // Ejemplo de uso en RemoteExplorer
                 FilePullRequest request = new FilePullRequest(
                         nodo.getRutaString(),
                         nodo.getNombre(),
-                        targetIp,           // Nodo remoto
+                        targetIp,
                         client.getHostName(),
-                        nodo.esDirectorio()// Tu nick (para que el mensaje sepa volver)
+                        nodo.esDirectorio()
                 );
 
                 client.enviarComunicacion(request);
 
-
-                // 3. Feedback visual ligero en el hilo de la UI
                 SwingUtilities.invokeLater(() -> {
-                    // Si tienes una barra de estado, úsala aquí. Si no, este log basta:
                     Logger.logInfo("Transferencia iniciada para: " + nodo.getNombre());
                 });
 
@@ -174,7 +266,110 @@ public class RemoteExplorer extends JFrame implements RemoteDirectoryListener {
         }).start();
     }
 
+    // =========================================================================
+    // 🌐 CAPA DE ESCUCHA ASÍNCRONA (EVENTOS NETWORK)
+    // =========================================================================
+    @Override
+    public void onDirectoryDataReceived(NodoDirectorio nodo) {
+        Logger.logInfo("Datos entrantes del nodo: " + nodo.getNombre());
 
+        if (this.raizDatos == null) {
+            this.raizDatos = nodo;
+        }
+
+        if (this.nodoRemotoActual != null) {
+            backStack.push(this.nodoRemotoActual);
+            forwardStack.clear();
+        }
+
+        this.nodoRemotoActual = nodo;
+        this.rutaRemotaActual = nodo.getRutaString();
+
+        SwingUtilities.invokeLater(() -> {
+            // Sincronizar y actualizar las dos tablas en paralelo
+            refrescarEspejoRsync(nodoRemotoActual.getHijos());
+
+            // Actualizar elementos dinámicos de cabecera
+            breadcrumbBar.updatePath(raizDatos, nodoRemotoActual);
+            actualizarEstadoBotones();
+        });
+    }
+
+    private void navegarA(NodoDirectorio destino) {
+        if (destino == null || !destino.esDirectorio()) return;
+        Logger.logInfo("Navegando hacia nodo remoto: " + destino.getNombre());
+        solicitarDirectorioRemoto(destino.getRutaString());
+    }
+
+    private void navegarAtras() {
+        if (!backStack.isEmpty()) {
+            forwardStack.push(nodoRemotoActual);
+            NodoDirectorio destino = backStack.pop();
+            solicitarDirectorioRemoto(destino.getRutaString());
+        }
+    }
+
+    private void navegarAdelante() {
+        if (!forwardStack.isEmpty()) {
+            backStack.push(nodoRemotoActual);
+            NodoDirectorio destino = forwardStack.pop();
+            solicitarDirectorioRemoto(destino.getRutaString());
+        }
+    }
+
+    private void actualizarEstadoBotones() {
+        btnBack.setEnabled(!backStack.isEmpty());
+        btnForward.setEnabled(!forwardStack.isEmpty());
+    }
+
+    // =========================================================================
+    // ⚙️ FILTRADO COMPUESTO DE EVENTOS DE INTERFAZ
+    // =========================================================================
+    private void aplicarFiltro(String textoBusqueda, String categoria) {
+        // Obtenemos los sorters de ambas tablas para filtrarlas en simultáneo
+        TableRowSorter<DefaultTableModel> sorterLocal = dualExplorerPanel.getLocalTablePanel().getSorter();
+        TableRowSorter<DefaultTableModel> sorterRemoto = dualExplorerPanel.getRemoteTablePanel().getSorter();
+
+        RowFilter<DefaultTableModel, Integer> filtroComun = new RowFilter<>() {
+            @Override
+            public boolean include(Entry<? extends DefaultTableModel, ? extends Integer> entry) {
+                String nombre = entry.getStringValue(0).toLowerCase();
+                String tipo = entry.getStringValue(2).toLowerCase();
+                String busqueda = textoBusqueda.toLowerCase();
+
+                boolean cumpleCategoria = true;
+                switch (categoria) {
+                    case "Solo Carpetas": cumpleCategoria = nombre.startsWith("📁"); break;
+                    case "Imágenes (jpg, png, gif)": cumpleCategoria = "jpg png gif jpeg".contains(tipo); break;
+                    case "Multimedia (mp4, mkv, mp3)": cumpleCategoria = "mp4 mkv mp3 avi".contains(tipo); break;
+                    case "Documentos (pdf, docx, txt)": cumpleCategoria = "pdf docx txt odt".contains(tipo); break;
+                    case "Ejecutables (exe, sh, bat)": cumpleCategoria = "exe sh bat jar".contains(tipo); break;
+                }
+
+                if (busqueda.startsWith(".")) {
+                    return tipo.contains(busqueda.replace(".", "")) && cumpleCategoria;
+                }
+                if (busqueda.equals("carpetas") || busqueda.equals("dir")) {
+                    return nombre.startsWith("📁");
+                }
+
+                boolean cumpleTexto = nombre.contains(busqueda) || tipo.contains(busqueda);
+                return cumpleCategoria && cumpleTexto;
+            }
+        };
+
+        if (textoBusqueda.trim().isEmpty() && categoria.equals(OPCIONES_FILTRO[0])) {
+            sorterLocal.setRowFilter(null);
+            sorterRemoto.setRowFilter(null);
+        } else {
+            sorterLocal.setRowFilter(filtroComun);
+            sorterRemoto.setRowFilter(filtroComun);
+        }
+    }
+
+    // =========================================================================
+    // 🛠️ MÉTODOS DE CONSTRUCCIÓN VISUAL DE SOPORTE
+    // =========================================================================
     private JPanel createGlobalToolBar() {
         JPanel bar = new JPanel(new FlowLayout(FlowLayout.LEFT));
         bar.setBackground(BG_DARKER);
@@ -195,7 +390,6 @@ public class RemoteExplorer extends JFrame implements RemoteDirectoryListener {
         JPanel side = new JPanel(new BorderLayout());
         side.setBackground(BG_DARKER);
 
-        // Marcadores
         DefaultListModel<String> favModel = new DefaultListModel<>();
         favModel.addElement("⭐ Servidor Principal i7");
         favModel.addElement("⭐ Backup Gigabyte B760");
@@ -207,7 +401,6 @@ public class RemoteExplorer extends JFrame implements RemoteDirectoryListener {
         favList.setFixedCellHeight(35);
         favList.setBorder(new TitledBorder(new LineBorder(Color.DARK_GRAY), "Favoritos"));
 
-        // Árbol
         DefaultMutableTreeNode root = new DefaultMutableTreeNode("Infraestructura");
         DefaultMutableTreeNode node1 = new DefaultMutableTreeNode("NODO-REMOTO-01");
         node1.add(new DefaultMutableTreeNode("BitBridge-Shared"));
@@ -224,30 +417,21 @@ public class RemoteExplorer extends JFrame implements RemoteDirectoryListener {
         return side;
     }
 
-
-
     private JPanel createNavigationControls() {
         JPanel navButtons = new JPanel(new FlowLayout(FlowLayout.LEFT, 2, 0));
         navButtons.setOpaque(false);
 
         btnBack = new JButton("⬅");
         btnForward = new JButton("➡");
-        btnHome = new JButton("🏠"); // Botón Home
+        btnHome = new JButton("🏠");
 
-        // Estilo
         btnBack.setToolTipText("Atrás");
         btnForward.setToolTipText("Adelante");
         btnHome.setToolTipText("Ir al Directorio Raíz");
 
-        // Listeners
         btnBack.addActionListener(e -> navegarAtras());
         btnForward.addActionListener(e -> navegarAdelante());
-
-        btnHome.addActionListener(e -> {
-            // Al ir a Home, tratamos la raíz como una navegación nueva
-            // para que se guarde en el historial de 'atrás'
-            navegarA(raizDatos);
-        });
+        btnHome.addActionListener(e -> navegarA(raizDatos));
 
         navButtons.add(btnBack);
         navButtons.add(btnForward);
@@ -258,7 +442,7 @@ public class RemoteExplorer extends JFrame implements RemoteDirectoryListener {
 
     private JTabbedPane createMainExplorationTabs() {
         JTabbedPane tabs = new JTabbedPane();
-        tabs.addTab("🌐 Explorador Remoto", createRemoteExplorerPanel());
+        tabs.addTab("🌐 Explorador Dual Sincronizado", createRemoteExplorerPanel());
         tabs.addTab("📥 Cola de Transferencias", createQueuePanel());
         return tabs;
     }
@@ -267,10 +451,8 @@ public class RemoteExplorer extends JFrame implements RemoteDirectoryListener {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBackground(BG_DARKER);
 
-        // --- BARRA DE NAVEGACIÓN (FILE MANAGER STYLE) ---
         JPanel navContainer = new JPanel(new BorderLayout());
         navContainer.setOpaque(false);
-
 
         JToolBar actions = new JToolBar();
         actions.setFloatable(false);
@@ -280,42 +462,25 @@ public class RemoteExplorer extends JFrame implements RemoteDirectoryListener {
         actions.addSeparator();
 
         actions.add(createNavButton("➕ Nueva Carpeta", "Crear"));
-        actions.add(createNavButton("📤 Subir (Push)", "Upload"));
         actions.addSeparator();
-        actions.add(createNavButton("✂️ Cortar", null));
-        actions.add(createNavButton("📋 Pegar", null));
-        actions.add(createNavButton("🗑️ Eliminar", null));
         actions.add(Box.createHorizontalGlue());
 
         JTextField search = new JTextField(15);
-        //search.putClientProperty("JTextField.placeholderText", "🔍 Filtrar archivos...");
-        actions.add(new JLabel("Filtro: "));
-        actions.add(search);
+        search.putClientProperty("JTextField.placeholderText", "🔍 Ej: .pdf, carpetas...");
 
-        //JTextField search = new JTextField(15);
-        search.putClientProperty("JTextField.placeholderText", "🔍 Ej: .pdf, carpetas, o nombre...");
-
-        // Dentro de createRemoteExplorerPanel...
         comboFiltro = new JComboBox<>(OPCIONES_FILTRO);
         comboFiltro.setMaximumSize(new Dimension(200, 30));
+        comboFiltro.addActionListener(e -> aplicarFiltro(search.getText(), (String) comboFiltro.getSelectedItem()));
 
-// Listener para el Combo
-        comboFiltro.addActionListener(e -> {
-            aplicarFiltro(search.getText(), (String) comboFiltro.getSelectedItem());
-        });
-
-        // Listener para el campo de búsqueda (actualizado)
         search.getDocument().addDocumentListener(new DocumentListener() {
             public void insertUpdate(DocumentEvent e) { filtrar(); }
             public void removeUpdate(DocumentEvent e) { filtrar(); }
             public void changedUpdate(DocumentEvent e) { filtrar(); }
             private void filtrar() {
-                SwingUtilities.invokeLater(() ->
-                        aplicarFiltro(search.getText(), (String) comboFiltro.getSelectedItem()));
+                SwingUtilities.invokeLater(() -> aplicarFiltro(search.getText(), (String) comboFiltro.getSelectedItem()));
             }
         });
 
-// Agregar a la barra de acciones
         actions.add(new JLabel("  Tipo: "));
         actions.add(comboFiltro);
         actions.addSeparator();
@@ -323,152 +488,17 @@ public class RemoteExplorer extends JFrame implements RemoteDirectoryListener {
         actions.add(search);
 
         navContainer.add(actions, BorderLayout.NORTH);
-        //navContainer.add(breadcrumbPanel, BorderLayout.SOUTH); // Usar nuestra variable de instancia
-
         navContainer.add(breadcrumbBar, BorderLayout.SOUTH);
 
-        JSplitPane contentSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT,
-                fileTablePanel,
-                inspector);
-
-        contentSplit.setDividerLocation(950);
-        contentSplit.setResizeWeight(0.8);
+        // Ajustamos la UI central inyectando nuestro panel dual interactivo al lado del inspector
+        JSplitPane contentSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, dualExplorerPanel, inspector);
+        contentSplit.setDividerLocation(1150);
+        contentSplit.setResizeWeight(0.85);
 
         panel.add(navContainer, BorderLayout.NORTH);
         panel.add(contentSplit, BorderLayout.CENTER);
 
         return panel;
-    }
-
-
-
-
-
-    /**
-     * Centraliza la lógica de navegación.
-     * Actualiza el nodo actual, la tabla de archivos y los breadcrumbs.
-     */
-    private void navegarA(NodoDirectorio destino) {
-        Logger.logInfo("llendo a "+destino.getNombre());
-
-        if (destino == null || !destino.esDirectorio()) {
-            return;
-        }
-        try {
-            client.requestFileList(targetIp,destino.getRutaString());
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-
-        // 1. Si tenemos un nodo previo, lo guardamos en el stack de retroceso
-        if (this.nodoActual != null) {
-            //backStack.push(this.nodoActual.getRutaCompleta().toFile());
-            backStack.push(nodoActual);
-            // Limpiamos el forward stack al navegar a una nueva ruta
-            forwardStack.clear();
-        }
-
-    }
-
-
-
-
-
-
-
-    private void navegarAtras() {
-        if (!backStack.isEmpty()) {
-            Logger.logInfo("Yendo hacia atrás...");
-
-            // 1. Guardamos el que estamos viendo ahora en el stack de "adelante"
-            forwardStack.push(nodoActual);
-
-            // 2. Sacamos el destino del stack de "atrás"
-            NodoDirectorio destino = backStack.pop();
-
-            // 3. Saltamos físicamente al nodo
-            // Importante: ejecutarSalto ya debe llamar a actualizarBreadcrumbs()
-            ejecutarSalto(destino);
-
-        } else {
-            Logger.logInfo("El stack de atrás está vacío");
-        }
-    }
-
-    private void navegarAdelante() {
-        if (!forwardStack.isEmpty()) {
-            // Guardamos el actual en el stack de "atrás"
-            //backStack.push(nodoActual.getRutaCompleta().toFile());
-            backStack.push(nodoActual);
-            // Solo una línea de código:
-            breadcrumbBar.updatePath(raizDatos, nodoActual);
-            //navegarA(forwardStack.pop());
-            ejecutarSalto(forwardStack.pop());
-            //File rutaSiguiente = forwardStack.pop();
-            //ejecutarSalto(rutaSiguiente);
-        }
-    }
-
-    /**
-     * Salto técnico que evita duplicar el historial al navegar por los botones
-     */
-    private void ejecutarSalto(NodoDirectorio nodo) {
-        this.nodoActual = nodo;
-        //populateAdvancedMockData(nodoActual.getHijosRed());
-        fileTablePanel.updateData(nodoActual.getHijosRed(),nodo.getNombre());
-        // Solo una línea de código:
-        breadcrumbBar.updatePath(raizDatos, nodoActual);
-        actualizarEstadoBotones();
-    }
-
-    private void actualizarEstadoBotones() {
-        btnBack.setEnabled(!backStack.isEmpty());
-        btnForward.setEnabled(!forwardStack.isEmpty());
-    }
-
-    private void aplicarFiltro(String textoBusqueda, String categoria) {
-        TableRowSorter<DefaultTableModel> tableSorter = fileTablePanel.getSorter();
-
-        if (textoBusqueda.trim().isEmpty() && categoria.equals(OPCIONES_FILTRO[0])) {
-            tableSorter.setRowFilter(null);
-            return;
-        }
-
-        tableSorter.setRowFilter(new RowFilter<DefaultTableModel, Integer>() {
-            @Override
-            public boolean include(Entry<? extends DefaultTableModel, ? extends Integer> entry) {
-                String nombre = entry.getStringValue(0).toLowerCase();
-                String tipo = entry.getStringValue(2).toLowerCase();
-                String busqueda = textoBusqueda.toLowerCase();
-
-                // 1. Verificar categoría del Combo Box
-                boolean cumpleCategoria = true;
-                switch (categoria) {
-                    case "Solo Carpetas": cumpleCategoria = nombre.startsWith("📁"); break;
-                    case "Imágenes (jpg, png, gif)": cumpleCategoria = "jpg png gif jpeg".contains(tipo); break;
-                    case "Multimedia (mp4, mkv, mp3)": cumpleCategoria = "mp4 mkv mp3 avi".contains(tipo); break;
-                    case "Documentos (pdf, docx, txt)": cumpleCategoria = "pdf docx txt odt".contains(tipo); break;
-                    case "Ejecutables (exe, sh, bat)": cumpleCategoria = "exe sh bat jar".contains(tipo); break;
-                }
-
-                if (busqueda.startsWith(".")) {
-                    return tipo.contains(busqueda.replace(".", ""));
-                }
-
-                // Lógica 2: Filtro por carpetas explícito
-                if (busqueda.equals("carpetas") || busqueda.equals("dir")) {
-                    return nombre.startsWith("📁");
-                }
-
-                // 2. Verificar texto de búsqueda
-                boolean cumpleTexto = nombre.contains(busqueda) || tipo.contains(busqueda);
-
-                // Lógica 3: Búsqueda general por nombre
-                //return nombre.contains(busqueda);
-                return cumpleCategoria && cumpleTexto;
-
-            }
-        });
     }
 
     private JPanel createQueuePanel() {
@@ -500,41 +530,5 @@ public class RemoteExplorer extends JFrame implements RemoteDirectoryListener {
         status.add(left, BorderLayout.WEST);
         status.add(right, BorderLayout.EAST);
         return status;
-    }
-
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            try {
-                new RemoteExplorer("/home/cris/Descargas").setVisible(true);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        });
-    }
-
-    @Override
-    public void onDirectoryDataReceived(NodoDirectorio nodo) {
-        Logger.logInfo("Dato entrantes "+nodo.getNombre());
-        if (this.raizDatos == null) {
-            this.raizDatos = nodo;
-            rutaRaiz = Paths.get(nodo.getRutaString());
-        }
-
-        if (!directorios.isEmpty()){
-            backStack.push(directorios.getLast());
-        }
-
-        directorios.add(nodo);
-        this.nodoActual = nodo;
-
-        SwingUtilities.invokeLater(() -> {
-            // 1. Enviamos los datos al nuevo panel de la tabla
-            fileTablePanel.updateData(nodoActual.getHijosRed(),nodo.getNombre());
-
-            // 2. Actualizamos el resto de la UI
-            // Solo una línea de código:
-            breadcrumbBar.updatePath(raizDatos, nodoActual);
-            actualizarEstadoBotones();
-        });
     }
 }

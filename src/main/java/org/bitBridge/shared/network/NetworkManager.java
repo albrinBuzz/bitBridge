@@ -6,7 +6,6 @@ import org.bitBridge.shared.Logger;
 import javax.jmdns.*;
 import java.io.IOException;
 import java.net.*;
-import java.net.http.*;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
@@ -17,22 +16,35 @@ public class NetworkManager {
     private final AtomicBoolean isScanning = new AtomicBoolean(false);
 
     /**
-     * Obtiene TODAS las IPs IPv4 válidas de las interfaces activas.
-     * Esto evita quedar atrapado en 127.0.0.1 o IPs de Docker/VirtualBox.
+     * Obtiene TODAS las IPs IPv4 válidas de las interfaces físicas activas.
+     * Purga de raíz interfaces virtuales como docker0, br-X, vethX, vboxnetX, lo, etc.
      */
     public static List<InetAddress> getAllLocalIps() {
         List<InetAddress> addresses = new ArrayList<>();
+
+        // Patrón para descartar interfaces virtuales comunes en Linux/Windows/Mac
+        String ignorePattern = "^(br-|docker|veth|vboxnet|lo|tun|tap|p2p|wlo|vnic|dummy).*";
+
         try {
             Enumeration<NetworkInterface> nets = NetworkInterface.getNetworkInterfaces();
             for (NetworkInterface netint : Collections.list(nets)) {
-                // Filtramos interfaces inactivas, loopback o puramente virtuales si es posible
-                if (netint.isUp() && !netint.isLoopback()) {
-                    Enumeration<InetAddress> inetAddresses = netint.getInetAddresses();
-                    for (InetAddress inetAddress : Collections.list(inetAddresses)) {
-                        // Solo IPv4 para evitar complicaciones de ruteo en redes locales simples
-                        if (inetAddress instanceof Inet4Address) {
-                            addresses.add(inetAddress);
-                        }
+                String name = netint.getName().toLowerCase();
+
+                // 1. Filtrar por banderas nativas del sistema operativo
+                if (!netint.isUp() || netint.isLoopback() || netint.isVirtual()) {
+                    continue;
+                }
+
+                // 2. Control estricto por software: Purgar nombres de software de virtualización/puentes
+                if (name.matches(ignorePattern)) {
+                    continue;
+                }
+
+                Enumeration<InetAddress> inetAddresses = netint.getInetAddresses();
+                for (InetAddress inetAddress : Collections.list(inetAddresses)) {
+                    // Solo IPv4 para mantener consistencia en la red local física
+                    if (inetAddress instanceof Inet4Address) {
+                        addresses.add(inetAddress);
                     }
                 }
             }
@@ -48,13 +60,13 @@ public class NetworkManager {
         List<InetAddress> targetIps = getAllLocalIps();
 
         if (targetIps.isEmpty()) {
-            Logger.logError("[mDNS] No se encontraron interfaces de red activas.");
+            Logger.logError("[mDNS] No se encontraron interfaces físicas válidas para anunciar.");
             return;
         }
 
         for (InetAddress addr : targetIps) {
             try {
-                // Creamos una instancia de JmDNS por cada interfaz física/wifi
+                // Creamos una instancia de JmDNS por cada interfaz física/wifi real
                 JmDNS jmdns = JmDNS.create(addr, serverName + "-" + addr.getHostAddress());
                 jmdnsInstances.add(jmdns);
 
@@ -63,10 +75,10 @@ public class NetworkManager {
 
                 jmdns.registerService(serviceInfo);
 
-                Logger.logInfo(String.format("[📡] ANUNCIANDO EN: %s | IP: %s | Puerto: %d",
+                Logger.logInfo(String.format("[📡] ANUNCIANDO EN FÍSICA: %s | IP: %s | Puerto: %d",
                         netInterfaceName(addr), addr.getHostAddress(), port));
 
-                server.notifyUI(String.format("[📡] ANUNCIANDO EN: %s | IP: %s | Puerto: %d",
+                server.notifyUI(String.format("[📡] ANUNCIANDO EN FÍSICA: %s | IP: %s | Puerto: %d",
                         netInterfaceName(addr), addr.getHostAddress(), port), LogLevel.INFO);
 
             } catch (IOException e) {
@@ -89,7 +101,7 @@ public class NetworkManager {
                 JmDNS jmdns = JmDNS.create(addr, "BitBridge-Scanner-" + addr.getHostAddress());
                 jmdnsInstances.add(jmdns);
 
-                Logger.logInfo("[🔍] Escaneando desde interfaz: " + addr.getHostAddress());
+                Logger.logInfo("[🔍] Escaneando desde interfaz física: " + addr.getHostAddress());
 
                 jmdns.addServiceListener(SERVICE_TYPE, new ServiceListener() {
                     @Override
@@ -107,7 +119,7 @@ public class NetworkManager {
                         ServiceInfo info = event.getInfo();
                         String[] addresses = info.getHostAddresses();
                         if (addresses.length > 0) {
-                            // Devolvemos la IP encontrada
+                            // Devolvemos la IP física encontrada
                             onServerFound.accept(addresses[0], info.getPort());
                         }
                     }
@@ -133,6 +145,6 @@ public class NetworkManager {
         }
         jmdnsInstances.clear();
         isScanning.set(false);
-        Logger.logInfo("[🧹] NetworkManager: Todas las instancias JmDNS cerradas.");
+        Logger.logInfo("[🧹] NetworkManager: Todas las instancias JmDNS cerradas de forma limpia.");
     }
 }

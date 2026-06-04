@@ -2,13 +2,9 @@ package org.bitBridge.server.core.client;
 
 
 
-import org.bitBridge.shared.core.comunication.NodoDirectorio;
 import org.bitBridge.shared.core.comunication.Communication;
-import org.bitBridge.shared.core.comunication.DirectoryQuery;
-import org.bitBridge.shared.core.comunication.DirectoryQueryResponse;
+import org.bitBridge.shared.core.comunication.model.basic.DirectoryQuery;
 import org.bitBridge.shared.Logger;
-
-import java.nio.file.Path;
 
 /**
  * Maneja las peticiones de exploración de directorios remotos.

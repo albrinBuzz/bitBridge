@@ -1,8 +1,6 @@
 package org.bitBridge.Observers;
 
-import org.bitBridge.shared.core.comunication.NodoDirectorio;
-
-import java.util.List;
+import org.bitBridge.shared.core.comunication.model.basic.NodoDirectorio;
 
 public interface RemoteDirectoryListener {
     /**

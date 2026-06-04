@@ -1,10 +1,9 @@
 package org.bitBridge.server.core;
 
 
-import org.bitBridge.server.NetworkServer;
 import org.bitBridge.server.core.client.ClientRegistry;
 import org.bitBridge.server.core.client.CommunicationDispatcher;
-import org.bitBridge.server.core.client.NicknameService;
+import org.bitBridge.server.handlers.NicknameService;
 import org.bitBridge.server.stats.ServerStats;
 import org.bitBridge.server.transfer.TransferSessionManager;
 import org.bitBridge.shared.network.ServerNetworkEngine;

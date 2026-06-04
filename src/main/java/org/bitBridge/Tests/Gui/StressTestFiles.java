@@ -1,7 +1,7 @@
 package org.bitBridge.Tests.Gui;
 
 
-import org.bitBridge.Client.FileTransferManager;
+import org.bitBridge.Client.managers.FileTransferManager;
 import org.bitBridge.controller.TransferenciaController;
 import org.bitBridge.shared.FileTransferState;
 

@@ -1,12 +1,16 @@
 package org.bitBridge.view.swing.components.explorer;
 
-import org.bitBridge.shared.core.comunication.NodoDirectorio;
+import org.bitBridge.shared.core.comunication.model.basic.NodoDirectorio;
 import org.bitBridge.shared.Logger;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.util.List;
 
+/**
+ * Inspector Lateral de Atributos de archivos para bitBridge Pro.
+ * Expone de manera limpia su botón operativo principal para la sincronización cruzada.
+ */
 public class FileInspectorPanel extends JPanel {
 
     private static final Color NICOTINE_ORANGE = new Color(255, 165, 0);
@@ -15,11 +19,11 @@ public class FileInspectorPanel extends JPanel {
 
     private JLabel lblIcon, lblName, lblTypeVal, lblSizeVal, lblOwnerVal, lblHashVal;
     private JButton btnPullAction, btnTerminal;
-    private NodoDirectorio currentNodo; // Importante: guardar el nodo actual
+    private NodoDirectorio currentNodo;
 
     public FileInspectorPanel() {
         initComponents();
-        setupActions(); // Inicializar el botón de terminal
+        setupActions();
     }
 
     private void initComponents() {
@@ -73,7 +77,7 @@ public class FileInspectorPanel extends JPanel {
         add(Box.createVerticalStrut(10));
         add(Box.createVerticalGlue());
 
-        // --- BOTÓN DOWNLOAD (PULL) ---
+        // --- BOTÓN PRINCIPAL DE ACCIÓN (MUTABLE) ---
         btnPullAction = new JButton("📥 INICIAR DOWNLOAD PULL");
         stylePrimaryButton(btnPullAction, NICOTINE_ORANGE, Color.BLACK);
         add(btnPullAction);
@@ -82,7 +86,6 @@ public class FileInspectorPanel extends JPanel {
     }
 
     private void setupActions() {
-        // --- BOTÓN TERMINAL REMOTA ---
         btnTerminal = new JButton("💻 Abrir en Terminal Remota");
         stylePrimaryButton(btnTerminal, TERMINAL_BG, Color.CYAN);
         btnTerminal.setFont(new Font("Monospaced", Font.BOLD, 12));
@@ -90,20 +93,26 @@ public class FileInspectorPanel extends JPanel {
 
         btnTerminal.addActionListener(e -> {
             if (currentNodo != null) {
-                // Si es archivo, abrir en el padre; si es directorio, en sí mismo
-                String ruta = currentNodo.esDirectorio() ?
-                        currentNodo.getRutaString() :
-                        currentNodo.getRutaString();
-                        //currentNodo.getRutaPadre();
-                abrirTerminalRemota(ruta);
+                abrirTerminalRemota(currentNodo.getRutaString());
             }
         });
-
         add(btnTerminal);
     }
 
+    public void configurarModoBoton(boolean esLocal) {
+        if (esLocal) {
+            btnPullAction.setText("📤 INICIAR RESPALDO PUSH");
+            btnPullAction.setBackground(new Color(40, 167, 69)); // Verde Éxito
+            btnPullAction.setForeground(Color.WHITE);
+        } else {
+            btnPullAction.setText("📥 INICIAR DOWNLOAD PULL");
+            btnPullAction.setBackground(NICOTINE_ORANGE);
+            btnPullAction.setForeground(Color.BLACK);
+        }
+    }
+
     public void updateInfo(NodoDirectorio nodo) {
-        this.currentNodo = nodo; // Guardamos referencia
+        this.currentNodo = nodo;
         if (nodo == null) return;
 
         lblName.setText(nodo.getNombre());
@@ -112,16 +121,11 @@ public class FileInspectorPanel extends JPanel {
         lblTypeVal.setText(nodo.esDirectorio() ? "Directorio" : (nodo.getExtension().isEmpty() ? "Archivo" : nodo.getExtension()));
         lblOwnerVal.setText("Remote Node");
         lblHashVal.setText("N/A");
-
-        //btnPullAction.setEnabled(!nodo.esDirectorio());
         btnTerminal.setEnabled(true);
 
         refreshUI();
     }
 
-    /**
-     * Sobrecarga para manejar multi-selección desde el RemoteExplorer
-     */
     public void updateInfo(List<NodoDirectorio> seleccion) {
         if (seleccion == null || seleccion.isEmpty()) {
             resetInfo();
@@ -132,23 +136,28 @@ public class FileInspectorPanel extends JPanel {
             return;
         }
 
-        // Modo Multi-selección
-        this.currentNodo = seleccion.get(0); // El primero manda para la terminal
+        this.currentNodo = seleccion.get(0);
         lblIcon.setText("📚");
         lblName.setText(seleccion.size() + " elementos seleccionados");
         lblTypeVal.setText("Mix");
         lblSizeVal.setText("Variado");
         btnPullAction.setEnabled(true);
-        btnPullAction.setText("📥 DOWNLOAD SELECCIÓN (" + seleccion.size() + ")");
+        btnPullAction.setText("📦 DOWNLOAD SELECCIÓN (" + seleccion.size() + ")");
 
         refreshUI();
+    }
+
+    public void clear() {
+        resetInfo();
     }
 
     private void resetInfo() {
         lblName.setText("Seleccione un archivo");
         lblIcon.setText("🗄️");
-        btnPullAction.setEnabled(false);
-        btnPullAction.setText("📥 INICIAR DOWNLOAD PULL");
+        lblSizeVal.setText("-");
+        lblTypeVal.setText("-");
+        lblOwnerVal.setText("-");
+        lblHashVal.setText("-");
         btnTerminal.setEnabled(false);
         refreshUI();
     }
@@ -165,8 +174,6 @@ public class FileInspectorPanel extends JPanel {
                 "BitBridge Terminal",
                 JOptionPane.INFORMATION_MESSAGE);
     }
-
-    // --- MÉTODOS DE AYUDA (ESTILO) ---
 
     private void stylePrimaryButton(JButton btn, Color bg, Color fg) {
         btn.setBackground(bg);
@@ -206,4 +213,6 @@ public class FileInspectorPanel extends JPanel {
         row.setBorder(new EmptyBorder(0, 0, 5, 0));
         return row;
     }
+
+    public JButton getBtnPullAction() { return this.btnPullAction; }
 }

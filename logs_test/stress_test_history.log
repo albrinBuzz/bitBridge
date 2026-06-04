@@ -525,3 +525,290 @@ STATUS      : ❌ CONGESTED
 STATUS      : ⚠️ STRESSED
 █████████████████████████████████████████████████████████████████
 
+
+█████████████████████████████████████████████████████████████████
+📊 BITBRIDGE PERFORMANCE BENCHMARK
+█████████████████████████████████████████████████████████████████
+🖥️  TARGET HARDWARE (SERVER):
+🏠 [MASTER WORKSTATION - GIGABYTE B760M]
+   CPU: Intel i7-12700 (12C/20T) | 8 P-Cores | 4 E-Cores
+   RAM: 64GB DDR4 | SSD: Kingston NVMe Gen4
+   OS: Fedora 42 (Adams) | Kernel 6.18 | i3wm
+   INFO: Máxima capacidad de concurrencia.
+-----------------------------------------------------------------
+🌐 ENDPOINT   : 127.0.0.1:8080
+⏱️  DURATION   : 21,04 seconds
+📅 TIMESTAMP  : 2026-06-03 19:02:40
+-----------------------------------------------------------------
+⚙️  LOAD CONFIG : 175 clients | 35 msg per client
+✅ ACKs        : 6124 / 6125
+🚀 THROUGHPUT  : 291,11 msg/sec
+📊 EFFICIENCY  : 99,98%
+STATUS      : 🔥 OPTIMAL
+█████████████████████████████████████████████████████████████████
+
+
+██████████████████████████████████████████████████████████████████████
+📊 BITBRIDGE PERFORMANCE REPORT (PRO VERSION)
+██████████████████████████████████████████████████████████████████████
+🖥️  TARGET SERVER HARDWARE:
+🏠 [MASTER WORKSTATION - GIGABYTE B760M]
+   CPU: Intel i7-12700 (12C/20T) | 8 P-Cores | 4 E-Cores
+   RAM: 64GB DDR4 | SSD: Kingston NVMe Gen4
+   OS: Fedora 42 (Adams) | Kernel 6.18 | i3wm
+----------------------------------------------------------------------
+🌐 ENDPOINT         : 127.0.0.1:8080
+⏱️  TOTAL DURATION   : 14,01 seconds
+📅 TIMESTAMP        : 2026-06-03 19:05:42
+----------------------------------------------------------------------
+⚙️  TARGET LOAD     : 500 clients | 50 msg/client | Total: 25000
+✅ SUCCESSFUL ACKs  : 25000 / 25000
+⚠️  NETWORK ERRORS  : 0
+🚨 PROTOCOL ERRORS : 0
+🚀 THROUGHPUT       : 1784,82 msg/sec
+📊 EFFICIENCY       : 100,00%
+----------------------------------------------------------------------
+⏱️  LATENCY PERCENTILES (SLA):
+   📍 p50 (Mediana) : 0 ms
+   ⚡ p95 (Ráfaga)  : 0 ms
+   🚨 p99 (Peor Caso): 0 ms
+----------------------------------------------------------------------
+FINAL CRITERIA STATUS: 🔥 OPTIMAL (Arquitectura balanceada y fluida)
+██████████████████████████████████████████████████████████████████████
+
+
+██████████████████████████████████████████████████████████████████████
+📊 BITBRIDGE PERFORMANCE REPORT (PRO VERSION)
+██████████████████████████████████████████████████████████████████████
+🖥️  TARGET SERVER HARDWARE:
+🏠 [MASTER WORKSTATION - GIGABYTE B760M]
+   CPU: Intel i7-12700 (12C/20T) | 8 P-Cores | 4 E-Cores
+   RAM: 64GB DDR4 | SSD: Kingston NVMe Gen4
+   OS: Fedora 42 (Adams) | Kernel 6.18 | i3wm
+----------------------------------------------------------------------
+🌐 ENDPOINT         : 127.0.0.1:8080
+⏱️  TOTAL DURATION   : 21,71 seconds
+📅 TIMESTAMP        : 2026-06-03 19:07:25
+----------------------------------------------------------------------
+⚙️  TARGET LOAD     : 900 clients | 75 msg/client | Total: 67500
+✅ SUCCESSFUL ACKs  : 37557 / 37557
+⚠️  NETWORK ERRORS  : 400
+🚨 PROTOCOL ERRORS : 0
+🚀 THROUGHPUT       : 1729,62 msg/sec
+📊 EFFICIENCY       : 100,00%
+----------------------------------------------------------------------
+⏱️  LATENCY PERCENTILES (SLA):
+   📍 p50 (Mediana) : 0 ms
+   ⚡ p95 (Ráfaga)  : 0 ms
+   🚨 p99 (Peor Caso): 0 ms
+----------------------------------------------------------------------
+FINAL CRITERIA STATUS: ⚠️ STRESSED (El buffer de red o el GC están al límite)
+██████████████████████████████████████████████████████████████████████
+
+
+██████████████████████████████████████████████████████████████████████
+📊 BITBRIDGE PERFORMANCE REPORT (PRO VERSION)
+██████████████████████████████████████████████████████████████████████
+🖥️  TARGET SERVER HARDWARE:
+🏠 [MASTER WORKSTATION - GIGABYTE B760M]
+   CPU: Intel i7-12700 (12C/20T) | 8 P-Cores | 4 E-Cores
+   RAM: 64GB DDR4 | SSD: Kingston NVMe Gen4
+   OS: Fedora 42 (Adams) | Kernel 6.18 | i3wm
+----------------------------------------------------------------------
+🌐 ENDPOINT         : 127.0.0.1:8080
+⏱️  TOTAL DURATION   : 8,95 seconds
+📅 TIMESTAMP        : 2026-06-03 19:08:56
+----------------------------------------------------------------------
+⚙️  TARGET LOAD     : 150 clients | 25 msg/client | Total: 3750
+✅ SUCCESSFUL ACKs  : 3750 / 3750
+⚠️  NETWORK ERRORS  : 0
+🚨 PROTOCOL ERRORS : 0
+🚀 THROUGHPUT       : 419,13 msg/sec
+📊 EFFICIENCY       : 100,00%
+----------------------------------------------------------------------
+⏱️  LATENCY PERCENTILES (SLA):
+   📍 p50 (Mediana) : 0 ms
+   ⚡ p95 (Ráfaga)  : 0 ms
+   🚨 p99 (Peor Caso): 0 ms
+----------------------------------------------------------------------
+FINAL CRITERIA STATUS: 🔥 OPTIMAL (Arquitectura balanceada y fluida)
+██████████████████████████████████████████████████████████████████████
+
+
+██████████████████████████████████████████████████████████████████████
+📊 BITBRIDGE PERFORMANCE REPORT (PRO VERSION)
+██████████████████████████████████████████████████████████████████████
+🖥️  TARGET SERVER HARDWARE:
+🏠 [MASTER WORKSTATION - GIGABYTE B760M]
+   CPU: Intel i7-12700 (12C/20T) | 8 P-Cores | 4 E-Cores
+   RAM: 64GB DDR4 | SSD: Kingston NVMe Gen4
+   OS: Fedora 42 (Adams) | Kernel 6.18 | i3wm
+----------------------------------------------------------------------
+🌐 ENDPOINT         : 127.0.0.1:8080
+⏱️  TOTAL DURATION   : 8,76 seconds
+📅 TIMESTAMP        : 2026-06-03 19:09:21
+----------------------------------------------------------------------
+⚙️  TARGET LOAD     : 150 clients | 25 msg/client | Total: 3750
+✅ SUCCESSFUL ACKs  : 3750 / 3750
+⚠️  NETWORK ERRORS  : 0
+🚨 PROTOCOL ERRORS : 0
+🚀 THROUGHPUT       : 428,23 msg/sec
+📊 EFFICIENCY       : 100,00%
+----------------------------------------------------------------------
+⏱️  LATENCY PERCENTILES (SLA):
+   📍 p50 (Mediana) : 0 ms
+   ⚡ p95 (Ráfaga)  : 0 ms
+   🚨 p99 (Peor Caso): 0 ms
+----------------------------------------------------------------------
+FINAL CRITERIA STATUS: 🔥 OPTIMAL (Arquitectura balanceada y fluida)
+██████████████████████████████████████████████████████████████████████
+
+
+██████████████████████████████████████████████████████████████████████
+📊 BITBRIDGE PERFORMANCE REPORT (PRO VERSION)
+██████████████████████████████████████████████████████████████████████
+🖥️  TARGET SERVER HARDWARE:
+🏠 [MASTER WORKSTATION - GIGABYTE B760M]
+   CPU: Intel i7-12700 (12C/20T) | 8 P-Cores | 4 E-Cores
+   RAM: 64GB DDR4 | SSD: Kingston NVMe Gen4
+   OS: Fedora 42 (Adams) | Kernel 6.18 | i3wm
+----------------------------------------------------------------------
+🌐 ENDPOINT         : 127.0.0.1:8080
+⏱️  TOTAL DURATION   : 8,51 seconds
+📅 TIMESTAMP        : 2026-06-03 19:09:33
+----------------------------------------------------------------------
+⚙️  TARGET LOAD     : 150 clients | 25 msg/client | Total: 3750
+✅ SUCCESSFUL ACKs  : 3750 / 3750
+⚠️  NETWORK ERRORS  : 0
+🚨 PROTOCOL ERRORS : 0
+🚀 THROUGHPUT       : 440,87 msg/sec
+📊 EFFICIENCY       : 100,00%
+----------------------------------------------------------------------
+⏱️  LATENCY PERCENTILES (SLA):
+   📍 p50 (Mediana) : 0 ms
+   ⚡ p95 (Ráfaga)  : 0 ms
+   🚨 p99 (Peor Caso): 0 ms
+----------------------------------------------------------------------
+FINAL CRITERIA STATUS: 🔥 OPTIMAL (Arquitectura balanceada y fluida)
+██████████████████████████████████████████████████████████████████████
+
+
+█████████████████████████████████████████████████████████████████
+📊 BITBRIDGE PERFORMANCE BENCHMARK
+█████████████████████████████████████████████████████████████████
+🖥️  TARGET HARDWARE (SERVER):
+🏠 [MASTER WORKSTATION - GIGABYTE B760M]
+   CPU: Intel i7-12700 (12C/20T) | 8 P-Cores | 4 E-Cores
+   RAM: 64GB DDR4 | SSD: Kingston NVMe Gen4
+   OS: Fedora 42 (Adams) | Kernel 6.18 | i3wm
+   INFO: Máxima capacidad de concurrencia.
+-----------------------------------------------------------------
+🌐 ENDPOINT   : 127.0.0.1:8080
+⏱️  DURATION   : 25,03 seconds
+📅 TIMESTAMP  : 2026-06-03 19:10:23
+-----------------------------------------------------------------
+⚙️  LOAD CONFIG : 375 clients | 35 msg per client
+✅ ACKs        : 0 / 13125
+🚀 THROUGHPUT  : 0,00 msg/sec
+📊 EFFICIENCY  : 0,00%
+STATUS      : ❌ CONGESTED
+█████████████████████████████████████████████████████████████████
+
+
+██████████████████████████████████████████████████████████████████████
+📊 BITBRIDGE PERFORMANCE REPORT (PRO VERSION)
+██████████████████████████████████████████████████████████████████████
+🖥️  TARGET SERVER HARDWARE:
+❓ DISPOSITIVO DESCONOCIDO
+----------------------------------------------------------------------
+🌐 ENDPOINT         : 192.168.100.192:8080
+⏱️  TOTAL DURATION   : 14,76 seconds
+📅 TIMESTAMP        : 2026-06-03 19:12:02
+----------------------------------------------------------------------
+⚙️  TARGET LOAD     : 500 clients | 50 msg/client | Total: 25000
+✅ SUCCESSFUL ACKs  : 24984 / 24984
+⚠️  NETWORK ERRORS  : 1
+🚨 PROTOCOL ERRORS : 0
+🚀 THROUGHPUT       : 1692,22 msg/sec
+📊 EFFICIENCY       : 100,00%
+----------------------------------------------------------------------
+⏱️  LATENCY PERCENTILES (SLA):
+   📍 p50 (Mediana) : 0 ms
+   ⚡ p95 (Ráfaga)  : 0 ms
+   🚨 p99 (Peor Caso): 0 ms
+----------------------------------------------------------------------
+FINAL CRITERIA STATUS: ⚠️ STRESSED (El buffer de red o el GC están al límite)
+██████████████████████████████████████████████████████████████████████
+
+
+█████████████████████████████████████████████████████████████████
+📊 BITBRIDGE PERFORMANCE BENCHMARK
+█████████████████████████████████████████████████████████████████
+🖥️  TARGET HARDWARE (SERVER):
+❓ DISPOSITIVO DESCONOCIDO
+-----------------------------------------------------------------
+🌐 ENDPOINT   : 192.168.100.192:8080
+⏱️  DURATION   : 19,64 seconds
+📅 TIMESTAMP  : 2026-06-03 19:13:17
+-----------------------------------------------------------------
+⚙️  LOAD CONFIG : 175 clients | 35 msg per client
+✅ ACKs        : 35 / 186
+🚀 THROUGHPUT  : 1,78 msg/sec
+📊 EFFICIENCY  : 18,82%
+STATUS      : ❌ CONGESTED
+█████████████████████████████████████████████████████████████████
+
+
+█████████████████████████████████████████████████████████████████
+📊 BITBRIDGE PERFORMANCE BENCHMARK
+█████████████████████████████████████████████████████████████████
+🖥️  TARGET HARDWARE (SERVER):
+❓ DISPOSITIVO DESCONOCIDO
+-----------------------------------------------------------------
+🌐 ENDPOINT   : 192.168.100.192:8080
+⏱️  DURATION   : 19,28 seconds
+📅 TIMESTAMP  : 2026-06-03 19:13:46
+-----------------------------------------------------------------
+⚙️  LOAD CONFIG : 175 clients | 35 msg per client
+✅ ACKs        : 0 / 149
+🚀 THROUGHPUT  : 0,00 msg/sec
+📊 EFFICIENCY  : 0,00%
+STATUS      : ❌ CONGESTED
+█████████████████████████████████████████████████████████████████
+
+
+█████████████████████████████████████████████████████████████████
+📊 BITBRIDGE PERFORMANCE BENCHMARK
+█████████████████████████████████████████████████████████████████
+🖥️  TARGET HARDWARE (SERVER):
+❓ DISPOSITIVO DESCONOCIDO
+-----------------------------------------------------------------
+🌐 ENDPOINT   : 192.168.100.192:8080
+⏱️  DURATION   : 21,42 seconds
+📅 TIMESTAMP  : 2026-06-03 19:16:05
+-----------------------------------------------------------------
+⚙️  LOAD CONFIG : 175 clients | 35 msg per client
+✅ ACKs        : 6125 / 6125
+🚀 THROUGHPUT  : 285,97 msg/sec
+📊 EFFICIENCY  : 100,00%
+STATUS      : 🔥 OPTIMAL
+█████████████████████████████████████████████████████████████████
+
+
+█████████████████████████████████████████████████████████████████
+📊 BITBRIDGE PERFORMANCE BENCHMARK
+█████████████████████████████████████████████████████████████████
+🖥️  TARGET HARDWARE (SERVER):
+❓ DISPOSITIVO DESCONOCIDO
+-----------------------------------------------------------------
+🌐 ENDPOINT   : 192.168.100.192:8080
+⏱️  DURATION   : 84,75 seconds
+📅 TIMESTAMP  : 2026-06-03 19:17:54
+-----------------------------------------------------------------
+⚙️  LOAD CONFIG : 3175 clients | 45 msg per client
+✅ ACKs        : 14371 / 93465
+🚀 THROUGHPUT  : 169,57 msg/sec
+📊 EFFICIENCY  : 15,38%
+STATUS      : ❌ CONGESTED
+█████████████████████████████████████████████████████████████████
+

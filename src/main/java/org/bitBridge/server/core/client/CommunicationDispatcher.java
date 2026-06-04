@@ -1,159 +1,177 @@
+/**
+ * Copyright 2026 Cristobal Roman Zamora
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.bitBridge.server.core.client;
 
+import io.github.classgraph.*;
 import org.bitBridge.server.core.ServerContext;
-import org.bitBridge.server.transfer.FileTransferService;
-import org.bitBridge.shared.*;
+import org.bitBridge.shared.ExecutionMode;
+import org.bitBridge.shared.Logger;
+import org.bitBridge.shared.core.comunication.*;
+import org.bitBridge.shared.core.comunication.model.basic.FileDirectoryCommunication;
 
 import java.util.Map;
 import java.util.concurrent.*;
-
-import org.bitBridge.shared.core.comunication.*;
-import org.bitBridge.shared.Logger;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class CommunicationDispatcher {
-    private final Map<CommunicationType, CommunicationHandler> handlers = new ConcurrentHashMap<>();
-    /*private final ExecutorService workerPool = Executors.newFixedThreadPool(
-            Runtime.getRuntime().availableProcessors() * 2
-    );*/
 
-    private final ExecutorService workerPool = Executors.newFixedThreadPool(16,
-            r -> {
-                Thread t = new Thread(r);
-                t.setName("MSG-Worker-" + t.getId());
-                return t;
-            });
+    private final Map<String, CommunicationHandler> handlers = new ConcurrentHashMap<>();
+    private final Map<String, ExecutionMode> modes = new ConcurrentHashMap<>();
 
-    /*private final ExecutorService fileTransferPool = Executors.newCachedThreadPool(r -> {
-        Thread t = new Thread(r);
+    // Pool físico acotado para I/O intensivo de disco (File Transfer)
+    private final ExecutorService fileTransferPool;
 
-        t.setName("FT-Pool-" + t.getId());
-        return t;
-    });*/
-
-    // Máximo 50 transferencias simultáneas para proteger la RAM
-    private final ExecutorService fileTransferPool = new ThreadPoolExecutor(
-            4, 50, 60L, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>()
+    // El motor central para mensajes rápidos, asíncronos y paralelos basados en hilos virtuales
+    // Modificado para asignar una nomenclatura clara a la factoría de hilos virtuales
+    private final ExecutorService virtualExecutor = Executors.newThreadPerTaskExecutor(
+            Thread.ofVirtual().name("V-Worker-", 1).factory()
     );
 
-    private final ExecutorService virtualExecutor = Executors.newVirtualThreadPerTaskExecutor();
-
-    //private final ExecutorService fileTransferPool = Executors.newVirtualThreadPerTaskExecutor();
-
-    private final Map<CommunicationType, ExecutionMode> modes = new ConcurrentHashMap<>();
-
-
     public CommunicationDispatcher() {
+        int cpuCores = Runtime.getRuntime().availableProcessors();
+        this.fileTransferPool = new ThreadPoolExecutor(
+                cpuCores * 2,                // Hilos base permanentes
+                cpuCores * 8,                // Máximo de hilos físicos bajo estrés pesado
+                60L, TimeUnit.SECONDS,
+                new ArrayBlockingQueue<>(5000),
+                new ThreadFactory() {
+                    private final AtomicInteger threadNumber = new AtomicInteger(1);
+                    @Override
+                    public Thread newThread(Runnable r) {
+                        Thread t = new Thread(r, "XFR-Worker-" + threadNumber.getAndIncrement());
+                        t.setPriority(Thread.NORM_PRIORITY + 1);
+                        return t;
+                    }
+                },
+                new ThreadPoolExecutor.CallerRunsPolicy() // Backpressure natural si el pool explota
+        );
 
-        //registerHandler(CommunicationType.MESSAGE, new MessageHandler());
-        registerHandler(CommunicationType.MESSAGE, new MessageHandler(), ExecutionMode.ASYNC);
+        autoDiscoverHandlers();
+    }
+    @SuppressWarnings("unchecked")
+    private void autoDiscoverHandlers() {
+        try (ScanResult scanResult = new ClassGraph()
+                .acceptPackages("org.bitBridge.server.handlers")
+                .enableClassInfo()
+                .enableAnnotationInfo()
+                .scan()) {
 
-        //dispatcher.registerHandler(CommunicationType.FILE, new FileHandler(), ExecutionMode.SYNC);
-        registerHandler(CommunicationType.NOTIFICATION, (exchange, comm) -> {
-            if (comm instanceof FileHandshakeCommunication handshake) {
+            ClassInfoList handlerClasses = scanResult.getClassesWithAnnotation(ServerHandler.class.getName());
 
-                // Entregamos la respuesta al manager para desbloquear al emisor
-                exchange.getContext().transferManager().registerHandshake(
-                        handshake.getSessionId(),
-                        handshake
-                );
+            for (ClassInfo classInfo : handlerClasses) {
+                Class<?> clazz = classInfo.loadClass();
+                if (CommunicationHandler.class.isAssignableFrom(clazz)) {
+                    ServerHandler annotation = clazz.getAnnotation(ServerHandler.class);
+                    CommunicationHandler handlerInstance = (CommunicationHandler) clazz.getDeclaredConstructor().newInstance();
+
+                    // 🚨 CORREGIDO: La clave DEBE basarse en el Mensaje que maneja, no en el nombre del Handler
+                    Class<? extends Communication> messageClass = annotation.value();
+                    String actionSuffix = annotation.action().isEmpty() ? "" : annotation.action();
+
+                    String uniqueKey = messageClass.getName() + ":" + actionSuffix;
+
+                    handlers.put(uniqueKey, handlerInstance);
+                    modes.put(uniqueKey, annotation.mode());
+
+                    // Log limpio para verificar el mapeo correcto en el arranque
+                    Logger.logInfo("Core Servidor: Handler registrado -> " + clazz.getSimpleName() + " para Mensaje [" + uniqueKey + "]");
+                }
             }
-        }, ExecutionMode.SYNC);
-        // Registro de FILE
-        registerHandler(CommunicationType.FILE, (exchange, comm) -> {
-            var client = exchange.getSender();
-            var ctx = exchange.getContext();
-
-            new FileTransferService(ctx).handleForwardFile(
-                    client,
-                    (FileDirectoryCommunication) comm
-            );
-        }, ExecutionMode.ASYNC);
-
-        // CAMBIO VITAL: Usar ExecutionMode.ASYNC
-        registerHandler(CommunicationType.DIRECTORY, (exchange, comm) -> {
-            var client = exchange.getSender();
-            var ctx = exchange.getContext();
-            String sessionId = "DIR_" + System.currentTimeMillis() % 10000;
-
-            new FileTransferService(ctx).relayDirectory(
-                    (FileDirectoryCommunication) comm,
-                    client,
-                    sessionId
-            );
-        }, ExecutionMode.ASYNC); // <--- ANTES ESTABA EN SYNC
-
-        // En CommunicationDispatcher del Servidor
-        registerHandler(CommunicationType.SCREEN_CAPTURE, (exchange, comm) -> {
-
-            ScreenCaptureMessage screenMsg = (ScreenCaptureMessage) comm;
-            var destinatario=screenMsg.getTargetNick();
-            // El servidor simplemente actúa como puente (Relay)
-            exchange.sendTo(destinatario, screenMsg);
-        }, ExecutionMode.SYNC);
-
-        registerHandler(CommunicationType.DIRECTORY_QUERY, new DirectoryQueryHandler(), ExecutionMode.ASYNC);
-
-        // En la inicialización del cliente:
-        registerHandler(CommunicationType.DIRECTORY_QUERY_RESULT, new DirectoryQueryResponseHandler(), ExecutionMode.ASYNC);
-
-
-        // Registro de solicitud de descarga (PULL)
-        registerHandler(CommunicationType.FILE_PULL_REQUEST, (exchange, comm) -> {
-            FilePullRequest pullReq = (FilePullRequest) comm;
-            String targetNick = pullReq.getTargetIp(); // En tu clase FilePullRequest usamos targetIp como el destino
-
-
-            // El servidor reenvía el objeto al nodo destino
-            exchange.sendTo(targetNick, pullReq);
-
-        }, ExecutionMode.ASYNC);
-
-
-
-        /*registerHandler(CommunicationType.DIRECTORY, new DirectoryHandler());
-        registerHandler(CommunicationType.FILE, new FileTransferHandler());*/
+        } catch (Exception e) {
+            Logger.logError("Error crítico inicializando el autodescubrimiento: " + e.getMessage());
+        }
     }
 
-    public void registerHandler(CommunicationType type, CommunicationHandler handler) {
-        handlers.put(type, handler);
+    public void registerHandler(Class<? extends Communication> clazz, CommunicationHandler handler) {
+        registerHandler(clazz, handler, ExecutionMode.ASYNC);
     }
 
-    public void registerHandler(CommunicationType type, CommunicationHandler handler, ExecutionMode mode) {
-        handlers.put(type, handler);
-        modes.put(type, mode);
+    public void registerHandler(Class<? extends Communication> clazz, CommunicationHandler handler, ExecutionMode mode) {
+        String baseKey = clazz.getName() + ":";
+        handlers.put(baseKey, handler);
+        modes.put(baseKey, mode);
     }
-
 
     public void dispatch(BitBridgeClient sender, Communication message, ServerContext context) {
-        CommunicationHandler handler = handlers.get(message.getType());
-        ExecutionMode mode = modes.getOrDefault(message.getType(), ExecutionMode.ASYNC);
+        if (message == null || sender == null) return;
 
-        if (handler == null) return;
+        Class<? extends Communication> messageClass = message.getClass();
+        String action = "";
+
+        // 1. Discriminación polimórfica para el canal de archivos compartidos
+        if (message instanceof FileDirectoryCommunication fileDirComm) {
+            action = fileDirComm.isDirectory() ? "DIRECTORY" : "FILE";
+        }
+
+        // 2. Intento de búsqueda de alta especificidad (Clase + Acción)
+        String lookupKey = messageClass.getName() + ":" + action;
+        CommunicationHandler handler = handlers.get(lookupKey);
+
+        // 3. CORREGIDO: Fallback absoluto. Si no encuentra con acción, o si la acción vino vacía,
+        // forzamos la búsqueda con la clave base "NombreClase:" que generó ClassGraph.
+        if (handler == null) {
+            String fallbackKey = messageClass.getName() + ":";
+            handler = handlers.get(fallbackKey);
+            if (handler != null) {
+                lookupKey = fallbackKey; // Reajustamos la clave activa para el mapa de modos de ejecución
+            }
+        }
+
+        // 4. Si después del bypass sigue en null, el handler realmente no existe
+        if (handler == null) {
+            Logger.logWarn("Servidor recibió un mensaje sin handler registrado para: " + messageClass.getName());
+            return;
+        }
+
+        final CommunicationHandler finalHandler = handler;
+        final String activeKey = lookupKey;
+        ExecutionMode mode = modes.getOrDefault(activeKey, ExecutionMode.ASYNC);
 
         Runnable task = () -> {
             try {
-                //Logger.logInfo(Thread.currentThread().getName());
-                handler.handle(new CommunicationExchange(sender, context), message);
+                finalHandler.handle(new CommunicationExchange(sender, context), message);
             } catch (Exception e) {
-                Logger.logError("Error en " + message.getType() + ": " + e.getMessage());
+                Logger.logError("Excepción procesando lógica de negocio en [" + activeKey + "]: " + e.getMessage());
             }
         };
 
-        // --- LÓGICA DE ASIGNACIÓN DE POOLS ---
-        if (message.getType() == CommunicationType.FILE ||
-                message.getType() == CommunicationType.DIRECTORY ||
-                message.getType() == CommunicationType.FILE_PULL_REQUEST) {
-
-            // Las transferencias siempre deben ser ASYNC para no bloquear el Selector de NIO
+        // Asignación inteligente de carriles de ejecución
+        String className = messageClass.getSimpleName();
+        if (className.equals("FilePullRequest") || action.equals("FILE") || action.equals("DIRECTORY")) {
             fileTransferPool.execute(task);
         } else {
-            // Los mensajes de chat y notificaciones van al pool de mensajería
             if (mode == ExecutionMode.SYNC) {
                 task.run();
             } else {
-                //workerPool.execute(task);
                 virtualExecutor.execute(task);
             }
+        }
+    }
+
+    public void shutdown() {
+        fileTransferPool.shutdown();
+        virtualExecutor.shutdown();
+        try {
+            if (!fileTransferPool.awaitTermination(5, TimeUnit.SECONDS)) {
+                fileTransferPool.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            fileTransferPool.shutdownNow();
+            Thread.currentThread().interrupt();
         }
     }
 }

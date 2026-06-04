@@ -1,6 +1,6 @@
 package org.bitBridge.view.swing.components.explorer;
 
-import org.bitBridge.shared.core.comunication.NodoDirectorio;
+import org.bitBridge.shared.core.comunication.model.basic.NodoDirectorio;
 import javax.swing.*;
 import java.awt.*;
 import java.io.File;

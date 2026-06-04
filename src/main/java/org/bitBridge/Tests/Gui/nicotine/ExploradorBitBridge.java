@@ -3,7 +3,7 @@ package org.bitBridge.Tests.Gui.nicotine;
 
 
 import com.formdev.flatlaf.intellijthemes.FlatOneDarkIJTheme;
-import org.bitBridge.shared.core.comunication.NodoDirectorio;
+import org.bitBridge.shared.core.comunication.model.basic.NodoDirectorio;
 
 import javax.swing.*;
 import javax.swing.tree.*;
