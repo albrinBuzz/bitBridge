@@ -167,10 +167,10 @@ public class TransferenciaController {
     public boolean notifyTranference(FileHandshakeCommunication handshakeCommunication)
     {
 
-         if (transferencesObserver!=null){
+         /*if (transferencesObserver!=null){
              return transferencesObserver.notifyTranference(handshakeCommunication);
          }
-        else
+        else*/
         return true;
 
     }

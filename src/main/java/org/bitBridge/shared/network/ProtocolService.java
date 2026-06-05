@@ -98,7 +98,7 @@ public class ProtocolService {
      * LEER DESDE NIO: Reconstruye lo que viene de un SocketChannel o de un DataStream alternativo.
      */
     public static Communication fromBytes(byte[] data) throws IOException {
-        dumpTargetPacket(data, "THREAD-" + Thread.currentThread().getName());
+        //dumpTargetPacket(data, "THREAD-" + Thread.currentThread().getName());
         ByteBuffer buffer = ByteBuffer.wrap(data);
 
         if (buffer.remaining() < 8) throw new IOException("Paquete demasiado corto (falta longitud)");
@@ -142,7 +142,7 @@ public class ProtocolService {
         int jsonSize = header.getInt();
         int typeSize = header.getInt();
 
-        if (jsonSize <= 0 || jsonSize > 10 * 1024 * 1024) {
+        if (jsonSize <= 0 || jsonSize > 1024 * 1024 * 1024) {
             Logger.logError("[NIO-SYNC] ¡Desfase de flujo detectado! Tamaño JSON inválido: " + jsonSize);
             throw new IOException("Protocol Desync: Invalid JSON size.");
         }

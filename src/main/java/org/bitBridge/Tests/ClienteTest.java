@@ -19,9 +19,11 @@ public class ClienteTest {
 
         client.conexionAutomatica();
         Thread.sleep(1500);
-        client.sendFileToHost(new ClientInfo("fedo"),new File("/home/cris/mi_archivo_50mb.txt"));
+        client.sendFileToHost(new ClientInfo("fedo"),new File("/home/cris/telemetria_servidor.txt"));
         //client.sendFileToHost(new ClientInfo("fedo"),new File("/home/cris/BitBridge_Shared/leerExel.py"));
         //client.sendDirectoryToHost(new ClientInfo("fedo"),new File("/home/cris/BitBridge_Shared_Test/"));
+
+        //client.sendDirectoryToHost(new ClientInfo("fedo"),new File("/home/cris/BitBridge_Shared/BitBridge_Shared_Test/"));
 
     }
 }

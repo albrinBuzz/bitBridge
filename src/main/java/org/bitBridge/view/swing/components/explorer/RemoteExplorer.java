@@ -116,6 +116,10 @@ public class RemoteExplorer extends JFrame implements RemoteDirectoryListener {
         // CONSTRUCCIÓN E INTERCONEXIÓN DEL PANEL DUAL DE TABLAS
         // =========================================================================
         dualExplorerPanel = new DualExplorerPanel();
+        //dualExplorerPanel.setOnPullExecution(this::ejecutarPull);
+        dualExplorerPanel.setOnPullExecution(nodoDirectorios -> {
+            ejecutarPull(nodoDirectorios.getFirst());
+        });
 
         // 1. Enlazar navegación de carpetas por doble clic
         dualExplorerPanel.setOnLocalFolderNav(nodo -> {
@@ -187,6 +191,7 @@ public class RemoteExplorer extends JFrame implements RemoteDirectoryListener {
                 if (!seleccionados.isEmpty()) {
                     Logger.logInfo("Disparando pipeline de descarga PULL para " + seleccionados.size() + " elementos.");
                     // Tu lógica existente para procesar solicitudes de FilePullRequest
+                    ejecutarPull(seleccionados.getFirst());
                 }
             }
         });
