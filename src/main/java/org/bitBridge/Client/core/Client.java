@@ -12,10 +12,12 @@ import org.bitBridge.shared.*;
 import org.bitBridge.shared.config.ConfiguracionApp;
 import org.bitBridge.shared.core.comunication.*;
 import org.bitBridge.shared.core.comunication.model.basic.DirectoryQuery;
+import org.bitBridge.shared.core.comunication.model.basic.HandshakeMessage;
 import org.bitBridge.shared.core.comunication.model.basic.Mensaje;
 import org.bitBridge.shared.core.comunication.model.basic.NodoDirectorio;
 import org.bitBridge.shared.network.ClientNetworkEngine;
 import org.bitBridge.shared.network.NetworkManager;
+import org.bitBridge.shared.network.ProtocolService;
 
 import java.io.*;
 import java.net.InetAddress;
@@ -90,8 +92,9 @@ public class Client {
             }
 
             // 4. Enviar identificación inicial
-            Mensaje saludo = new Mensaje(hostName);
-            enviarComunicacion(saludo);
+            HandshakeMessage autenticacion=new HandshakeMessage(hostName,SocketPurpose.CHAT_COMMAND,"");
+
+            enviarComunicacion(autenticacion);
             //onConnectionSuccess();
         } catch (IOException e) {
             Logger.logError("Fallo al conectar: " + e.getMessage());

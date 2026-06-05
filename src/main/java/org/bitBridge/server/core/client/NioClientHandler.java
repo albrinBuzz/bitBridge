@@ -19,8 +19,11 @@ package org.bitBridge.server.core.client;
 import org.bitBridge.Client.ClientInfo;
 import org.bitBridge.server.core.NioServerEngine;
 import org.bitBridge.server.core.ServerContext;
+import org.bitBridge.server.core.auth.AuthStrategy;
+import org.bitBridge.server.core.auth.AuthStrategyFactory;
 import org.bitBridge.shared.core.comunication.Communication;
 import org.bitBridge.shared.Logger;
+import org.bitBridge.shared.core.comunication.model.basic.HandshakeMessage;
 import org.bitBridge.shared.core.comunication.model.basic.Mensaje;
 import org.bitBridge.shared.core.comunication.model.basic.MessageAck;
 import org.bitBridge.shared.memory.DirectBufferPool;
@@ -44,15 +47,14 @@ public class NioClientHandler implements BitBridgeClient {
     private final ServerContext context;
     private SelectionKey selectionKey;
 
-    // Estado de lectura (Controlado estrictamente por el hilo del SubReactor)
     private ByteBuffer payloadBuffer = null;
     private final ByteBuffer headerBuffer = ByteBuffer.allocate(8);
     private boolean readingHeader = true;
 
     private ClientInfo info;
-    private volatile boolean isShuttingDown = false; // 🚨 Corregido: Volatile para visibilidad entre hilos
+    private volatile boolean isShuttingDown = false;
     public String nick;
-    private boolean authenticated = false;
+    private volatile boolean authenticated = false;
 
     private final ConcurrentLinkedQueue<ByteBuffer> writeQueue = new ConcurrentLinkedQueue<>();
     private final AtomicBoolean isWriting = new AtomicBoolean(false);
@@ -67,12 +69,9 @@ public class NioClientHandler implements BitBridgeClient {
     }
 
     public void processRead() {
-        // 🚨 SEGURIDAD: Evitar lecturas concurrentes si el socket está en proceso de cierre
         if (isShuttingDown) return;
 
         try {
-            // 🚨 CORREGIDO: Eliminamos el while(true) ciego.
-            // Leemos del canal en un bucle controlado por la existencia real de bytes.
             int bytesRead;
             while ((bytesRead = channel.read(readingHeader ? headerBuffer : payloadBuffer)) > 0) {
 
@@ -104,7 +103,6 @@ public class NioClientHandler implements BitBridgeClient {
                         payloadBuffer = DirectBufferPool.acquire(poolSugerido, 50);
                     }
 
-                    // Fallback si el pool está saturado o el tamaño excede los límites estándar
                     if (payloadBuffer == null) {
                         payloadBuffer = ByteBuffer.allocateDirect(fullPacketSize);
                     }
@@ -114,13 +112,11 @@ public class NioClientHandler implements BitBridgeClient {
                     payloadBuffer.put(headerBuffer); // Conservamos los bytes de control
                     readingHeader = false;
 
-                    // Continuamos el bucle inmediato para aprovechar si el OS ya tiene los bytes del cuerpo en buffer
-                    continue;
+                    continue; // Continuamos para aprovechar el resto del stream
                 }
 
-                // Verificación del cuerpo del mensaje
                 if (payloadBuffer.hasRemaining()) {
-                    return; // El cuerpo está incompleto, conservamos estado y esperamos más datos de red
+                    return; // Cuerpo incompleto, esperar más datos de red
                 }
 
                 // --- PROCESAMIENTO DE PAQUETE COMPLETO ---
@@ -128,28 +124,47 @@ public class NioClientHandler implements BitBridgeClient {
                 byte[] data = new byte[payloadBuffer.remaining()];
                 payloadBuffer.get(data);
 
-                // Liberación preventiva e inmediata de la memoria Off-Heap antes de delegar la lógica
                 if (payloadBuffer.isDirect()) {
                     DirectBufferPool.release(payloadBuffer);
                 }
 
-                // Reset de estados para la siguiente trama TCP antes de instanciar el hilo asíncrono
+                // Reset estructural antes de la bifurcación lógica
                 payloadBuffer = null;
                 headerBuffer.clear();
                 readingHeader = true;
 
-                // Delegación limpia a la arquitectura de Hilos Virtuales
-                final byte[] finalData = data;
-                Thread.ofVirtual().start(() -> onMessageComplete(finalData));
+                // 🚨 MITIGACIÓN DE RACE CONDITION: Decisión atómica de hilos según autenticación
+                boolean abortarCicloInmediato = evaluarYProcesarPayload(data);
+
+                if (abortarCicloInmediato) {
+                    return; // Forzamos la salida del bucle de red para asentar el Handshake.
+                }
             }
 
-            // Si el canal retorna -1, el cliente cerró el socket limpiamente (EOF)
             if (bytesRead == -1) {
                 throw new IOException("End of Stream (EOF) alcanzado.");
             }
 
         } catch (IOException e) {
             shutDown();
+        }
+    }
+
+    /**
+     * Evalúa el estado del canal. Si no está autenticado, procesa sincrónicamente en el hilo de red
+     * y solicita congelar el buffer TCP para evitar absorber tramas posteriores prematuramente.
+     *
+     * @return true si se debe abortar el bucle inmediato de lectura, false para seguir iterando de forma asíncrona.
+     */
+    private boolean evaluarYProcesarPayload(byte[] data) {
+        if (!authenticated) {
+            // Ejecución síncrona: El hilo del sub-reactor procesa el HandshakeMessage mutando el estado inmediatamente
+            onMessageComplete(data);
+            return true; // Abortar el bucle `while`. Los bytes residuales se procesarán en el siguiente ciclo del Selector.
+        } else {
+            // Flujo normal optimizado: Despacho asíncrono y ultra-rápido usando Hilos Virtuales
+            Thread.ofVirtual().start(() -> onMessageComplete(data));
+            return false; // Continuar leyendo del canal en este mismo tick de red
         }
     }
 
@@ -167,26 +182,17 @@ public class NioClientHandler implements BitBridgeClient {
     }
 
     private void handleAuthentication(Communication comm) throws Exception {
-        if (!(comm instanceof Mensaje mensaje)) throw new IOException("Protocolo de autenticación inválido");
-
-        String contenido = mensaje.getContenido();
-
-        if (isSessionId(contenido)) {
-            this.nick = contenido;
-            this.authenticated = true;
-            context.getTransferManager().registerReceptor(this.nick, this);
-            Logger.logInfo("[AUTH] Canal de datos verificado y acoplado: " + this.nick);
-        } else {
-            this.nick = context.getServer().getUniqueNick(contenido);
-            this.authenticated = true;
-            context.getServer().registerClient(this, 8080);
-            sendComunicacion(new Mensaje("Conectado como: " + nick));
-            context.getServer().broadcastMessage("[ " + nick + "] Se ha unido al sistema.", this);
+        if (!(comm instanceof HandshakeMessage handshake)) {
+            throw new IOException("Protocol Desync: El primer paquete debe ser obligatoriamente HandshakeMessage.");
         }
+
+        AuthStrategy strategy = AuthStrategyFactory.getStrategy(handshake.getPurpose());
+        strategy.authenticate(this, handshake, this.context);
+
+        this.authenticated = true;
     }
 
     public void sendSharedBuffer(ByteBuffer buffer, AtomicInteger refCount) {
-        // Reservado para streaming masivo / optimizaciones futuras
         drainWriteQueue();
     }
 
@@ -197,7 +203,7 @@ public class NioClientHandler implements BitBridgeClient {
         try {
             buffer = ProtocolService.toNioBuffer(comm, 50);
             if (buffer == null) {
-                if (!(comm instanceof MessageAck)) return; // Descarte seguro por saturación
+                if (!(comm instanceof MessageAck)) return;
                 buffer = ProtocolService.toNioBuffer(comm, 500);
                 if (buffer == null) return;
             }
@@ -219,7 +225,6 @@ public class NioClientHandler implements BitBridgeClient {
                             while (buf.hasRemaining()) {
                                 int written = channel.write(buf);
                                 if (written == 0) {
-                                    // El buffer TCP del OS está lleno, cedemos cpu momentáneamente
                                     Thread.yield();
                                 }
                             }
@@ -233,7 +238,6 @@ public class NioClientHandler implements BitBridgeClient {
                     shutDown();
                 } finally {
                     isWriting.set(false);
-                    // Doble verificación atómica por si entraron elementos en la ventana de cierre del ciclo
                     if (!writeQueue.isEmpty()) drainWriteQueue();
                 }
             });
@@ -254,20 +258,17 @@ public class NioClientHandler implements BitBridgeClient {
             String currentNick = (nick != null) ? nick : "Unknown";
             boolean esSesionDeDatos = isSessionId(currentNick);
 
-            // 1. Remover del registro global antes de desmantelar canales
             context.registry().removeClient(this);
 
             if (context.getNetworkEngine() instanceof NioServerEngine engine) {
                 engine.unregisterChannel(channel);
             }
 
-            // 2. Liberación obligatoria de buffers de lectura huerfanos en memoria nativa
             if (payloadBuffer != null && payloadBuffer.isDirect()) {
                 DirectBufferPool.release(payloadBuffer);
                 payloadBuffer = null;
             }
 
-            // 🚨 CORREGIDO: Drenar y liberar todos los buffers del pool que quedaron atrapados en la cola de salida
             ByteBuffer pendingWriteBuf;
             while ((pendingWriteBuf = writeQueue.poll()) != null) {
                 if (pendingWriteBuf.isDirect()) {
@@ -275,12 +276,10 @@ public class NioClientHandler implements BitBridgeClient {
                 }
             }
 
-            // 3. Destrucción física del descriptor de archivo (Socket TCP)
             if (channel != null && channel.isOpen()) {
                 channel.close();
             }
 
-            // 4. Notificaciones de Ciclo de Vida del Clúster
             if (!esSesionDeDatos && authenticated) {
                 context.getServer().broadcastMessage(currentNick + " se ha desconectado del servidor.", this);
             }

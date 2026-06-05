@@ -6839,3 +6839,717 @@
 [21:50:48.600] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:566) - │  ├── Tráfico de Red Ahorrado: 137,97 MB                          │
 [21:50:48.600] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:567) - │  └── Eficiencia del Algoritmo: 97,97%                            │
 [21:50:48.600] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:571) - └──────────────────────────────────────────────────────────────────┘
+[13:47:21.278] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> DirectoryForwardHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.FileDirectoryCommunication:DIRECTORY]
+[13:47:21.280] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> FileForwardHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.FileDirectoryCommunication:FILE]
+[13:47:21.280] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> FileHandshakeHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.FileHandshakeCommunication:]
+[13:47:21.281] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> MessageHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.Mensaje:]
+[13:47:21.281] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> NotificationHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.FileHandshakeCommunication:]
+[13:47:21.282] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> ScreenCaptureRelayHandler para Mensaje [org.bitBridge.shared.core.comunication.ScreenCaptureMessage:]
+[13:47:21.282] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> ServerDirectoryQueryHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.DirectoryQuery:]
+[13:47:21.283] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> ServerDirectoryQueryResponseHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.DirectoryQueryResponse:]
+[13:47:21.283] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> ServerFilePullRequestHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.FilePullRequest:]
+[13:47:21.321] [INFO ] org.bitBridge.shared.network.NetworkManager::startServerAnnouncement(L:78) - [📡] ANUNCIANDO EN FÍSICA: wlp4s0 | IP: 192.168.100.187 | Puerto: 8080
+[13:47:21.322] [INFO ] org.bitBridge.server.core.Server::startServerHeadless(L:240) - Servidor iniciado en modo headless.
+[13:47:26.265] [INFO ] org.bitBridge.shared.network.ProtocolService::<clinit>(L:54) - [ProtocolService] Escaneo dinámico completado en 114ms. Se indexaron 15 paquetes de red de forma automática.
+[13:47:26.284] [INFO ] org.bitBridge.shared.memory.DirectBufferPool::initialize(L:55) - [DirectBufferPool] Memoria Off-Heap inicializada con límites seguros.
+[13:47:35.317] [INFO ] org.bitBridge.Client.core.Client::conexionAutomatica(L:121) - [Auto] Iniciando descubrimiento mDNS...
+[13:47:35.358] [INFO ] org.bitBridge.shared.network.NetworkManager::startLookingForServers(L:104) - [🔍] Escaneando desde interfaz física: 192.168.100.187
+[13:47:35.677] [INFO ] org.bitBridge.Client.core.Client::lambda$conexionAutomatica$0(L:129) - [mDNS] Intentando conectar a 192.168.100.187:8080
+[13:47:35.861] [INFO ] org.bitBridge.Client.core.MessageDispatcher::autoDiscoverHandlers(L:49) - Core Cliente: Mapeo dinámico de acciones completado. Total handlers: 9
+[13:47:35.865] [INFO ] org.bitBridge.Client.core.Client::setConexion(L:91) - No Activo
+[13:47:35.865] [INFO ] org.bitBridge.Client.core.NioClientEngine::finishConnection(L:106) - NIO: Conexión establecida físicamente en 1 ms.
+[13:47:35.993] [INFO ] org.bitBridge.shared.network.ProtocolService::<clinit>(L:54) - [ProtocolService] Escaneo dinámico completado en 115ms. Se indexaron 15 paquetes de red de forma automática.
+[13:47:36.002] [INFO ] org.bitBridge.shared.memory.DirectBufferPool::initialize(L:55) - [DirectBufferPool] Memoria Off-Heap inicializada con límites seguros.
+[13:47:37.002] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:60) - ┌──────────────────────────────────────────────────────────────────┐
+[13:47:37.002] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:61) - │  [NIO OUTBOUND SENDER] Inicializando Sesión de Transferencia     │
+[13:47:37.003] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:62) - ├──────────────────────────────────────────────────────────────────┤
+[13:47:37.003] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:63) - │  ├── ID Asignado: REQ.TX.9262
+[13:47:37.003] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:64) - │  ├── Archivo:    telemetria_servidor.txt                         │
+[13:47:37.003] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:65) - │  └── Volumen:    144217,91 KB
+[13:47:37.003] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:66) - └──────────────────────────────────────────────────────────────────┘
+[13:47:37.004] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:77) - [TCP-SOCKET] Abriendo canal asíncrono hacia el host » 192.168.100.187:8080
+[13:47:37.004] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:81) - [TCP-SOCKET] Conexión establecida. Iniciando Handshake Fase 1 (Autenticación)...
+[13:47:37.004] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:91) - [NIO-WRITE] Despachando handshakeMeta inicial al Server Relay...
+[13:47:37.006] [INFO ] org.bitBridge.server.transfer.TransferSessionManager::registerReceptor(L:57) - [SESSION-MGR] Matchmaking de sockets exitoso para: REQ.TX.9262
+[13:47:37.006] [INFO ] org.bitBridge.server.core.auth.AuthStrategyFactory::lambda$getStrategy$1(L:23) - [AUTH] Canal de datos acoplado para archivos: REQ.TX.9262
+[13:47:37.009] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:94) - [NIO-READ] Esperando respuesta de autorización (START_TRANSFER)...
+[13:47:37.012] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:37) - [FILE-RELAY-STR.DATA.7011] ┌──────────────────────────────────────────────────────────────────┐
+[13:47:37.012] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:38) - [FILE-RELAY-STR.DATA.7011] │  [SERVER RELAY] Evaluando Orquestación de Sincronización         │
+[13:47:37.012] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:39) - [FILE-RELAY-STR.DATA.7011] ├──────────────────────────────────────────────────────────────────┤
+[13:47:37.012] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:40) - [FILE-RELAY-STR.DATA.7011] │  ├── Origen (Sender):    REQ.TX.9262                            │
+[13:47:37.013] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:41) - [FILE-RELAY-STR.DATA.7011] │  ├── Destino (Target):   fedo                                   │
+[13:47:37.013] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:42) - [FILE-RELAY-STR.DATA.7011] │  └── Archivo Solicitado: telemetria_servidor.txt                │
+[13:47:37.013] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:43) - [FILE-RELAY-STR.DATA.7011] └──────────────────────────────────────────────────────────────────┘
+[13:47:37.013] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:52) - [FILE-RELAY-STR.DATA.7011] [CONTROL] Notificando SEND_REQUEST al hilo de eventos del receptor...
+[13:47:37.014] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:56) - [FILE-RELAY-STR.DATA.7011] [POOL-NIO] Esperando la inicialización del SocketChannel de datos del Receptor (Timeout: 30s)...
+[13:47:37.035] [INFO ] org.bitBridge.server.transfer.TransferSessionManager::registerReceptor(L:57) - [SESSION-MGR] Matchmaking de sockets exitoso para: STR.DATA.7011
+[13:47:37.036] [INFO ] org.bitBridge.server.core.auth.AuthStrategyFactory::lambda$getStrategy$1(L:23) - [AUTH] Canal de datos acoplado para archivos: STR.DATA.7011
+[13:47:37.036] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:62) - [FILE-RELAY-STR.DATA.7011] [POOL-NIO] Socket de datos del Receptor enlazado con éxito al pool asíncrono.
+[13:47:37.036] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:65) - [FILE-RELAY-STR.DATA.7011] [CONTROL] Esperando ACCEPT_REQUEST lúdico del receptor (Timeout: 7s)...
+[13:47:37.037] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:69) - [FILE-RELAY-STR.DATA.7011] [HANDSHAKE] Solicitud ACEPTADA por el receptor. Coordinando tokens unificados...
+[13:47:37.037] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:75) - [FILE-RELAY-STR.DATA.7011] [NIO-WRITE] Despachando START_TRANSFER simétrico a Emisor y Receptor...
+[13:47:37.037] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:81) - [FILE-RELAY-STR.DATA.7011] [KERNEL-NIO] Removiendo canales del Selector asíncrono. Pasando a modo bloqueante dedicado.
+[13:47:37.037] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:91) - [FILE-RELAY-STR.DATA.7011] [NIO-READ] Esperando paquete de metadatos del emisor...
+[13:47:37.038] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:98) - [HANDSHAKE] Fase 1 CONFIRMADA por el nodo remoto. Registrando métricas...
+[13:47:37.039] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:114) - [NIO-WRITE] Enviando metadatos específicos del payload local (Timestamp: 1780624233218)...
+[13:47:37.039] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:117) - [NIO-READ] Esperando resolución del Receptor (Evaluación de redundancia)...
+[13:47:37.039] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:96) - [FILE-RELAY-STR.DATA.7011] [FORWARD] Reenviando metadatos individuales al receptor (259 bytes)...
+[13:47:37.040] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:99) - [FILE-RELAY-STR.DATA.7011] [NIO-READ] Esperando resolución de redundancia del receptor...
+[13:47:37.045] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:108) - [FILE-RELAY-STR.DATA.7011] ┌──────────────────────────────────────────────────────────────────┐
+[13:47:37.045] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:109) - [FILE-RELAY-STR.DATA.7011] │  ⏩ [OMISIÓN AUTOMÁTICA] Archivos idénticos detectados por hash   │
+[13:47:37.045] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:110) - [FILE-RELAY-STR.DATA.7011] └──────────────────────────────────────────────────────────────────┘
+[13:47:37.046] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:112) - [FILE-RELAY-STR.DATA.7011] [FORWARD] Notificando SKIP_FILE de vuelta al emisor.
+[13:47:37.046] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:176) - [FILE-RELAY-STR.DATA.7011] [NIO-READ] Esperando instrucción de cierre de sesión (TRANSFER_DONE) del emisor...
+[13:47:37.046] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:121) - ┌──────────────────────────────────────────────────────────────────┐
+[13:47:37.046] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:122) - │  ⏩ [OMITIDO] Archivo idéntico en destino: telemetria_servidor.txt │
+[13:47:37.047] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:123) - └──────────────────────────────────────────────────────────────────┘
+[13:47:37.047] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:167) - [NIO-WRITE] Transmisión de instrucciones finalizada. Despachando TRANSFER_DONE.
+[13:47:37.047] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:559) - ┌──────────────────────────────────────────────────────────────────┐
+[13:47:37.047] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:181) - [FILE-RELAY-STR.DATA.7011] [FORWARD] Transmitiendo orden TRANSFER_DONE hacia el receptor...
+[13:47:37.047] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:560) - │ 🔥 [METRICAS FINALES - OUTBOUND SENDER]                        │
+[13:47:37.047] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:561) - ├──────────────────────────────────────────────────────────────────┤
+[13:47:37.047] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:185) - [FILE-RELAY-STR.DATA.7011] ┌──────────────────────────────────────────────────────────────────┐
+[13:47:37.048] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:562) - │  ├── Estrategia Aplicada:  NUEVO [ZERO-COPY]                      │
+[13:47:37.048] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:186) - [FILE-RELAY-STR.DATA.7011] │  ✅ [RELAY COMPLETO] Sesión de tunelización finalizada con éxito │
+[13:47:37.048] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:563) - │  ├── Tiempo de Ejecución:  0,009 seg                             │
+[13:47:37.048] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:187) - [FILE-RELAY-STR.DATA.7011] └──────────────────────────────────────────────────────────────────┘
+[13:47:37.048] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:564) - │  ├── Tamaño Lógico (File): 140,84 MB                             │
+[13:47:37.049] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:565) - │  ├── Transferido Real Físico: 0 B                                │
+[13:47:37.049] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:571) - │  └── Tasa de Transferencia: 0,00 Mbps                            │
+[13:47:37.049] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:573) - └──────────────────────────────────────────────────────────────────┘
+[13:48:20.971] [INFO ] org.bitBridge.Client.core.Client::conexionAutomatica(L:121) - [Auto] Iniciando descubrimiento mDNS...
+[13:48:21.015] [INFO ] org.bitBridge.shared.network.NetworkManager::startLookingForServers(L:104) - [🔍] Escaneando desde interfaz física: 192.168.100.187
+[13:48:21.294] [INFO ] org.bitBridge.Client.core.Client::lambda$conexionAutomatica$0(L:129) - [mDNS] Intentando conectar a 192.168.100.187:8080
+[13:48:21.488] [INFO ] org.bitBridge.Client.core.MessageDispatcher::autoDiscoverHandlers(L:49) - Core Cliente: Mapeo dinámico de acciones completado. Total handlers: 9
+[13:48:21.492] [INFO ] org.bitBridge.Client.core.Client::setConexion(L:91) - No Activo
+[13:48:21.492] [INFO ] org.bitBridge.Client.core.NioClientEngine::finishConnection(L:106) - NIO: Conexión establecida físicamente en 1 ms.
+[13:48:21.615] [INFO ] org.bitBridge.shared.network.ProtocolService::<clinit>(L:54) - [ProtocolService] Escaneo dinámico completado en 110ms. Se indexaron 15 paquetes de red de forma automática.
+[13:48:21.622] [INFO ] org.bitBridge.shared.memory.DirectBufferPool::initialize(L:55) - [DirectBufferPool] Memoria Off-Heap inicializada con límites seguros.
+[13:48:22.623] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:60) - ┌──────────────────────────────────────────────────────────────────┐
+[13:48:22.624] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:61) - │  [NIO OUTBOUND SENDER] Inicializando Sesión de Transferencia     │
+[13:48:22.624] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:62) - ├──────────────────────────────────────────────────────────────────┤
+[13:48:22.624] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:63) - │  ├── ID Asignado: REQ.TX.2552
+[13:48:22.624] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:64) - │  ├── Archivo:    telemetria_servidor.txt                         │
+[13:48:22.624] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:65) - │  └── Volumen:    144229,39 KB
+[13:48:22.625] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:66) - └──────────────────────────────────────────────────────────────────┘
+[13:48:22.625] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:77) - [TCP-SOCKET] Abriendo canal asíncrono hacia el host » 192.168.100.187:8080
+[13:48:22.625] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:81) - [TCP-SOCKET] Conexión establecida. Iniciando Handshake Fase 1 (Autenticación)...
+[13:48:22.625] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:91) - [NIO-WRITE] Despachando handshakeMeta inicial al Server Relay...
+[13:48:22.626] [INFO ] org.bitBridge.server.transfer.TransferSessionManager::registerReceptor(L:57) - [SESSION-MGR] Matchmaking de sockets exitoso para: REQ.TX.2552
+[13:48:22.626] [INFO ] org.bitBridge.server.core.auth.AuthStrategyFactory::lambda$getStrategy$1(L:23) - [AUTH] Canal de datos acoplado para archivos: REQ.TX.2552
+[13:48:22.629] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:94) - [NIO-READ] Esperando respuesta de autorización (START_TRANSFER)...
+[13:48:22.629] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:37) - [FILE-RELAY-STR.DATA.2629] ┌──────────────────────────────────────────────────────────────────┐
+[13:48:22.630] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:38) - [FILE-RELAY-STR.DATA.2629] │  [SERVER RELAY] Evaluando Orquestación de Sincronización         │
+[13:48:22.630] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:39) - [FILE-RELAY-STR.DATA.2629] ├──────────────────────────────────────────────────────────────────┤
+[13:48:22.630] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:40) - [FILE-RELAY-STR.DATA.2629] │  ├── Origen (Sender):    REQ.TX.2552                            │
+[13:48:22.630] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:41) - [FILE-RELAY-STR.DATA.2629] │  ├── Destino (Target):   fedo                                   │
+[13:48:22.630] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:42) - [FILE-RELAY-STR.DATA.2629] │  └── Archivo Solicitado: telemetria_servidor.txt                │
+[13:48:22.630] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:43) - [FILE-RELAY-STR.DATA.2629] └──────────────────────────────────────────────────────────────────┘
+[13:48:22.630] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:52) - [FILE-RELAY-STR.DATA.2629] [CONTROL] Notificando SEND_REQUEST al hilo de eventos del receptor...
+[13:48:22.631] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:56) - [FILE-RELAY-STR.DATA.2629] [POOL-NIO] Esperando la inicialización del SocketChannel de datos del Receptor (Timeout: 30s)...
+[13:48:22.743] [INFO ] org.bitBridge.server.transfer.TransferSessionManager::registerReceptor(L:57) - [SESSION-MGR] Matchmaking de sockets exitoso para: STR.DATA.2629
+[13:48:22.744] [INFO ] org.bitBridge.server.core.auth.AuthStrategyFactory::lambda$getStrategy$1(L:23) - [AUTH] Canal de datos acoplado para archivos: STR.DATA.2629
+[13:48:22.747] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:62) - [FILE-RELAY-STR.DATA.2629] [POOL-NIO] Socket de datos del Receptor enlazado con éxito al pool asíncrono.
+[13:48:22.747] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:65) - [FILE-RELAY-STR.DATA.2629] [CONTROL] Esperando ACCEPT_REQUEST lúdico del receptor (Timeout: 7s)...
+[13:48:22.747] [ERROR] org.bitBridge.server.core.client.NioClientHandler::onMessageComplete(L:168) - Error procesando mensaje de STR.DATA.2629: Protocol Desync: El primer paquete debe ser obligatoriamente HandshakeMessage.
+[13:48:29.747] [ERROR] org.bitBridge.server.transfer.TransferSessionManager::waitForResponseAction(L:94) - [SESSION] Timeout: Nadie respondió al handshake en STR.DATA.2629
+[13:48:29.747] [WARN ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:190) - [FILE-RELAY-STR.DATA.2629] ⚠️ Solicitud individual rechazada por el receptor o expirada por timeout en canal de control.
+[13:50:55.291] [WARN ] org.bitBridge.Client.core.NioClientEngine::handleServerDisconnection(L:205) - [CLIENTE] El servidor ha cerrado la conexión.
+[13:50:55.292] [INFO ] org.bitBridge.Client.core.NioClientEngine::stop(L:227) - NioClientEngine detenido correctamente.
+[13:50:55.292] [ERROR] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:177) - ❌ [CRITICAL-ERROR] Excepción I/O en la máquina de estados del Emisor: Canal cerrado en lectura de Header
+[13:50:56.660] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> DirectoryForwardHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.FileDirectoryCommunication:DIRECTORY]
+[13:50:56.662] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> FileForwardHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.FileDirectoryCommunication:FILE]
+[13:50:56.662] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> FileHandshakeHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.FileHandshakeCommunication:]
+[13:50:56.663] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> MessageHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.Mensaje:]
+[13:50:56.663] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> NotificationHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.FileHandshakeCommunication:]
+[13:50:56.664] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> ScreenCaptureRelayHandler para Mensaje [org.bitBridge.shared.core.comunication.ScreenCaptureMessage:]
+[13:50:56.664] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> ServerDirectoryQueryHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.DirectoryQuery:]
+[13:50:56.664] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> ServerDirectoryQueryResponseHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.DirectoryQueryResponse:]
+[13:50:56.665] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> ServerFilePullRequestHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.FilePullRequest:]
+[13:50:56.718] [INFO ] org.bitBridge.shared.network.NetworkManager::startServerAnnouncement(L:78) - [📡] ANUNCIANDO EN FÍSICA: wlp4s0 | IP: 192.168.100.187 | Puerto: 8080
+[13:50:56.719] [INFO ] org.bitBridge.server.core.Server::startServerHeadless(L:240) - Servidor iniciado en modo headless.
+[13:50:57.295] [INFO ] org.bitBridge.shared.network.NetworkManager::stopAll(L:148) - [🧹] NetworkManager: Todas las instancias JmDNS cerradas de forma limpia.
+[13:51:05.907] [INFO ] org.bitBridge.shared.network.ProtocolService::<clinit>(L:54) - [ProtocolService] Escaneo dinámico completado en 111ms. Se indexaron 15 paquetes de red de forma automática.
+[13:51:05.935] [INFO ] org.bitBridge.shared.memory.DirectBufferPool::initialize(L:55) - [DirectBufferPool] Memoria Off-Heap inicializada con límites seguros.
+[13:51:22.660] [INFO ] org.bitBridge.Client.core.Client::conexionAutomatica(L:121) - [Auto] Iniciando descubrimiento mDNS...
+[13:51:22.703] [INFO ] org.bitBridge.shared.network.NetworkManager::startLookingForServers(L:104) - [🔍] Escaneando desde interfaz física: 192.168.100.187
+[13:51:23.042] [INFO ] org.bitBridge.Client.core.Client::lambda$conexionAutomatica$0(L:129) - [mDNS] Intentando conectar a 192.168.100.187:8080
+[13:51:23.251] [INFO ] org.bitBridge.Client.core.MessageDispatcher::autoDiscoverHandlers(L:49) - Core Cliente: Mapeo dinámico de acciones completado. Total handlers: 9
+[13:51:23.255] [INFO ] org.bitBridge.Client.core.Client::setConexion(L:91) - No Activo
+[13:51:23.255] [INFO ] org.bitBridge.Client.core.NioClientEngine::finishConnection(L:106) - NIO: Conexión establecida físicamente en 1 ms.
+[13:51:23.371] [INFO ] org.bitBridge.shared.network.ProtocolService::<clinit>(L:54) - [ProtocolService] Escaneo dinámico completado en 102ms. Se indexaron 15 paquetes de red de forma automática.
+[13:51:23.378] [INFO ] org.bitBridge.shared.memory.DirectBufferPool::initialize(L:55) - [DirectBufferPool] Memoria Off-Heap inicializada con límites seguros.
+[13:51:24.322] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:60) - ┌──────────────────────────────────────────────────────────────────┐
+[13:51:24.322] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:61) - │  [NIO OUTBOUND SENDER] Inicializando Sesión de Transferencia     │
+[13:51:24.322] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:62) - ├──────────────────────────────────────────────────────────────────┤
+[13:51:24.323] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:63) - │  ├── ID Asignado: REQ.TX.7583
+[13:51:24.323] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:64) - │  ├── Archivo:    telemetria_servidor.txt                         │
+[13:51:24.324] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:65) - │  └── Volumen:    144229,39 KB
+[13:51:24.324] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:66) - └──────────────────────────────────────────────────────────────────┘
+[13:51:24.324] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:77) - [TCP-SOCKET] Abriendo canal asíncrono hacia el host » 192.168.100.187:8080
+[13:51:24.325] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:81) - [TCP-SOCKET] Conexión establecida. Iniciando Handshake Fase 1 (Autenticación)...
+[13:51:24.325] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:91) - [NIO-WRITE] Despachando handshakeMeta inicial al Server Relay...
+[13:51:24.326] [INFO ] org.bitBridge.server.transfer.TransferSessionManager::registerReceptor(L:57) - [SESSION-MGR] Matchmaking de sockets exitoso para: REQ.TX.7583
+[13:51:24.326] [INFO ] org.bitBridge.server.core.auth.AuthStrategyFactory::lambda$getStrategy$1(L:23) - [AUTH] Canal de datos acoplado para archivos: REQ.TX.7583
+[13:51:24.330] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:94) - [NIO-READ] Esperando respuesta de autorización (START_TRANSFER)...
+[13:51:24.335] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:37) - [FILE-RELAY-STR.DATA.4334] ┌──────────────────────────────────────────────────────────────────┐
+[13:51:24.335] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:38) - [FILE-RELAY-STR.DATA.4334] │  [SERVER RELAY] Evaluando Orquestación de Sincronización         │
+[13:51:24.335] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:39) - [FILE-RELAY-STR.DATA.4334] ├──────────────────────────────────────────────────────────────────┤
+[13:51:24.335] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:40) - [FILE-RELAY-STR.DATA.4334] │  ├── Origen (Sender):    REQ.TX.7583                            │
+[13:51:24.335] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:41) - [FILE-RELAY-STR.DATA.4334] │  ├── Destino (Target):   fedo                                   │
+[13:51:24.336] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:42) - [FILE-RELAY-STR.DATA.4334] │  └── Archivo Solicitado: telemetria_servidor.txt                │
+[13:51:24.336] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:43) - [FILE-RELAY-STR.DATA.4334] └──────────────────────────────────────────────────────────────────┘
+[13:51:24.336] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:52) - [FILE-RELAY-STR.DATA.4334] [CONTROL] Notificando SEND_REQUEST al hilo de eventos del receptor...
+[13:51:24.337] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:56) - [FILE-RELAY-STR.DATA.4334] [POOL-NIO] Esperando la inicialización del SocketChannel de datos del Receptor (Timeout: 30s)...
+[13:51:24.370] [INFO ] org.bitBridge.server.transfer.TransferSessionManager::registerReceptor(L:57) - [SESSION-MGR] Matchmaking de sockets exitoso para: STR.DATA.4334
+[13:51:24.371] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:62) - [FILE-RELAY-STR.DATA.4334] [POOL-NIO] Socket de datos del Receptor enlazado con éxito al pool asíncrono.
+[13:51:24.371] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:65) - [FILE-RELAY-STR.DATA.4334] [CONTROL] Esperando ACCEPT_REQUEST lúdico del receptor (Timeout: 7s)...
+[13:51:24.371] [ERROR] org.bitBridge.server.core.client.NioClientHandler::onMessageComplete(L:168) - Error procesando mensaje de STR.DATA.4334: Protocol Desync: El primer paquete debe ser obligatoriamente HandshakeMessage.
+[13:51:24.371] [INFO ] org.bitBridge.server.core.auth.AuthStrategyFactory::lambda$getStrategy$1(L:23) - [AUTH] Canal de datos acoplado para archivos: STR.DATA.4334
+[13:51:31.372] [ERROR] org.bitBridge.server.transfer.TransferSessionManager::waitForResponseAction(L:94) - [SESSION] Timeout: Nadie respondió al handshake en STR.DATA.4334
+[13:51:31.372] [WARN ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:190) - [FILE-RELAY-STR.DATA.4334] ⚠️ Solicitud individual rechazada por el receptor o expirada por timeout en canal de control.
+[13:55:04.972] [WARN ] org.bitBridge.Client.core.NioClientEngine::handleServerDisconnection(L:205) - [CLIENTE] El servidor ha cerrado la conexión.
+[13:55:04.972] [INFO ] org.bitBridge.Client.core.NioClientEngine::stop(L:227) - NioClientEngine detenido correctamente.
+[13:55:04.972] [ERROR] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:177) - ❌ [CRITICAL-ERROR] Excepción I/O en la máquina de estados del Emisor: Canal cerrado en lectura de Header
+[13:55:06.764] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> DirectoryForwardHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.FileDirectoryCommunication:DIRECTORY]
+[13:55:06.767] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> FileForwardHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.FileDirectoryCommunication:FILE]
+[13:55:06.767] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> FileHandshakeHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.FileHandshakeCommunication:]
+[13:55:06.768] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> MessageHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.Mensaje:]
+[13:55:06.768] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> NotificationHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.FileHandshakeCommunication:]
+[13:55:06.769] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> ScreenCaptureRelayHandler para Mensaje [org.bitBridge.shared.core.comunication.ScreenCaptureMessage:]
+[13:55:06.769] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> ServerDirectoryQueryHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.DirectoryQuery:]
+[13:55:06.770] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> ServerDirectoryQueryResponseHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.DirectoryQueryResponse:]
+[13:55:06.770] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> ServerFilePullRequestHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.FilePullRequest:]
+[13:55:06.811] [INFO ] org.bitBridge.shared.network.NetworkManager::startServerAnnouncement(L:78) - [📡] ANUNCIANDO EN FÍSICA: wlp4s0 | IP: 192.168.100.187 | Puerto: 8080
+[13:55:06.811] [INFO ] org.bitBridge.server.core.Server::startServerHeadless(L:240) - Servidor iniciado en modo headless.
+[13:55:06.974] [INFO ] org.bitBridge.shared.network.NetworkManager::stopAll(L:148) - [🧹] NetworkManager: Todas las instancias JmDNS cerradas de forma limpia.
+[13:55:11.725] [INFO ] org.bitBridge.shared.network.ProtocolService::<clinit>(L:54) - [ProtocolService] Escaneo dinámico completado en 118ms. Se indexaron 15 paquetes de red de forma automática.
+[13:55:11.744] [INFO ] org.bitBridge.shared.memory.DirectBufferPool::initialize(L:55) - [DirectBufferPool] Memoria Off-Heap inicializada con límites seguros.
+[13:55:18.274] [INFO ] org.bitBridge.Client.core.Client::conexionAutomatica(L:121) - [Auto] Iniciando descubrimiento mDNS...
+[13:55:18.317] [INFO ] org.bitBridge.shared.network.NetworkManager::startLookingForServers(L:104) - [🔍] Escaneando desde interfaz física: 192.168.100.187
+[13:55:18.578] [INFO ] org.bitBridge.Client.core.Client::lambda$conexionAutomatica$0(L:129) - [mDNS] Intentando conectar a 192.168.100.187:8080
+[13:55:18.840] [INFO ] org.bitBridge.Client.core.MessageDispatcher::autoDiscoverHandlers(L:49) - Core Cliente: Mapeo dinámico de acciones completado. Total handlers: 9
+[13:55:18.844] [INFO ] org.bitBridge.Client.core.Client::setConexion(L:91) - No Activo
+[13:55:18.845] [INFO ] org.bitBridge.Client.core.NioClientEngine::finishConnection(L:106) - NIO: Conexión establecida físicamente en 1 ms.
+[13:55:18.975] [INFO ] org.bitBridge.shared.network.ProtocolService::<clinit>(L:54) - [ProtocolService] Escaneo dinámico completado en 116ms. Se indexaron 15 paquetes de red de forma automática.
+[13:55:18.984] [INFO ] org.bitBridge.shared.memory.DirectBufferPool::initialize(L:55) - [DirectBufferPool] Memoria Off-Heap inicializada con límites seguros.
+[13:55:25.434] [INFO ] org.bitBridge.Client.core.Client::conexionAutomatica(L:121) - [Auto] Iniciando descubrimiento mDNS...
+[13:55:25.481] [INFO ] org.bitBridge.shared.network.NetworkManager::startLookingForServers(L:104) - [🔍] Escaneando desde interfaz física: 192.168.100.187
+[13:55:25.777] [INFO ] org.bitBridge.Client.core.Client::lambda$conexionAutomatica$0(L:129) - [mDNS] Intentando conectar a 192.168.100.187:8080
+[13:55:25.988] [INFO ] org.bitBridge.Client.core.MessageDispatcher::autoDiscoverHandlers(L:49) - Core Cliente: Mapeo dinámico de acciones completado. Total handlers: 9
+[13:55:25.991] [INFO ] org.bitBridge.Client.core.Client::setConexion(L:91) - No Activo
+[13:55:25.992] [INFO ] org.bitBridge.Client.core.NioClientEngine::finishConnection(L:106) - NIO: Conexión establecida físicamente en 1 ms.
+[13:55:26.129] [INFO ] org.bitBridge.shared.network.ProtocolService::<clinit>(L:54) - [ProtocolService] Escaneo dinámico completado en 123ms. Se indexaron 15 paquetes de red de forma automática.
+[13:55:26.136] [INFO ] org.bitBridge.shared.memory.DirectBufferPool::initialize(L:55) - [DirectBufferPool] Memoria Off-Heap inicializada con límites seguros.
+[13:55:27.092] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:60) - ┌──────────────────────────────────────────────────────────────────┐
+[13:55:27.093] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:61) - │  [NIO OUTBOUND SENDER] Inicializando Sesión de Transferencia     │
+[13:55:27.093] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:62) - ├──────────────────────────────────────────────────────────────────┤
+[13:55:27.093] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:63) - │  ├── ID Asignado: REQ.TX.6630
+[13:55:27.093] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:64) - │  ├── Archivo:    telemetria_servidor.txt                         │
+[13:55:27.093] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:65) - │  └── Volumen:    144229,39 KB
+[13:55:27.094] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:66) - └──────────────────────────────────────────────────────────────────┘
+[13:55:27.094] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:77) - [TCP-SOCKET] Abriendo canal asíncrono hacia el host » 192.168.100.187:8080
+[13:55:27.094] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:81) - [TCP-SOCKET] Conexión establecida. Iniciando Handshake Fase 1 (Autenticación)...
+[13:55:27.094] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:91) - [NIO-WRITE] Despachando handshakeMeta inicial al Server Relay...
+[13:55:27.095] [INFO ] org.bitBridge.server.transfer.TransferSessionManager::registerReceptor(L:57) - [SESSION-MGR] Matchmaking de sockets exitoso para: REQ.TX.6630
+[13:55:27.096] [INFO ] org.bitBridge.server.core.auth.AuthStrategyFactory::lambda$getStrategy$1(L:23) - [AUTH] Canal de datos acoplado para archivos: REQ.TX.6630
+[13:55:27.098] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:94) - [NIO-READ] Esperando respuesta de autorización (START_TRANSFER)...
+[13:55:27.101] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:37) - [FILE-RELAY-STR.DATA.7101] ┌──────────────────────────────────────────────────────────────────┐
+[13:55:27.102] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:38) - [FILE-RELAY-STR.DATA.7101] │  [SERVER RELAY] Evaluando Orquestación de Sincronización         │
+[13:55:27.102] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:39) - [FILE-RELAY-STR.DATA.7101] ├──────────────────────────────────────────────────────────────────┤
+[13:55:27.102] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:40) - [FILE-RELAY-STR.DATA.7101] │  ├── Origen (Sender):    REQ.TX.6630                            │
+[13:55:27.102] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:41) - [FILE-RELAY-STR.DATA.7101] │  ├── Destino (Target):   fedo                                   │
+[13:55:27.102] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:42) - [FILE-RELAY-STR.DATA.7101] │  └── Archivo Solicitado: telemetria_servidor.txt                │
+[13:55:27.102] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:43) - [FILE-RELAY-STR.DATA.7101] └──────────────────────────────────────────────────────────────────┘
+[13:55:27.102] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:52) - [FILE-RELAY-STR.DATA.7101] [CONTROL] Notificando SEND_REQUEST al hilo de eventos del receptor...
+[13:55:27.103] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:56) - [FILE-RELAY-STR.DATA.7101] [POOL-NIO] Esperando la inicialización del SocketChannel de datos del Receptor (Timeout: 30s)...
+[13:55:27.138] [INFO ] org.bitBridge.server.transfer.TransferSessionManager::registerReceptor(L:57) - [SESSION-MGR] Matchmaking de sockets exitoso para: STR.DATA.7101
+[13:55:27.138] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:62) - [FILE-RELAY-STR.DATA.7101] [POOL-NIO] Socket de datos del Receptor enlazado con éxito al pool asíncrono.
+[13:55:27.138] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:65) - [FILE-RELAY-STR.DATA.7101] [CONTROL] Esperando ACCEPT_REQUEST lúdico del receptor (Timeout: 7s)...
+[13:55:27.138] [INFO ] org.bitBridge.server.core.auth.AuthStrategyFactory::lambda$getStrategy$1(L:23) - [AUTH] Canal de datos acoplado para archivos: STR.DATA.7101
+[13:55:27.139] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:69) - [FILE-RELAY-STR.DATA.7101] [HANDSHAKE] Solicitud ACEPTADA por el receptor. Coordinando tokens unificados...
+[13:55:27.139] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:75) - [FILE-RELAY-STR.DATA.7101] [NIO-WRITE] Despachando START_TRANSFER simétrico a Emisor y Receptor...
+[13:55:27.140] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:81) - [FILE-RELAY-STR.DATA.7101] [KERNEL-NIO] Removiendo canales del Selector asíncrono. Pasando a modo bloqueante dedicado.
+[13:55:27.140] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:91) - [FILE-RELAY-STR.DATA.7101] [NIO-READ] Esperando paquete de metadatos del emisor...
+[13:55:27.142] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:98) - [HANDSHAKE] Fase 1 CONFIRMADA por el nodo remoto. Registrando métricas...
+[13:55:27.143] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:114) - [NIO-WRITE] Enviando metadatos específicos del payload local (Timestamp: 1780681698722)...
+[13:55:27.143] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:117) - [NIO-READ] Esperando resolución del Receptor (Evaluación de redundancia)...
+[13:55:27.143] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:96) - [FILE-RELAY-STR.DATA.7101] [FORWARD] Reenviando metadatos individuales al receptor (259 bytes)...
+[13:55:27.143] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:99) - [FILE-RELAY-STR.DATA.7101] [NIO-READ] Esperando resolución de redundancia del receptor...
+[13:55:27.148] [WARN ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:118) - [FILE-RELAY-STR.DATA.7101] ┌──────────────────────────────────────────────────────────────────┐
+[13:55:27.148] [WARN ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:119) - [FILE-RELAY-STR.DATA.7101] │  ⚡ [RSYNC-TUNNEL] Iniciando canalización de deltas lógicos      │
+[13:55:27.148] [WARN ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:120) - [FILE-RELAY-STR.DATA.7101] ├──────────────────────────────────────────────────────────────────┤
+[13:55:27.148] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:122) - [FILE-RELAY-STR.DATA.7101] [FORWARD] Notificando PROCESS_DELTAS de vuelta al emisor.
+[13:55:27.148] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:126) - [FILE-RELAY-STR.DATA.7101] │  ├── [FASE 1] Leyendo firmas Adler32/MD5 del receptor...
+[13:55:27.149] [WARN ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:130) - ┌──────────────────────────────────────────────────────────────────┐
+[13:55:27.149] [WARN ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:131) - │  ⚡ [MODO RSYNC] Archivo modificado detectado. Iniciando Delta.  │
+[13:55:27.149] [WARN ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:132) - └──────────────────────────────────────────────────────────────────┘
+[13:55:27.150] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:134) - [NIO-READ] Descargando mapa de firmas Adler32/MD5 del receptor remoto...
+[13:55:27.841] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:128) - [FILE-RELAY-STR.DATA.7101] │  │   ↳ Descargadas: 240340 bytes. Reenviando al emisor...
+[13:55:27.866] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:134) - [FILE-RELAY-STR.DATA.7101] │  ├── [FASE 2] Esperando paquete de deltas calculado por el emisor...
+[13:55:27.880] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:137) - [RSYNC-CORE] Procesando 2254 firmas con algoritmo de ventana deslizante...
+[13:55:28.637] [INFO ] org.bitBridge.Client.managers.FileTransferManager::calcularDeltasLocales(L:297) - [CLIENT-SENDER] Análisis Delta optimizado completado. Bloques coincidentes: 2246 | Bytes literales: 497042
+[13:55:28.704] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:151) - [NIO-READ] Esperando ACK final de sincronización del Server Relay...
+[13:55:28.704] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:136) - [FILE-RELAY-STR.DATA.7101] │  │   ↳ Recibidos: 1768778 bytes. Reenviando al receptor...
+[13:55:28.858] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:144) - [FILE-RELAY-STR.DATA.7101] │  └── [FASE 3] Esperando confirmación de escritura (Disk Flush) del receptor...
+[13:55:29.312] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:146) - [FILE-RELAY-STR.DATA.7101] [FORWARD] Reenviando confirmación estructural al emisor. Sincronización Delta OK.
+[13:55:29.312] [WARN ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:149) - [FILE-RELAY-STR.DATA.7101] └──────────────────────────────────────────────────────────────────┘
+[13:55:29.312] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:176) - [FILE-RELAY-STR.DATA.7101] [NIO-READ] Esperando instrucción de cierre de sesión (TRANSFER_DONE) del emisor...
+[13:55:29.312] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:167) - [NIO-WRITE] Transmisión de instrucciones finalizada. Despachando TRANSFER_DONE.
+[13:55:29.313] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:560) - ┌──────────────────────────────────────────────────────────────────┐
+[13:55:29.313] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:181) - [FILE-RELAY-STR.DATA.7101] [FORWARD] Transmitiendo orden TRANSFER_DONE hacia el receptor...
+[13:55:29.313] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:561) - │ 🔥 [METRICAS FINALES - OUTBOUND SENDER]                        │
+[13:55:29.313] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:562) - ├──────────────────────────────────────────────────────────────────┤
+[13:55:29.313] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:185) - [FILE-RELAY-STR.DATA.7101] ┌──────────────────────────────────────────────────────────────────┐
+[13:55:29.313] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:186) - [FILE-RELAY-STR.DATA.7101] │  ✅ [RELAY COMPLETO] Sesión de tunelización finalizada con éxito │
+[13:55:29.313] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:563) - │  ├── Estrategia Aplicada:  MUTADO [RSYNC-TUNNEL]                  │
+[13:55:29.313] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:187) - [FILE-RELAY-STR.DATA.7101] └──────────────────────────────────────────────────────────────────┘
+[13:55:29.314] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:564) - │  ├── Tiempo de Ejecución:  2,171 seg                             │
+[13:55:29.314] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:565) - │  ├── Tamaño Lógico (File): 140,85 MB                             │
+[13:55:29.314] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:566) - │  ├── Transferido Real Físico: 510,37 KB                          │
+[13:55:29.314] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:569) - │  ├── Tráfico de Red Ahorrado: 140,35 MB                          │
+[13:55:29.314] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:570) - │  └── Eficiencia del Algoritmo: 99,65%                            │
+[13:55:29.314] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:574) - └──────────────────────────────────────────────────────────────────┘
+[13:56:28.063] [INFO ] org.bitBridge.Client.core.Client::conexionAutomatica(L:121) - [Auto] Iniciando descubrimiento mDNS...
+[13:56:28.111] [INFO ] org.bitBridge.shared.network.NetworkManager::startLookingForServers(L:104) - [🔍] Escaneando desde interfaz física: 192.168.100.187
+[13:56:28.390] [INFO ] org.bitBridge.Client.core.Client::lambda$conexionAutomatica$0(L:129) - [mDNS] Intentando conectar a 192.168.100.187:8080
+[13:56:28.579] [INFO ] org.bitBridge.Client.core.MessageDispatcher::autoDiscoverHandlers(L:49) - Core Cliente: Mapeo dinámico de acciones completado. Total handlers: 9
+[13:56:28.582] [INFO ] org.bitBridge.Client.core.Client::setConexion(L:91) - No Activo
+[13:56:28.583] [INFO ] org.bitBridge.Client.core.NioClientEngine::finishConnection(L:106) - NIO: Conexión establecida físicamente en 1 ms.
+[13:56:28.705] [INFO ] org.bitBridge.shared.network.ProtocolService::<clinit>(L:54) - [ProtocolService] Escaneo dinámico completado en 110ms. Se indexaron 15 paquetes de red de forma automática.
+[13:56:28.713] [INFO ] org.bitBridge.shared.memory.DirectBufferPool::initialize(L:55) - [DirectBufferPool] Memoria Off-Heap inicializada con límites seguros.
+[13:56:29.731] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:60) - ┌──────────────────────────────────────────────────────────────────┐
+[13:56:29.732] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:61) - │  [NIO OUTBOUND SENDER] Inicializando Sesión de Transferencia     │
+[13:56:29.732] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:62) - ├──────────────────────────────────────────────────────────────────┤
+[13:56:29.732] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:63) - │  ├── ID Asignado: REQ.TX.989
+[13:56:29.732] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:64) - │  ├── Archivo:    telemetria_servidor.txt                         │
+[13:56:29.733] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:65) - │  └── Volumen:    144312,53 KB
+[13:56:29.733] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:66) - └──────────────────────────────────────────────────────────────────┘
+[13:56:29.733] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:77) - [TCP-SOCKET] Abriendo canal asíncrono hacia el host » 192.168.100.187:8080
+[13:56:29.733] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:81) - [TCP-SOCKET] Conexión establecida. Iniciando Handshake Fase 1 (Autenticación)...
+[13:56:29.734] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:91) - [NIO-WRITE] Despachando handshakeMeta inicial al Server Relay...
+[13:56:29.734] [INFO ] org.bitBridge.server.transfer.TransferSessionManager::registerReceptor(L:57) - [SESSION-MGR] Matchmaking de sockets exitoso para: REQ.TX.989
+[13:56:29.734] [INFO ] org.bitBridge.server.core.auth.AuthStrategyFactory::lambda$getStrategy$1(L:23) - [AUTH] Canal de datos acoplado para archivos: REQ.TX.989
+[13:56:29.735] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:94) - [NIO-READ] Esperando respuesta de autorización (START_TRANSFER)...
+[13:56:29.736] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:37) - [FILE-RELAY-STR.DATA.9736] ┌──────────────────────────────────────────────────────────────────┐
+[13:56:29.736] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:38) - [FILE-RELAY-STR.DATA.9736] │  [SERVER RELAY] Evaluando Orquestación de Sincronización         │
+[13:56:29.736] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:39) - [FILE-RELAY-STR.DATA.9736] ├──────────────────────────────────────────────────────────────────┤
+[13:56:29.736] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:40) - [FILE-RELAY-STR.DATA.9736] │  ├── Origen (Sender):    REQ.TX.989                             │
+[13:56:29.736] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:41) - [FILE-RELAY-STR.DATA.9736] │  ├── Destino (Target):   fedo                                   │
+[13:56:29.737] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:42) - [FILE-RELAY-STR.DATA.9736] │  └── Archivo Solicitado: telemetria_servidor.txt                │
+[13:56:29.737] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:43) - [FILE-RELAY-STR.DATA.9736] └──────────────────────────────────────────────────────────────────┘
+[13:56:29.737] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:52) - [FILE-RELAY-STR.DATA.9736] [CONTROL] Notificando SEND_REQUEST al hilo de eventos del receptor...
+[13:56:29.737] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:56) - [FILE-RELAY-STR.DATA.9736] [POOL-NIO] Esperando la inicialización del SocketChannel de datos del Receptor (Timeout: 30s)...
+[13:56:29.751] [INFO ] org.bitBridge.server.transfer.TransferSessionManager::registerReceptor(L:57) - [SESSION-MGR] Matchmaking de sockets exitoso para: STR.DATA.9736
+[13:56:29.751] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:62) - [FILE-RELAY-STR.DATA.9736] [POOL-NIO] Socket de datos del Receptor enlazado con éxito al pool asíncrono.
+[13:56:29.751] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:65) - [FILE-RELAY-STR.DATA.9736] [CONTROL] Esperando ACCEPT_REQUEST lúdico del receptor (Timeout: 7s)...
+[13:56:29.752] [ERROR] org.bitBridge.server.core.client.NioClientHandler::onMessageComplete(L:168) - Error procesando mensaje de STR.DATA.9736: Protocol Desync: El primer paquete debe ser obligatoriamente HandshakeMessage.
+[13:56:29.752] [INFO ] org.bitBridge.server.core.auth.AuthStrategyFactory::lambda$getStrategy$1(L:23) - [AUTH] Canal de datos acoplado para archivos: STR.DATA.9736
+[13:56:36.752] [ERROR] org.bitBridge.server.transfer.TransferSessionManager::waitForResponseAction(L:94) - [SESSION] Timeout: Nadie respondió al handshake en STR.DATA.9736
+[13:56:36.752] [WARN ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:190) - [FILE-RELAY-STR.DATA.9736] ⚠️ Solicitud individual rechazada por el receptor o expirada por timeout en canal de control.
+[13:56:40.902] [WARN ] org.bitBridge.Client.core.NioClientEngine::handleServerDisconnection(L:205) - [CLIENTE] El servidor ha cerrado la conexión.
+[13:56:40.903] [INFO ] org.bitBridge.Client.core.NioClientEngine::stop(L:227) - NioClientEngine detenido correctamente.
+[13:56:40.903] [ERROR] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:177) - ❌ [CRITICAL-ERROR] Excepción I/O en la máquina de estados del Emisor: Canal cerrado en lectura de Header
+[13:56:41.457] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> DirectoryForwardHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.FileDirectoryCommunication:DIRECTORY]
+[13:56:41.459] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> FileForwardHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.FileDirectoryCommunication:FILE]
+[13:56:41.460] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> FileHandshakeHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.FileHandshakeCommunication:]
+[13:56:41.461] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> MessageHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.Mensaje:]
+[13:56:41.461] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> NotificationHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.FileHandshakeCommunication:]
+[13:56:41.462] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> ScreenCaptureRelayHandler para Mensaje [org.bitBridge.shared.core.comunication.ScreenCaptureMessage:]
+[13:56:41.462] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> ServerDirectoryQueryHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.DirectoryQuery:]
+[13:56:41.463] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> ServerDirectoryQueryResponseHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.DirectoryQueryResponse:]
+[13:56:41.463] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> ServerFilePullRequestHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.FilePullRequest:]
+[13:56:41.505] [INFO ] org.bitBridge.shared.network.NetworkManager::startServerAnnouncement(L:78) - [📡] ANUNCIANDO EN FÍSICA: wlp4s0 | IP: 192.168.100.187 | Puerto: 8080
+[13:56:41.505] [INFO ] org.bitBridge.server.core.Server::startServerHeadless(L:240) - Servidor iniciado en modo headless.
+[13:56:42.906] [INFO ] org.bitBridge.shared.network.NetworkManager::stopAll(L:148) - [🧹] NetworkManager: Todas las instancias JmDNS cerradas de forma limpia.
+[13:56:50.907] [INFO ] org.bitBridge.shared.network.ProtocolService::<clinit>(L:54) - [ProtocolService] Escaneo dinámico completado en 124ms. Se indexaron 15 paquetes de red de forma automática.
+[13:56:50.926] [INFO ] org.bitBridge.shared.memory.DirectBufferPool::initialize(L:55) - [DirectBufferPool] Memoria Off-Heap inicializada con límites seguros.
+[13:56:52.457] [INFO ] org.bitBridge.Client.core.Client::conexionAutomatica(L:121) - [Auto] Iniciando descubrimiento mDNS...
+[13:56:52.506] [INFO ] org.bitBridge.shared.network.NetworkManager::startLookingForServers(L:104) - [🔍] Escaneando desde interfaz física: 192.168.100.187
+[13:56:52.852] [INFO ] org.bitBridge.Client.core.Client::lambda$conexionAutomatica$0(L:129) - [mDNS] Intentando conectar a 192.168.100.187:8080
+[13:56:53.202] [INFO ] org.bitBridge.Client.core.MessageDispatcher::autoDiscoverHandlers(L:49) - Core Cliente: Mapeo dinámico de acciones completado. Total handlers: 9
+[13:56:53.205] [INFO ] org.bitBridge.Client.core.Client::setConexion(L:91) - No Activo
+[13:56:53.206] [INFO ] org.bitBridge.Client.core.NioClientEngine::finishConnection(L:106) - NIO: Conexión establecida físicamente en 0 ms.
+[13:56:53.346] [INFO ] org.bitBridge.shared.network.ProtocolService::<clinit>(L:54) - [ProtocolService] Escaneo dinámico completado en 123ms. Se indexaron 15 paquetes de red de forma automática.
+[13:56:53.354] [INFO ] org.bitBridge.shared.memory.DirectBufferPool::initialize(L:55) - [DirectBufferPool] Memoria Off-Heap inicializada con límites seguros.
+[13:56:54.116] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:60) - ┌──────────────────────────────────────────────────────────────────┐
+[13:56:54.117] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:61) - │  [NIO OUTBOUND SENDER] Inicializando Sesión de Transferencia     │
+[13:56:54.117] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:62) - ├──────────────────────────────────────────────────────────────────┤
+[13:56:54.117] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:63) - │  ├── ID Asignado: REQ.TX.6553
+[13:56:54.117] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:64) - │  ├── Archivo:    telemetria_servidor.txt                         │
+[13:56:54.117] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:65) - │  └── Volumen:    144312,53 KB
+[13:56:54.117] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:66) - └──────────────────────────────────────────────────────────────────┘
+[13:56:54.118] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:77) - [TCP-SOCKET] Abriendo canal asíncrono hacia el host » 192.168.100.187:8080
+[13:56:54.118] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:81) - [TCP-SOCKET] Conexión establecida. Iniciando Handshake Fase 1 (Autenticación)...
+[13:56:54.118] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:91) - [NIO-WRITE] Despachando handshakeMeta inicial al Server Relay...
+[13:56:54.120] [INFO ] org.bitBridge.server.transfer.TransferSessionManager::registerReceptor(L:57) - [SESSION-MGR] Matchmaking de sockets exitoso para: REQ.TX.6553
+[13:56:54.120] [INFO ] org.bitBridge.server.core.auth.AuthStrategyFactory::lambda$getStrategy$1(L:23) - [AUTH] Canal de datos acoplado para archivos: REQ.TX.6553
+[13:56:54.122] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:94) - [NIO-READ] Esperando respuesta de autorización (START_TRANSFER)...
+[13:56:54.126] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:37) - [FILE-RELAY-STR.DATA.4125] ┌──────────────────────────────────────────────────────────────────┐
+[13:56:54.126] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:38) - [FILE-RELAY-STR.DATA.4125] │  [SERVER RELAY] Evaluando Orquestación de Sincronización         │
+[13:56:54.126] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:39) - [FILE-RELAY-STR.DATA.4125] ├──────────────────────────────────────────────────────────────────┤
+[13:56:54.126] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:40) - [FILE-RELAY-STR.DATA.4125] │  ├── Origen (Sender):    REQ.TX.6553                            │
+[13:56:54.126] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:41) - [FILE-RELAY-STR.DATA.4125] │  ├── Destino (Target):   fedo                                   │
+[13:56:54.126] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:42) - [FILE-RELAY-STR.DATA.4125] │  └── Archivo Solicitado: telemetria_servidor.txt                │
+[13:56:54.126] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:43) - [FILE-RELAY-STR.DATA.4125] └──────────────────────────────────────────────────────────────────┘
+[13:56:54.127] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:52) - [FILE-RELAY-STR.DATA.4125] [CONTROL] Notificando SEND_REQUEST al hilo de eventos del receptor...
+[13:56:54.128] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:56) - [FILE-RELAY-STR.DATA.4125] [POOL-NIO] Esperando la inicialización del SocketChannel de datos del Receptor (Timeout: 30s)...
+[13:56:54.149] [INFO ] org.bitBridge.server.transfer.TransferSessionManager::registerReceptor(L:57) - [SESSION-MGR] Matchmaking de sockets exitoso para: STR.DATA.4125
+[13:56:54.149] [INFO ] org.bitBridge.server.core.auth.AuthStrategyFactory::lambda$getStrategy$1(L:23) - [AUTH] Canal de datos acoplado para archivos: STR.DATA.4125
+[13:56:54.149] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:62) - [FILE-RELAY-STR.DATA.4125] [POOL-NIO] Socket de datos del Receptor enlazado con éxito al pool asíncrono.
+[13:56:54.149] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:65) - [FILE-RELAY-STR.DATA.4125] [CONTROL] Esperando ACCEPT_REQUEST lúdico del receptor (Timeout: 7s)...
+[13:56:54.149] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:69) - [FILE-RELAY-STR.DATA.4125] [HANDSHAKE] Solicitud ACEPTADA por el receptor. Coordinando tokens unificados...
+[13:56:54.150] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:75) - [FILE-RELAY-STR.DATA.4125] [NIO-WRITE] Despachando START_TRANSFER simétrico a Emisor y Receptor...
+[13:56:54.150] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:81) - [FILE-RELAY-STR.DATA.4125] [KERNEL-NIO] Removiendo canales del Selector asíncrono. Pasando a modo bloqueante dedicado.
+[13:56:54.150] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:91) - [FILE-RELAY-STR.DATA.4125] [NIO-READ] Esperando paquete de metadatos del emisor...
+[13:56:54.153] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:98) - [HANDSHAKE] Fase 1 CONFIRMADA por el nodo remoto. Registrando métricas...
+[13:56:54.154] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:114) - [NIO-WRITE] Enviando metadatos específicos del payload local (Timestamp: 1780682185900)...
+[13:56:54.154] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:117) - [NIO-READ] Esperando resolución del Receptor (Evaluación de redundancia)...
+[13:56:54.154] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:96) - [FILE-RELAY-STR.DATA.4125] [FORWARD] Reenviando metadatos individuales al receptor (259 bytes)...
+[13:56:54.155] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:99) - [FILE-RELAY-STR.DATA.4125] [NIO-READ] Esperando resolución de redundancia del receptor...
+[13:56:54.161] [WARN ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:118) - [FILE-RELAY-STR.DATA.4125] ┌──────────────────────────────────────────────────────────────────┐
+[13:56:54.162] [WARN ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:119) - [FILE-RELAY-STR.DATA.4125] │  ⚡ [RSYNC-TUNNEL] Iniciando canalización de deltas lógicos      │
+[13:56:54.162] [WARN ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:120) - [FILE-RELAY-STR.DATA.4125] ├──────────────────────────────────────────────────────────────────┤
+[13:56:54.162] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:122) - [FILE-RELAY-STR.DATA.4125] [FORWARD] Notificando PROCESS_DELTAS de vuelta al emisor.
+[13:56:54.163] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:126) - [FILE-RELAY-STR.DATA.4125] │  ├── [FASE 1] Leyendo firmas Adler32/MD5 del receptor...
+[13:56:54.163] [WARN ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:130) - ┌──────────────────────────────────────────────────────────────────┐
+[13:56:54.163] [WARN ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:131) - │  ⚡ [MODO RSYNC] Archivo modificado detectado. Iniciando Delta.  │
+[13:56:54.163] [WARN ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:132) - └──────────────────────────────────────────────────────────────────┘
+[13:56:54.163] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:134) - [NIO-READ] Descargando mapa de firmas Adler32/MD5 del receptor remoto...
+[13:56:54.771] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:128) - [FILE-RELAY-STR.DATA.4125] │  │   ↳ Descargadas: 240464 bytes. Reenviando al emisor...
+[13:56:54.794] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:134) - [FILE-RELAY-STR.DATA.4125] │  ├── [FASE 2] Esperando paquete de deltas calculado por el emisor...
+[13:56:54.808] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:137) - [RSYNC-CORE] Procesando 2254 firmas con algoritmo de ventana deslizante...
+[13:56:55.568] [INFO ] org.bitBridge.Client.managers.FileTransferManager::calcularDeltasLocales(L:297) - [CLIENT-SENDER] Análisis Delta optimizado completado. Bloques coincidentes: 2246 | Bytes literales: 582176
+[13:56:55.641] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:151) - [NIO-READ] Esperando ACK final de sincronización del Server Relay...
+[13:56:55.642] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:136) - [FILE-RELAY-STR.DATA.4125] │  │   ↳ Recibidos: 2063190 bytes. Reenviando al receptor...
+[13:56:55.874] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:144) - [FILE-RELAY-STR.DATA.4125] │  └── [FASE 3] Esperando confirmación de escritura (Disk Flush) del receptor...
+[13:56:56.338] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:146) - [FILE-RELAY-STR.DATA.4125] [FORWARD] Reenviando confirmación estructural al emisor. Sincronización Delta OK.
+[13:56:56.338] [WARN ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:149) - [FILE-RELAY-STR.DATA.4125] └──────────────────────────────────────────────────────────────────┘
+[13:56:56.339] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:176) - [FILE-RELAY-STR.DATA.4125] [NIO-READ] Esperando instrucción de cierre de sesión (TRANSFER_DONE) del emisor...
+[13:56:56.339] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:167) - [NIO-WRITE] Transmisión de instrucciones finalizada. Despachando TRANSFER_DONE.
+[13:56:56.339] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:560) - ┌──────────────────────────────────────────────────────────────────┐
+[13:56:56.339] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:181) - [FILE-RELAY-STR.DATA.4125] [FORWARD] Transmitiendo orden TRANSFER_DONE hacia el receptor...
+[13:56:56.340] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:561) - │ 🔥 [METRICAS FINALES - OUTBOUND SENDER]                        │
+[13:56:56.340] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:562) - ├──────────────────────────────────────────────────────────────────┤
+[13:56:56.340] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:185) - [FILE-RELAY-STR.DATA.4125] ┌──────────────────────────────────────────────────────────────────┐
+[13:56:56.340] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:186) - [FILE-RELAY-STR.DATA.4125] │  ✅ [RELAY COMPLETO] Sesión de tunelización finalizada con éxito │
+[13:56:56.340] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:563) - │  ├── Estrategia Aplicada:  MUTADO [RSYNC-TUNNEL]                  │
+[13:56:56.340] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:187) - [FILE-RELAY-STR.DATA.4125] └──────────────────────────────────────────────────────────────────┘
+[13:56:56.340] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:564) - │  ├── Tiempo de Ejecución:  2,185 seg                             │
+[13:56:56.340] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:565) - │  ├── Tamaño Lógico (File): 140,93 MB                             │
+[13:56:56.340] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:566) - │  ├── Transferido Real Físico: 593,45 KB                          │
+[13:56:56.341] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:569) - │  ├── Tráfico de Red Ahorrado: 140,35 MB                          │
+[13:56:56.341] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:570) - │  └── Eficiencia del Algoritmo: 99,59%                            │
+[13:56:56.341] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:574) - └──────────────────────────────────────────────────────────────────┘
+[13:57:15.196] [INFO ] org.bitBridge.Client.core.Client::conexionAutomatica(L:121) - [Auto] Iniciando descubrimiento mDNS...
+[13:57:15.247] [INFO ] org.bitBridge.shared.network.NetworkManager::startLookingForServers(L:104) - [🔍] Escaneando desde interfaz física: 192.168.100.187
+[13:57:15.555] [INFO ] org.bitBridge.Client.core.Client::lambda$conexionAutomatica$0(L:129) - [mDNS] Intentando conectar a 192.168.100.187:8080
+[13:57:15.846] [INFO ] org.bitBridge.Client.core.MessageDispatcher::autoDiscoverHandlers(L:49) - Core Cliente: Mapeo dinámico de acciones completado. Total handlers: 9
+[13:57:15.850] [INFO ] org.bitBridge.Client.core.Client::setConexion(L:91) - No Activo
+[13:57:15.850] [INFO ] org.bitBridge.Client.core.NioClientEngine::finishConnection(L:106) - NIO: Conexión establecida físicamente en 1 ms.
+[13:57:15.987] [INFO ] org.bitBridge.shared.network.ProtocolService::<clinit>(L:54) - [ProtocolService] Escaneo dinámico completado en 119ms. Se indexaron 15 paquetes de red de forma automática.
+[13:57:15.994] [INFO ] org.bitBridge.shared.memory.DirectBufferPool::initialize(L:55) - [DirectBufferPool] Memoria Off-Heap inicializada con límites seguros.
+[13:57:16.853] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:60) - ┌──────────────────────────────────────────────────────────────────┐
+[13:57:16.854] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:61) - │  [NIO OUTBOUND SENDER] Inicializando Sesión de Transferencia     │
+[13:57:16.854] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:62) - ├──────────────────────────────────────────────────────────────────┤
+[13:57:16.854] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:63) - │  ├── ID Asignado: REQ.TX.9382
+[13:57:16.854] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:64) - │  ├── Archivo:    telemetria_servidor.txt                         │
+[13:57:16.855] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:65) - │  └── Volumen:    144312,54 KB
+[13:57:16.855] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:66) - └──────────────────────────────────────────────────────────────────┘
+[13:57:16.856] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:77) - [TCP-SOCKET] Abriendo canal asíncrono hacia el host » 192.168.100.187:8080
+[13:57:16.856] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:81) - [TCP-SOCKET] Conexión establecida. Iniciando Handshake Fase 1 (Autenticación)...
+[13:57:16.856] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:91) - [NIO-WRITE] Despachando handshakeMeta inicial al Server Relay...
+[13:57:16.857] [INFO ] org.bitBridge.server.transfer.TransferSessionManager::registerReceptor(L:57) - [SESSION-MGR] Matchmaking de sockets exitoso para: REQ.TX.9382
+[13:57:16.857] [INFO ] org.bitBridge.server.core.auth.AuthStrategyFactory::lambda$getStrategy$1(L:23) - [AUTH] Canal de datos acoplado para archivos: REQ.TX.9382
+[13:57:16.861] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:94) - [NIO-READ] Esperando respuesta de autorización (START_TRANSFER)...
+[13:57:16.861] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:37) - [FILE-RELAY-STR.DATA.6861] ┌──────────────────────────────────────────────────────────────────┐
+[13:57:16.862] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:38) - [FILE-RELAY-STR.DATA.6861] │  [SERVER RELAY] Evaluando Orquestación de Sincronización         │
+[13:57:16.862] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:39) - [FILE-RELAY-STR.DATA.6861] ├──────────────────────────────────────────────────────────────────┤
+[13:57:16.862] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:40) - [FILE-RELAY-STR.DATA.6861] │  ├── Origen (Sender):    REQ.TX.9382                            │
+[13:57:16.862] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:41) - [FILE-RELAY-STR.DATA.6861] │  ├── Destino (Target):   fedo                                   │
+[13:57:16.862] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:42) - [FILE-RELAY-STR.DATA.6861] │  └── Archivo Solicitado: telemetria_servidor.txt                │
+[13:57:16.862] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:43) - [FILE-RELAY-STR.DATA.6861] └──────────────────────────────────────────────────────────────────┘
+[13:57:16.862] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:52) - [FILE-RELAY-STR.DATA.6861] [CONTROL] Notificando SEND_REQUEST al hilo de eventos del receptor...
+[13:57:16.862] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:56) - [FILE-RELAY-STR.DATA.6861] [POOL-NIO] Esperando la inicialización del SocketChannel de datos del Receptor (Timeout: 30s)...
+[13:57:16.885] [INFO ] org.bitBridge.server.transfer.TransferSessionManager::registerReceptor(L:57) - [SESSION-MGR] Matchmaking de sockets exitoso para: STR.DATA.6861
+[13:57:16.885] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:62) - [FILE-RELAY-STR.DATA.6861] [POOL-NIO] Socket de datos del Receptor enlazado con éxito al pool asíncrono.
+[13:57:16.885] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:65) - [FILE-RELAY-STR.DATA.6861] [CONTROL] Esperando ACCEPT_REQUEST lúdico del receptor (Timeout: 7s)...
+[13:57:16.885] [INFO ] org.bitBridge.server.core.auth.AuthStrategyFactory::lambda$getStrategy$1(L:23) - [AUTH] Canal de datos acoplado para archivos: STR.DATA.6861
+[13:57:16.886] [ERROR] org.bitBridge.server.core.client.NioClientHandler::onMessageComplete(L:168) - Error procesando mensaje de STR.DATA.6861: Protocol Desync: El primer paquete debe ser obligatoriamente HandshakeMessage.
+[13:57:23.886] [ERROR] org.bitBridge.server.transfer.TransferSessionManager::waitForResponseAction(L:94) - [SESSION] Timeout: Nadie respondió al handshake en STR.DATA.6861
+[13:57:23.886] [WARN ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:190) - [FILE-RELAY-STR.DATA.6861] ⚠️ Solicitud individual rechazada por el receptor o expirada por timeout en canal de control.
+[14:01:07.057] [WARN ] org.bitBridge.Client.core.NioClientEngine::handleServerDisconnection(L:205) - [CLIENTE] El servidor ha cerrado la conexión.
+[14:01:07.057] [INFO ] org.bitBridge.Client.core.NioClientEngine::stop(L:227) - NioClientEngine detenido correctamente.
+[14:01:07.058] [ERROR] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:177) - ❌ [CRITICAL-ERROR] Excepción I/O en la máquina de estados del Emisor: Canal cerrado en lectura de Header
+[14:01:08.686] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> DirectoryForwardHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.FileDirectoryCommunication:DIRECTORY]
+[14:01:08.688] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> FileForwardHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.FileDirectoryCommunication:FILE]
+[14:01:08.688] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> FileHandshakeHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.FileHandshakeCommunication:]
+[14:01:08.689] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> MessageHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.Mensaje:]
+[14:01:08.689] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> NotificationHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.FileHandshakeCommunication:]
+[14:01:08.690] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> ScreenCaptureRelayHandler para Mensaje [org.bitBridge.shared.core.comunication.ScreenCaptureMessage:]
+[14:01:08.690] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> ServerDirectoryQueryHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.DirectoryQuery:]
+[14:01:08.690] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> ServerDirectoryQueryResponseHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.DirectoryQueryResponse:]
+[14:01:08.691] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> ServerFilePullRequestHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.FilePullRequest:]
+[14:01:08.731] [INFO ] org.bitBridge.shared.network.NetworkManager::startServerAnnouncement(L:78) - [📡] ANUNCIANDO EN FÍSICA: wlp4s0 | IP: 192.168.100.187 | Puerto: 8080
+[14:01:08.731] [INFO ] org.bitBridge.server.core.Server::startServerHeadless(L:240) - Servidor iniciado en modo headless.
+[14:01:09.060] [INFO ] org.bitBridge.shared.network.NetworkManager::stopAll(L:148) - [🧹] NetworkManager: Todas las instancias JmDNS cerradas de forma limpia.
+[14:01:13.643] [INFO ] org.bitBridge.shared.network.ProtocolService::<clinit>(L:54) - [ProtocolService] Escaneo dinámico completado en 126ms. Se indexaron 15 paquetes de red de forma automática.
+[14:01:13.666] [INFO ] org.bitBridge.shared.memory.DirectBufferPool::initialize(L:55) - [DirectBufferPool] Memoria Off-Heap inicializada con límites seguros.
+[14:01:18.449] [INFO ] org.bitBridge.Client.core.Client::conexionAutomatica(L:121) - [Auto] Iniciando descubrimiento mDNS...
+[14:01:18.492] [INFO ] org.bitBridge.shared.network.NetworkManager::startLookingForServers(L:104) - [🔍] Escaneando desde interfaz física: 192.168.100.187
+[14:01:18.777] [INFO ] org.bitBridge.Client.core.Client::lambda$conexionAutomatica$0(L:129) - [mDNS] Intentando conectar a 192.168.100.187:8080
+[14:01:18.982] [INFO ] org.bitBridge.Client.core.MessageDispatcher::autoDiscoverHandlers(L:49) - Core Cliente: Mapeo dinámico de acciones completado. Total handlers: 9
+[14:01:18.985] [INFO ] org.bitBridge.Client.core.Client::setConexion(L:91) - No Activo
+[14:01:18.985] [INFO ] org.bitBridge.Client.core.NioClientEngine::finishConnection(L:106) - NIO: Conexión establecida físicamente en 0 ms.
+[14:01:19.113] [INFO ] org.bitBridge.shared.network.ProtocolService::<clinit>(L:54) - [ProtocolService] Escaneo dinámico completado en 114ms. Se indexaron 15 paquetes de red de forma automática.
+[14:01:19.134] [INFO ] org.bitBridge.shared.memory.DirectBufferPool::initialize(L:55) - [DirectBufferPool] Memoria Off-Heap inicializada con límites seguros.
+[14:01:25.384] [INFO ] org.bitBridge.Client.core.Client::conexionAutomatica(L:121) - [Auto] Iniciando descubrimiento mDNS...
+[14:01:25.429] [INFO ] org.bitBridge.shared.network.NetworkManager::startLookingForServers(L:104) - [🔍] Escaneando desde interfaz física: 192.168.100.187
+[14:01:25.763] [INFO ] org.bitBridge.Client.core.Client::lambda$conexionAutomatica$0(L:129) - [mDNS] Intentando conectar a 192.168.100.187:8080
+[14:01:25.970] [INFO ] org.bitBridge.Client.core.MessageDispatcher::autoDiscoverHandlers(L:49) - Core Cliente: Mapeo dinámico de acciones completado. Total handlers: 9
+[14:01:25.974] [INFO ] org.bitBridge.Client.core.Client::setConexion(L:91) - No Activo
+[14:01:25.974] [INFO ] org.bitBridge.Client.core.NioClientEngine::finishConnection(L:106) - NIO: Conexión establecida físicamente en 1 ms.
+[14:01:26.108] [INFO ] org.bitBridge.shared.network.ProtocolService::<clinit>(L:54) - [ProtocolService] Escaneo dinámico completado en 120ms. Se indexaron 15 paquetes de red de forma automática.
+[14:01:26.119] [INFO ] org.bitBridge.shared.memory.DirectBufferPool::initialize(L:55) - [DirectBufferPool] Memoria Off-Heap inicializada con límites seguros.
+[14:01:27.036] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:60) - ┌──────────────────────────────────────────────────────────────────┐
+[14:01:27.037] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:61) - │  [NIO OUTBOUND SENDER] Inicializando Sesión de Transferencia     │
+[14:01:27.037] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:62) - ├──────────────────────────────────────────────────────────────────┤
+[14:01:27.037] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:63) - │  ├── ID Asignado: REQ.TX.8495
+[14:01:27.037] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:64) - │  ├── Archivo:    telemetria_servidor.txt                         │
+[14:01:27.037] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:65) - │  └── Volumen:    144312,54 KB
+[14:01:27.037] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:66) - └──────────────────────────────────────────────────────────────────┘
+[14:01:27.038] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:77) - [TCP-SOCKET] Abriendo canal asíncrono hacia el host » 192.168.100.187:8080
+[14:01:27.038] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:81) - [TCP-SOCKET] Conexión establecida. Iniciando Handshake Fase 1 (Autenticación)...
+[14:01:27.038] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:91) - [NIO-WRITE] Despachando handshakeMeta inicial al Server Relay...
+[14:01:27.039] [INFO ] org.bitBridge.server.transfer.TransferSessionManager::registerReceptor(L:57) - [SESSION-MGR] Matchmaking de sockets exitoso para: REQ.TX.8495
+[14:01:27.039] [INFO ] org.bitBridge.server.core.auth.AuthStrategyFactory::lambda$getStrategy$1(L:23) - [AUTH] Canal de datos acoplado para archivos: REQ.TX.8495
+[14:01:27.042] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:94) - [NIO-READ] Esperando respuesta de autorización (START_TRANSFER)...
+[14:01:27.045] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:37) - [FILE-RELAY-STR.DATA.7044] ┌──────────────────────────────────────────────────────────────────┐
+[14:01:27.045] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:38) - [FILE-RELAY-STR.DATA.7044] │  [SERVER RELAY] Evaluando Orquestación de Sincronización         │
+[14:01:27.045] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:39) - [FILE-RELAY-STR.DATA.7044] ├──────────────────────────────────────────────────────────────────┤
+[14:01:27.046] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:40) - [FILE-RELAY-STR.DATA.7044] │  ├── Origen (Sender):    REQ.TX.8495                            │
+[14:01:27.046] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:41) - [FILE-RELAY-STR.DATA.7044] │  ├── Destino (Target):   fedo                                   │
+[14:01:27.046] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:42) - [FILE-RELAY-STR.DATA.7044] │  └── Archivo Solicitado: telemetria_servidor.txt                │
+[14:01:27.046] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:43) - [FILE-RELAY-STR.DATA.7044] └──────────────────────────────────────────────────────────────────┘
+[14:01:27.046] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:52) - [FILE-RELAY-STR.DATA.7044] [CONTROL] Notificando SEND_REQUEST al hilo de eventos del receptor...
+[14:01:27.047] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:56) - [FILE-RELAY-STR.DATA.7044] [POOL-NIO] Esperando la inicialización del SocketChannel de datos del Receptor (Timeout: 30s)...
+[14:01:27.066] [INFO ] org.bitBridge.server.transfer.TransferSessionManager::registerReceptor(L:57) - [SESSION-MGR] Matchmaking de sockets exitoso para: STR.DATA.7044
+[14:01:27.066] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:62) - [FILE-RELAY-STR.DATA.7044] [POOL-NIO] Socket de datos del Receptor enlazado con éxito al pool asíncrono.
+[14:01:27.066] [INFO ] org.bitBridge.server.core.auth.AuthStrategyFactory::lambda$getStrategy$1(L:23) - [AUTH] Canal de datos acoplado para archivos: STR.DATA.7044
+[14:01:27.066] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:65) - [FILE-RELAY-STR.DATA.7044] [CONTROL] Esperando ACCEPT_REQUEST lúdico del receptor (Timeout: 7s)...
+[14:01:27.067] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:69) - [FILE-RELAY-STR.DATA.7044] [HANDSHAKE] Solicitud ACEPTADA por el receptor. Coordinando tokens unificados...
+[14:01:27.067] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:75) - [FILE-RELAY-STR.DATA.7044] [NIO-WRITE] Despachando START_TRANSFER simétrico a Emisor y Receptor...
+[14:01:27.067] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:81) - [FILE-RELAY-STR.DATA.7044] [KERNEL-NIO] Removiendo canales del Selector asíncrono. Pasando a modo bloqueante dedicado.
+[14:01:27.067] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:91) - [FILE-RELAY-STR.DATA.7044] [NIO-READ] Esperando paquete de metadatos del emisor...
+[14:01:27.071] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:98) - [HANDSHAKE] Fase 1 CONFIRMADA por el nodo remoto. Registrando métricas...
+[14:01:27.072] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:114) - [NIO-WRITE] Enviando metadatos específicos del payload local (Timestamp: 1780682230115)...
+[14:01:27.072] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:117) - [NIO-READ] Esperando resolución del Receptor (Evaluación de redundancia)...
+[14:01:27.072] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:96) - [FILE-RELAY-STR.DATA.7044] [FORWARD] Reenviando metadatos individuales al receptor (259 bytes)...
+[14:01:27.073] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:99) - [FILE-RELAY-STR.DATA.7044] [NIO-READ] Esperando resolución de redundancia del receptor...
+[14:01:27.077] [WARN ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:118) - [FILE-RELAY-STR.DATA.7044] ┌──────────────────────────────────────────────────────────────────┐
+[14:01:27.077] [WARN ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:119) - [FILE-RELAY-STR.DATA.7044] │  ⚡ [RSYNC-TUNNEL] Iniciando canalización de deltas lógicos      │
+[14:01:27.077] [WARN ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:120) - [FILE-RELAY-STR.DATA.7044] ├──────────────────────────────────────────────────────────────────┤
+[14:01:27.078] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:122) - [FILE-RELAY-STR.DATA.7044] [FORWARD] Notificando PROCESS_DELTAS de vuelta al emisor.
+[14:01:27.078] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:126) - [FILE-RELAY-STR.DATA.7044] │  ├── [FASE 1] Leyendo firmas Adler32/MD5 del receptor...
+[14:01:27.078] [WARN ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:130) - ┌──────────────────────────────────────────────────────────────────┐
+[14:01:27.078] [WARN ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:131) - │  ⚡ [MODO RSYNC] Archivo modificado detectado. Iniciando Delta.  │
+[14:01:27.079] [WARN ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:132) - └──────────────────────────────────────────────────────────────────┘
+[14:01:27.079] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:134) - [NIO-READ] Descargando mapa de firmas Adler32/MD5 del receptor remoto...
+[14:01:27.689] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:128) - [FILE-RELAY-STR.DATA.7044] │  │   ↳ Descargadas: 240424 bytes. Reenviando al emisor...
+[14:01:27.714] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:134) - [FILE-RELAY-STR.DATA.7044] │  ├── [FASE 2] Esperando paquete de deltas calculado por el emisor...
+[14:01:27.731] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:137) - [RSYNC-CORE] Procesando 2255 firmas con algoritmo de ventana deslizante...
+[14:01:28.478] [INFO ] org.bitBridge.Client.managers.FileTransferManager::calcularDeltasLocales(L:297) - [CLIENT-SENDER] Análisis Delta optimizado completado. Bloques coincidentes: 2252 | Bytes literales: 188969
+[14:01:28.513] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:151) - [NIO-READ] Esperando ACK final de sincronización del Server Relay...
+[14:01:28.514] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:136) - [FILE-RELAY-STR.DATA.7044] │  │   ↳ Recibidos: 687782 bytes. Reenviando al receptor...
+[14:01:28.571] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:144) - [FILE-RELAY-STR.DATA.7044] │  └── [FASE 3] Esperando confirmación de escritura (Disk Flush) del receptor...
+[14:01:28.861] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:146) - [FILE-RELAY-STR.DATA.7044] [FORWARD] Reenviando confirmación estructural al emisor. Sincronización Delta OK.
+[14:01:28.861] [WARN ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:149) - [FILE-RELAY-STR.DATA.7044] └──────────────────────────────────────────────────────────────────┘
+[14:01:28.862] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:176) - [FILE-RELAY-STR.DATA.7044] [NIO-READ] Esperando instrucción de cierre de sesión (TRANSFER_DONE) del emisor...
+[14:01:28.862] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:167) - [NIO-WRITE] Transmisión de instrucciones finalizada. Despachando TRANSFER_DONE.
+[14:01:28.862] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:181) - [FILE-RELAY-STR.DATA.7044] [FORWARD] Transmitiendo orden TRANSFER_DONE hacia el receptor...
+[14:01:28.862] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:560) - ┌──────────────────────────────────────────────────────────────────┐
+[14:01:28.862] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:561) - │ 🔥 [METRICAS FINALES - OUTBOUND SENDER]                        │
+[14:01:28.862] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:185) - [FILE-RELAY-STR.DATA.7044] ┌──────────────────────────────────────────────────────────────────┐
+[14:01:28.863] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:562) - ├──────────────────────────────────────────────────────────────────┤
+[14:01:28.863] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:186) - [FILE-RELAY-STR.DATA.7044] │  ✅ [RELAY COMPLETO] Sesión de tunelización finalizada con éxito │
+[14:01:28.863] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:187) - [FILE-RELAY-STR.DATA.7044] └──────────────────────────────────────────────────────────────────┘
+[14:01:28.863] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:563) - │  ├── Estrategia Aplicada:  MUTADO [RSYNC-TUNNEL]                  │
+[14:01:28.863] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:564) - │  ├── Tiempo de Ejecución:  1,791 seg                             │
+[14:01:28.863] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:565) - │  ├── Tamaño Lógico (File): 140,93 MB                             │
+[14:01:28.863] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:566) - │  ├── Transferido Real Físico: 209,25 KB                          │
+[14:01:28.863] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:569) - │  ├── Tráfico de Red Ahorrado: 140,73 MB                          │
+[14:01:28.863] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:570) - │  └── Eficiencia del Algoritmo: 99,86%                            │
+[14:01:28.863] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:574) - └──────────────────────────────────────────────────────────────────┘
+[14:01:40.553] [INFO ] org.bitBridge.Client.core.Client::conexionAutomatica(L:121) - [Auto] Iniciando descubrimiento mDNS...
+[14:01:40.603] [INFO ] org.bitBridge.shared.network.NetworkManager::startLookingForServers(L:104) - [🔍] Escaneando desde interfaz física: 192.168.100.187
+[14:01:40.909] [INFO ] org.bitBridge.Client.core.Client::lambda$conexionAutomatica$0(L:129) - [mDNS] Intentando conectar a 192.168.100.187:8080
+[14:01:41.108] [INFO ] org.bitBridge.Client.core.MessageDispatcher::autoDiscoverHandlers(L:49) - Core Cliente: Mapeo dinámico de acciones completado. Total handlers: 9
+[14:01:41.111] [INFO ] org.bitBridge.Client.core.Client::setConexion(L:91) - No Activo
+[14:01:41.111] [INFO ] org.bitBridge.Client.core.NioClientEngine::finishConnection(L:106) - NIO: Conexión establecida físicamente en 1 ms.
+[14:01:41.233] [INFO ] org.bitBridge.shared.network.ProtocolService::<clinit>(L:54) - [ProtocolService] Escaneo dinámico completado en 106ms. Se indexaron 15 paquetes de red de forma automática.
+[14:01:41.240] [INFO ] org.bitBridge.shared.memory.DirectBufferPool::initialize(L:55) - [DirectBufferPool] Memoria Off-Heap inicializada con límites seguros.
+[14:01:42.224] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:60) - ┌──────────────────────────────────────────────────────────────────┐
+[14:01:42.224] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:61) - │  [NIO OUTBOUND SENDER] Inicializando Sesión de Transferencia     │
+[14:01:42.224] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:62) - ├──────────────────────────────────────────────────────────────────┤
+[14:01:42.225] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:63) - │  ├── ID Asignado: REQ.TX.4667
+[14:01:42.225] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:64) - │  ├── Archivo:    telemetria_servidor.txt                         │
+[14:01:42.225] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:65) - │  └── Volumen:    144337,07 KB
+[14:01:42.225] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:66) - └──────────────────────────────────────────────────────────────────┘
+[14:01:42.225] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:77) - [TCP-SOCKET] Abriendo canal asíncrono hacia el host » 192.168.100.187:8080
+[14:01:42.226] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:81) - [TCP-SOCKET] Conexión establecida. Iniciando Handshake Fase 1 (Autenticación)...
+[14:01:42.226] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:91) - [NIO-WRITE] Despachando handshakeMeta inicial al Server Relay...
+[14:01:42.226] [INFO ] org.bitBridge.server.transfer.TransferSessionManager::registerReceptor(L:57) - [SESSION-MGR] Matchmaking de sockets exitoso para: REQ.TX.4667
+[14:01:42.226] [INFO ] org.bitBridge.server.core.auth.AuthStrategyFactory::lambda$getStrategy$1(L:23) - [AUTH] Canal de datos acoplado para archivos: REQ.TX.4667
+[14:01:42.228] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:94) - [NIO-READ] Esperando respuesta de autorización (START_TRANSFER)...
+[14:01:42.228] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:37) - [FILE-RELAY-STR.DATA.2228] ┌──────────────────────────────────────────────────────────────────┐
+[14:01:42.228] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:38) - [FILE-RELAY-STR.DATA.2228] │  [SERVER RELAY] Evaluando Orquestación de Sincronización         │
+[14:01:42.228] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:39) - [FILE-RELAY-STR.DATA.2228] ├──────────────────────────────────────────────────────────────────┤
+[14:01:42.229] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:40) - [FILE-RELAY-STR.DATA.2228] │  ├── Origen (Sender):    REQ.TX.4667                            │
+[14:01:42.229] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:41) - [FILE-RELAY-STR.DATA.2228] │  ├── Destino (Target):   fedo                                   │
+[14:01:42.229] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:42) - [FILE-RELAY-STR.DATA.2228] │  └── Archivo Solicitado: telemetria_servidor.txt                │
+[14:01:42.229] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:43) - [FILE-RELAY-STR.DATA.2228] └──────────────────────────────────────────────────────────────────┘
+[14:01:42.229] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:52) - [FILE-RELAY-STR.DATA.2228] [CONTROL] Notificando SEND_REQUEST al hilo de eventos del receptor...
+[14:01:42.230] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:56) - [FILE-RELAY-STR.DATA.2228] [POOL-NIO] Esperando la inicialización del SocketChannel de datos del Receptor (Timeout: 30s)...
+[14:01:42.242] [INFO ] org.bitBridge.server.transfer.TransferSessionManager::registerReceptor(L:57) - [SESSION-MGR] Matchmaking de sockets exitoso para: STR.DATA.2228
+[14:01:42.242] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:62) - [FILE-RELAY-STR.DATA.2228] [POOL-NIO] Socket de datos del Receptor enlazado con éxito al pool asíncrono.
+[14:01:42.242] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:65) - [FILE-RELAY-STR.DATA.2228] [CONTROL] Esperando ACCEPT_REQUEST lúdico del receptor (Timeout: 7s)...
+[14:01:42.243] [INFO ] org.bitBridge.server.core.auth.AuthStrategyFactory::lambda$getStrategy$1(L:23) - [AUTH] Canal de datos acoplado para archivos: STR.DATA.2228
+[14:01:42.243] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:69) - [FILE-RELAY-STR.DATA.2228] [HANDSHAKE] Solicitud ACEPTADA por el receptor. Coordinando tokens unificados...
+[14:01:42.243] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:75) - [FILE-RELAY-STR.DATA.2228] [NIO-WRITE] Despachando START_TRANSFER simétrico a Emisor y Receptor...
+[14:01:42.243] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:81) - [FILE-RELAY-STR.DATA.2228] [KERNEL-NIO] Removiendo canales del Selector asíncrono. Pasando a modo bloqueante dedicado.
+[14:01:42.244] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:91) - [FILE-RELAY-STR.DATA.2228] [NIO-READ] Esperando paquete de metadatos del emisor...
+[14:01:42.245] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:98) - [HANDSHAKE] Fase 1 CONFIRMADA por el nodo remoto. Registrando métricas...
+[14:01:42.246] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:114) - [NIO-WRITE] Enviando metadatos específicos del payload local (Timestamp: 1780682499057)...
+[14:01:42.246] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:117) - [NIO-READ] Esperando resolución del Receptor (Evaluación de redundancia)...
+[14:01:42.246] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:96) - [FILE-RELAY-STR.DATA.2228] [FORWARD] Reenviando metadatos individuales al receptor (259 bytes)...
+[14:01:42.246] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:99) - [FILE-RELAY-STR.DATA.2228] [NIO-READ] Esperando resolución de redundancia del receptor...
+[14:01:42.252] [WARN ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:118) - [FILE-RELAY-STR.DATA.2228] ┌──────────────────────────────────────────────────────────────────┐
+[14:01:42.252] [WARN ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:119) - [FILE-RELAY-STR.DATA.2228] │  ⚡ [RSYNC-TUNNEL] Iniciando canalización de deltas lógicos      │
+[14:01:42.253] [WARN ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:120) - [FILE-RELAY-STR.DATA.2228] ├──────────────────────────────────────────────────────────────────┤
+[14:01:42.253] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:122) - [FILE-RELAY-STR.DATA.2228] [FORWARD] Notificando PROCESS_DELTAS de vuelta al emisor.
+[14:01:42.253] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:126) - [FILE-RELAY-STR.DATA.2228] │  ├── [FASE 1] Leyendo firmas Adler32/MD5 del receptor...
+[14:01:42.253] [WARN ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:130) - ┌──────────────────────────────────────────────────────────────────┐
+[14:01:42.253] [WARN ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:131) - │  ⚡ [MODO RSYNC] Archivo modificado detectado. Iniciando Delta.  │
+[14:01:42.254] [WARN ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:132) - └──────────────────────────────────────────────────────────────────┘
+[14:01:42.254] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:134) - [NIO-READ] Descargando mapa de firmas Adler32/MD5 del receptor remoto...
+[14:01:42.775] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:128) - [FILE-RELAY-STR.DATA.2228] │  │   ↳ Descargadas: 240578 bytes. Reenviando al emisor...
+[14:01:42.784] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:134) - [FILE-RELAY-STR.DATA.2228] │  ├── [FASE 2] Esperando paquete de deltas calculado por el emisor...
+[14:01:42.796] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:137) - [RSYNC-CORE] Procesando 2255 firmas con algoritmo de ventana deslizante...
+[14:01:43.542] [INFO ] org.bitBridge.Client.managers.FileTransferManager::calcularDeltasLocales(L:297) - [CLIENT-SENDER] Análisis Delta optimizado completado. Bloques coincidentes: 2252 | Bytes literales: 214089
+[14:01:43.580] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:151) - [NIO-READ] Esperando ACK final de sincronización del Server Relay...
+[14:01:43.580] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:136) - [FILE-RELAY-STR.DATA.2228] │  │   ↳ Recibidos: 772176 bytes. Reenviando al receptor...
+[14:01:43.631] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:144) - [FILE-RELAY-STR.DATA.2228] │  └── [FASE 3] Esperando confirmación de escritura (Disk Flush) del receptor...
+[14:01:43.898] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:146) - [FILE-RELAY-STR.DATA.2228] [FORWARD] Reenviando confirmación estructural al emisor. Sincronización Delta OK.
+[14:01:43.899] [WARN ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:149) - [FILE-RELAY-STR.DATA.2228] └──────────────────────────────────────────────────────────────────┘
+[14:01:43.899] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:176) - [FILE-RELAY-STR.DATA.2228] [NIO-READ] Esperando instrucción de cierre de sesión (TRANSFER_DONE) del emisor...
+[14:01:43.899] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:167) - [NIO-WRITE] Transmisión de instrucciones finalizada. Despachando TRANSFER_DONE.
+[14:01:43.900] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:560) - ┌──────────────────────────────────────────────────────────────────┐
+[14:01:43.900] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:181) - [FILE-RELAY-STR.DATA.2228] [FORWARD] Transmitiendo orden TRANSFER_DONE hacia el receptor...
+[14:01:43.900] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:561) - │ 🔥 [METRICAS FINALES - OUTBOUND SENDER]                        │
+[14:01:43.900] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:185) - [FILE-RELAY-STR.DATA.2228] ┌──────────────────────────────────────────────────────────────────┐
+[14:01:43.900] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:562) - ├──────────────────────────────────────────────────────────────────┤
+[14:01:43.900] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:186) - [FILE-RELAY-STR.DATA.2228] │  ✅ [RELAY COMPLETO] Sesión de tunelización finalizada con éxito │
+[14:01:43.900] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:563) - │  ├── Estrategia Aplicada:  MUTADO [RSYNC-TUNNEL]                  │
+[14:01:43.900] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:187) - [FILE-RELAY-STR.DATA.2228] └──────────────────────────────────────────────────────────────────┘
+[14:01:43.901] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:564) - │  ├── Tiempo de Ejecución:  1,655 seg                             │
+[14:01:43.901] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:565) - │  ├── Tamaño Lógico (File): 140,95 MB                             │
+[14:01:43.901] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:566) - │  ├── Transferido Real Físico: 233,90 KB                          │
+[14:01:43.901] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:569) - │  ├── Tráfico de Red Ahorrado: 140,73 MB                          │
+[14:01:43.902] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:570) - │  └── Eficiencia del Algoritmo: 99,84%                            │
+[14:01:43.902] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:574) - └──────────────────────────────────────────────────────────────────┘
+[14:09:13.910] [WARN ] org.bitBridge.Client.core.NioClientEngine::handleServerDisconnection(L:205) - [CLIENTE] El servidor ha cerrado la conexión.
+[14:09:13.911] [INFO ] org.bitBridge.Client.core.NioClientEngine::stop(L:227) - NioClientEngine detenido correctamente.
+[14:09:15.913] [INFO ] org.bitBridge.shared.network.NetworkManager::stopAll(L:148) - [🧹] NetworkManager: Todas las instancias JmDNS cerradas de forma limpia.
+[14:09:19.808] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> DirectoryForwardHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.FileDirectoryCommunication:DIRECTORY]
+[14:09:19.809] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> FileForwardHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.FileDirectoryCommunication:FILE]
+[14:09:19.810] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> FileHandshakeHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.FileHandshakeCommunication:]
+[14:09:19.811] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> MessageHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.Mensaje:]
+[14:09:19.811] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> NotificationHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.FileHandshakeCommunication:]
+[14:09:19.812] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> ScreenCaptureRelayHandler para Mensaje [org.bitBridge.shared.core.comunication.ScreenCaptureMessage:]
+[14:09:19.812] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> ServerDirectoryQueryHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.DirectoryQuery:]
+[14:09:19.812] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> ServerDirectoryQueryResponseHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.DirectoryQueryResponse:]
+[14:09:19.813] [INFO ] org.bitBridge.server.core.client.CommunicationDispatcher::autoDiscoverHandlers(L:91) - Core Servidor: Handler registrado -> ServerFilePullRequestHandler para Mensaje [org.bitBridge.shared.core.comunication.model.basic.FilePullRequest:]
+[14:09:21.283] [INFO ] org.bitBridge.shared.network.NetworkManager::startServerAnnouncement(L:78) - [📡] ANUNCIANDO EN FÍSICA: wlp4s0 | IP: 192.168.100.187 | Puerto: 8080
+[14:09:22.275] [INFO ] org.bitBridge.Client.core.Client::conexionAutomatica(L:121) - [Auto] Iniciando descubrimiento mDNS...
+[14:09:22.277] [INFO ] org.bitBridge.shared.network.NetworkManager::startLookingForServers(L:104) - [🔍] Escaneando desde interfaz física: 192.168.100.187
+[14:09:25.287] [INFO ] org.bitBridge.Client.core.Client::lambda$conexionAutomatica$0(L:129) - [mDNS] Intentando conectar a 192.168.100.187:8080
+[14:09:25.354] [INFO ] org.bitBridge.Client.core.MessageDispatcher::autoDiscoverHandlers(L:49) - Core Cliente: Mapeo dinámico de acciones completado. Total handlers: 9
+[14:09:25.358] [INFO ] org.bitBridge.Client.core.Client::setConexion(L:91) - No Activo
+[14:09:25.358] [INFO ] org.bitBridge.Client.core.NioClientEngine::finishConnection(L:106) - NIO: Conexión establecida físicamente en 1 ms.
+[14:09:25.404] [INFO ] org.bitBridge.shared.network.ProtocolService::<clinit>(L:54) - [ProtocolService] Escaneo dinámico completado en 33ms. Se indexaron 15 paquetes de red de forma automática.
+[14:09:25.410] [INFO ] org.bitBridge.shared.memory.DirectBufferPool::initialize(L:55) - [DirectBufferPool] Memoria Off-Heap inicializada con límites seguros.
+[14:09:25.411] [INFO ] org.bitBridge.view.core.MainController::lambda$startAutoDiscovery$2(L:99) - ¡Conexión exitosa confirmada!
+[14:09:26.429] [INFO ] org.bitBridge.view.swing.components.hosts.NetworkClientsPanel::updateAllHosts(L:87) - ClientInfo{clientId='d3332759-d301-487c-817a-e69d60107eef', nick='frodo', address='192.168.100.187:51038', port=8080, status='CONECTADO', osName='Linux', clientVersion='1.0.0', connectionTime=1780682965414, uptime=00:00:01, bytesSent=0, bytesReceived=0}
+[14:09:28.120] [INFO ] org.bitBridge.view.swing.components.hosts.NetworkClientsPanel::updateAllHosts(L:87) - ClientInfo{clientId='d3332759-d301-487c-817a-e69d60107eef', nick='frodo', address='192.168.100.187:51038', port=8080, status='CONECTADO', osName='Linux', clientVersion='1.0.0', connectionTime=1780682965414, uptime=00:00:02, bytesSent=0, bytesReceived=0}
+[14:09:28.121] [INFO ] org.bitBridge.view.swing.components.hosts.NetworkClientsPanel::updateAllHosts(L:87) - ClientInfo{clientId='387dd073-6a7a-4258-9ba7-27db9ee15695', nick='fedo', address='192.168.100.192:43962', port=8080, status='CONECTADO', osName='Linux', clientVersion='1.0.0', connectionTime=1780682967119, uptime=00:00:01, bytesSent=0, bytesReceived=0}
+[14:09:34.229] [INFO ] org.bitBridge.server.handlers.MessageHandler::handle(L:23) - hoal que tal?
+[14:11:11.661] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:60) - ┌──────────────────────────────────────────────────────────────────┐
+[14:11:11.661] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:61) - │  [NIO OUTBOUND SENDER] Inicializando Sesión de Transferencia     │
+[14:11:11.661] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:62) - ├──────────────────────────────────────────────────────────────────┤
+[14:11:11.661] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:63) - │  ├── ID Asignado: REQ.TX.1095
+[14:11:11.662] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:64) - │  ├── Archivo:    telemetria_servidor.txt                         │
+[14:11:11.662] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:65) - │  └── Volumen:    144398,76 KB
+[14:11:11.662] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:66) - └──────────────────────────────────────────────────────────────────┘
+[14:11:11.662] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:77) - [TCP-SOCKET] Abriendo canal asíncrono hacia el host » 192.168.100.187:8080
+[14:11:11.662] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:81) - [TCP-SOCKET] Conexión establecida. Iniciando Handshake Fase 1 (Autenticación)...
+[14:11:11.662] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:91) - [NIO-WRITE] Despachando handshakeMeta inicial al Server Relay...
+[14:11:11.664] [INFO ] org.bitBridge.server.transfer.TransferSessionManager::registerReceptor(L:57) - [SESSION-MGR] Matchmaking de sockets exitoso para: REQ.TX.1095
+[14:11:11.664] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:94) - [NIO-READ] Esperando respuesta de autorización (START_TRANSFER)...
+[14:11:11.664] [INFO ] org.bitBridge.server.core.auth.AuthStrategyFactory::lambda$getStrategy$1(L:23) - [AUTH] Canal de datos acoplado para archivos: REQ.TX.1095
+[14:11:11.666] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:37) - [FILE-RELAY-STR.DATA.1665] ┌──────────────────────────────────────────────────────────────────┐
+[14:11:11.666] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:38) - [FILE-RELAY-STR.DATA.1665] │  [SERVER RELAY] Evaluando Orquestación de Sincronización         │
+[14:11:11.666] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:39) - [FILE-RELAY-STR.DATA.1665] ├──────────────────────────────────────────────────────────────────┤
+[14:11:11.667] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:40) - [FILE-RELAY-STR.DATA.1665] │  ├── Origen (Sender):    REQ.TX.1095                            │
+[14:11:11.667] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:41) - [FILE-RELAY-STR.DATA.1665] │  ├── Destino (Target):   fedo                                   │
+[14:11:11.667] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:42) - [FILE-RELAY-STR.DATA.1665] │  └── Archivo Solicitado: telemetria_servidor.txt                │
+[14:11:11.667] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:43) - [FILE-RELAY-STR.DATA.1665] └──────────────────────────────────────────────────────────────────┘
+[14:11:11.667] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:52) - [FILE-RELAY-STR.DATA.1665] [CONTROL] Notificando SEND_REQUEST al hilo de eventos del receptor...
+[14:11:11.668] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:56) - [FILE-RELAY-STR.DATA.1665] [POOL-NIO] Esperando la inicialización del SocketChannel de datos del Receptor (Timeout: 30s)...
+[14:11:11.686] [INFO ] org.bitBridge.server.transfer.TransferSessionManager::registerReceptor(L:57) - [SESSION-MGR] Matchmaking de sockets exitoso para: STR.DATA.1665
+[14:11:11.687] [INFO ] org.bitBridge.server.core.auth.AuthStrategyFactory::lambda$getStrategy$1(L:23) - [AUTH] Canal de datos acoplado para archivos: STR.DATA.1665
+[14:11:11.687] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:62) - [FILE-RELAY-STR.DATA.1665] [POOL-NIO] Socket de datos del Receptor enlazado con éxito al pool asíncrono.
+[14:11:11.687] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:65) - [FILE-RELAY-STR.DATA.1665] [CONTROL] Esperando ACCEPT_REQUEST lúdico del receptor (Timeout: 7s)...
+[14:11:11.687] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:69) - [FILE-RELAY-STR.DATA.1665] [HANDSHAKE] Solicitud ACEPTADA por el receptor. Coordinando tokens unificados...
+[14:11:11.688] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:75) - [FILE-RELAY-STR.DATA.1665] [NIO-WRITE] Despachando START_TRANSFER simétrico a Emisor y Receptor...
+[14:11:11.688] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:81) - [FILE-RELAY-STR.DATA.1665] [KERNEL-NIO] Removiendo canales del Selector asíncrono. Pasando a modo bloqueante dedicado.
+[14:11:11.688] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:98) - [HANDSHAKE] Fase 1 CONFIRMADA por el nodo remoto. Registrando métricas...
+[14:11:11.688] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:91) - [FILE-RELAY-STR.DATA.1665] [NIO-READ] Esperando paquete de metadatos del emisor...
+[14:11:11.689] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:114) - [NIO-WRITE] Enviando metadatos específicos del payload local (Timestamp: 1780683063583)...
+[14:11:11.689] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:117) - [NIO-READ] Esperando resolución del Receptor (Evaluación de redundancia)...
+[14:11:11.689] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:96) - [FILE-RELAY-STR.DATA.1665] [FORWARD] Reenviando metadatos individuales al receptor (259 bytes)...
+[14:11:11.689] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:99) - [FILE-RELAY-STR.DATA.1665] [NIO-READ] Esperando resolución de redundancia del receptor...
+[14:11:11.694] [INFO ] org.bitBridge.view.swing.components.hosts.NetworkClientsPanel$3::done(L:294) - Transferencia exitosa a fedo
+[14:11:11.695] [WARN ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:118) - [FILE-RELAY-STR.DATA.1665] ┌──────────────────────────────────────────────────────────────────┐
+[14:11:11.695] [WARN ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:119) - [FILE-RELAY-STR.DATA.1665] │  ⚡ [RSYNC-TUNNEL] Iniciando canalización de deltas lógicos      │
+[14:11:11.695] [WARN ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:120) - [FILE-RELAY-STR.DATA.1665] ├──────────────────────────────────────────────────────────────────┤
+[14:11:11.695] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:122) - [FILE-RELAY-STR.DATA.1665] [FORWARD] Notificando PROCESS_DELTAS de vuelta al emisor.
+[14:11:11.696] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:126) - [FILE-RELAY-STR.DATA.1665] │  ├── [FASE 1] Leyendo firmas Adler32/MD5 del receptor...
+[14:11:11.696] [WARN ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:130) - ┌──────────────────────────────────────────────────────────────────┐
+[14:11:11.696] [WARN ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:131) - │  ⚡ [MODO RSYNC] Archivo modificado detectado. Iniciando Delta.  │
+[14:11:11.696] [WARN ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:132) - └──────────────────────────────────────────────────────────────────┘
+[14:11:11.696] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:134) - [NIO-READ] Descargando mapa de firmas Adler32/MD5 del receptor remoto...
+[14:11:12.315] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:128) - [FILE-RELAY-STR.DATA.1665] │  │   ↳ Descargadas: 240615 bytes. Reenviando al emisor...
+[14:11:12.343] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:134) - [FILE-RELAY-STR.DATA.1665] │  ├── [FASE 2] Esperando paquete de deltas calculado por el emisor...
+[14:11:12.355] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:137) - [RSYNC-CORE] Procesando 2256 firmas con algoritmo de ventana deslizante...
+[14:11:13.092] [INFO ] org.bitBridge.Client.managers.FileTransferManager::calcularDeltasLocales(L:297) - [CLIENT-SENDER] Análisis Delta optimizado completado. Bloques coincidentes: 2247 | Bytes literales: 604936
+[14:11:13.164] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:151) - [NIO-READ] Esperando ACK final de sincronización del Server Relay...
+[14:11:13.165] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:136) - [FILE-RELAY-STR.DATA.1665] │  │   ↳ Recibidos: 2155151 bytes. Reenviando al receptor...
+[14:11:13.318] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:144) - [FILE-RELAY-STR.DATA.1665] │  └── [FASE 3] Esperando confirmación de escritura (Disk Flush) del receptor...
+[14:11:13.866] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:146) - [FILE-RELAY-STR.DATA.1665] [FORWARD] Reenviando confirmación estructural al emisor. Sincronización Delta OK.
+[14:11:13.867] [WARN ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:149) - [FILE-RELAY-STR.DATA.1665] └──────────────────────────────────────────────────────────────────┘
+[14:11:13.867] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:176) - [FILE-RELAY-STR.DATA.1665] [NIO-READ] Esperando instrucción de cierre de sesión (TRANSFER_DONE) del emisor...
+[14:11:13.867] [INFO ] org.bitBridge.Client.managers.FileTransferManager::sendFile(L:167) - [NIO-WRITE] Transmisión de instrucciones finalizada. Despachando TRANSFER_DONE.
+[14:11:13.867] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:560) - ┌──────────────────────────────────────────────────────────────────┐
+[14:11:13.867] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:181) - [FILE-RELAY-STR.DATA.1665] [FORWARD] Transmitiendo orden TRANSFER_DONE hacia el receptor...
+[14:11:13.868] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:561) - │ 🔥 [METRICAS FINALES - OUTBOUND SENDER]                        │
+[14:11:13.868] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:562) - ├──────────────────────────────────────────────────────────────────┤
+[14:11:13.868] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:185) - [FILE-RELAY-STR.DATA.1665] ┌──────────────────────────────────────────────────────────────────┐
+[14:11:13.868] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:186) - [FILE-RELAY-STR.DATA.1665] │  ✅ [RELAY COMPLETO] Sesión de tunelización finalizada con éxito │
+[14:11:13.868] [INFO ] org.bitBridge.server.transfer.FileTransferService::handleForwardFile(L:187) - [FILE-RELAY-STR.DATA.1665] └──────────────────────────────────────────────────────────────────┘
+[14:11:13.868] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:563) - │  ├── Estrategia Aplicada:  MUTADO [RSYNC-TUNNEL]                  │
+[14:11:13.868] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:564) - │  ├── Tiempo de Ejecución:  2,179 seg                             │
+[14:11:13.868] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:565) - │  ├── Tamaño Lógico (File): 141,01 MB                             │
+[14:11:13.868] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:566) - │  ├── Transferido Real Físico: 615,75 KB                          │
+[14:11:13.868] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:569) - │  ├── Tráfico de Red Ahorrado: 140,41 MB                          │
+[14:11:13.868] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:570) - │  └── Eficiencia del Algoritmo: 99,57%                            │
+[14:11:13.869] [INFO ] org.bitBridge.Client.managers.FileTransferManager::mostrarEstadisticasFinales(L:574) - └──────────────────────────────────────────────────────────────────┘
