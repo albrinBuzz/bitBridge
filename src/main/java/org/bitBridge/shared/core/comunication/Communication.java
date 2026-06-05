@@ -13,4 +13,8 @@ public abstract class Communication implements Serializable {
     public String getCommunicationId() {
         return communicationId;
     }
+
+    public String getSubAction() {
+        return "";
+    }
 }

@@ -21,7 +21,6 @@ import org.bitBridge.server.core.ServerContext;
 import org.bitBridge.shared.ExecutionMode;
 import org.bitBridge.shared.Logger;
 import org.bitBridge.shared.core.comunication.*;
-import org.bitBridge.shared.core.comunication.model.basic.FileDirectoryCommunication;
 
 import java.util.Map;
 import java.util.concurrent.*;
@@ -29,14 +28,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class CommunicationDispatcher {
 
-    private final Map<String, CommunicationHandler> handlers = new ConcurrentHashMap<>();
-    private final Map<String, ExecutionMode> modes = new ConcurrentHashMap<>();
+    // Record atómico para evitar lecturas cruzadas desincronizadas en múltiples mapas
+    private record HandlerMetadata(
+            CommunicationHandler instance,
+            ExecutionMode mode,
+            ThreadCarrier carrier
+    ) {}
 
-    // Pool físico acotado para I/O intensivo de disco (File Transfer)
+    private final Map<String, HandlerMetadata> registry = new ConcurrentHashMap<>();
     private final ExecutorService fileTransferPool;
-
-    // El motor central para mensajes rápidos, asíncronos y paralelos basados en hilos virtuales
-    // Modificado para asignar una nomenclatura clara a la factoría de hilos virtuales
     private final ExecutorService virtualExecutor = Executors.newThreadPerTaskExecutor(
             Thread.ofVirtual().name("V-Worker-", 1).factory()
     );
@@ -44,8 +44,8 @@ public class CommunicationDispatcher {
     public CommunicationDispatcher() {
         int cpuCores = Runtime.getRuntime().availableProcessors();
         this.fileTransferPool = new ThreadPoolExecutor(
-                cpuCores * 2,                // Hilos base permanentes
-                cpuCores * 8,                // Máximo de hilos físicos bajo estrés pesado
+                cpuCores * 2,
+                cpuCores * 8,
                 60L, TimeUnit.SECONDS,
                 new ArrayBlockingQueue<>(5000),
                 new ThreadFactory() {
@@ -57,11 +57,12 @@ public class CommunicationDispatcher {
                         return t;
                     }
                 },
-                new ThreadPoolExecutor.CallerRunsPolicy() // Backpressure natural si el pool explota
+                new ThreadPoolExecutor.CallerRunsPolicy()
         );
 
         autoDiscoverHandlers();
     }
+
     @SuppressWarnings("unchecked")
     private void autoDiscoverHandlers() {
         try (ScanResult scanResult = new ClassGraph()
@@ -78,17 +79,19 @@ public class CommunicationDispatcher {
                     ServerHandler annotation = clazz.getAnnotation(ServerHandler.class);
                     CommunicationHandler handlerInstance = (CommunicationHandler) clazz.getDeclaredConstructor().newInstance();
 
-                    // 🚨 CORREGIDO: La clave DEBE basarse en el Mensaje que maneja, no en el nombre del Handler
                     Class<? extends Communication> messageClass = annotation.value();
-                    String actionSuffix = annotation.action().isEmpty() ? "" : annotation.action();
+                    String actionSuffix = annotation.action();
 
-                    String uniqueKey = messageClass.getName() + ":" + actionSuffix;
+                    String uniqueKey = buildKey(messageClass, actionSuffix);
 
-                    handlers.put(uniqueKey, handlerInstance);
-                    modes.put(uniqueKey, annotation.mode());
+                    // Almacenamos el empaquetado completo de metadatos en un único mapa asíncrono
+                    registry.put(uniqueKey, new HandlerMetadata(
+                            handlerInstance,
+                            annotation.mode(),
+                            annotation.carrier()
+                    ));
 
-                    // Log limpio para verificar el mapeo correcto en el arranque
-                    Logger.logInfo("Core Servidor: Handler registrado -> " + clazz.getSimpleName() + " para Mensaje [" + uniqueKey + "]");
+                    Logger.logInfo("Core Servidor: Handler registrado -> " + clazz.getSimpleName() + " para Mensaje [" + uniqueKey + "] en carril [" + annotation.carrier() + "]");
                 }
             }
         } catch (Exception e) {
@@ -96,70 +99,51 @@ public class CommunicationDispatcher {
         }
     }
 
-    public void registerHandler(Class<? extends Communication> clazz, CommunicationHandler handler) {
-        registerHandler(clazz, handler, ExecutionMode.ASYNC);
-    }
-
-    public void registerHandler(Class<? extends Communication> clazz, CommunicationHandler handler, ExecutionMode mode) {
-        String baseKey = clazz.getName() + ":";
-        handlers.put(baseKey, handler);
-        modes.put(baseKey, mode);
-    }
-
     public void dispatch(BitBridgeClient sender, Communication message, ServerContext context) {
         if (message == null || sender == null) return;
 
         Class<? extends Communication> messageClass = message.getClass();
-        String action = "";
 
-        // 1. Discriminación polimórfica para el canal de archivos compartidos
-        if (message instanceof FileDirectoryCommunication fileDirComm) {
-            action = fileDirComm.isDirectory() ? "DIRECTORY" : "FILE";
+        // 🚨 POLIMORFISMO: El mensaje dictamina su propia acción, eliminando los bloques 'instanceof'
+        String action = message.getSubAction();
+
+        // Búsqueda por especificidad exacta
+        String lookupKey = buildKey(messageClass, action);
+        HandlerMetadata metadata = registry.get(lookupKey);
+
+        // Fallback dinámico si se requería una acción genérica de la clase de red
+        if (metadata == null && !action.isEmpty()) {
+            metadata = registry.get(buildKey(messageClass, ""));
         }
 
-        // 2. Intento de búsqueda de alta especificidad (Clase + Acción)
-        String lookupKey = messageClass.getName() + ":" + action;
-        CommunicationHandler handler = handlers.get(lookupKey);
-
-        // 3. CORREGIDO: Fallback absoluto. Si no encuentra con acción, o si la acción vino vacía,
-        // forzamos la búsqueda con la clave base "NombreClase:" que generó ClassGraph.
-        if (handler == null) {
-            String fallbackKey = messageClass.getName() + ":";
-            handler = handlers.get(fallbackKey);
-            if (handler != null) {
-                lookupKey = fallbackKey; // Reajustamos la clave activa para el mapa de modos de ejecución
-            }
-        }
-
-        // 4. Si después del bypass sigue en null, el handler realmente no existe
-        if (handler == null) {
+        if (metadata == null) {
             Logger.logWarn("Servidor recibió un mensaje sin handler registrado para: " + messageClass.getName());
             return;
         }
 
-        final CommunicationHandler finalHandler = handler;
-        final String activeKey = lookupKey;
-        ExecutionMode mode = modes.getOrDefault(activeKey, ExecutionMode.ASYNC);
-
+        final HandlerMetadata finalMetadata = metadata;
         Runnable task = () -> {
             try {
-                finalHandler.handle(new CommunicationExchange(sender, context), message);
+                finalMetadata.instance().handle(new CommunicationExchange(sender, context), message);
             } catch (Exception e) {
-                Logger.logError("Excepción procesando lógica de negocio en [" + activeKey + "]: " + e.getMessage());
+                Logger.logError("Excepción procesando lógica de negocio: " + e.getMessage());
             }
         };
 
-        // Asignación inteligente de carriles de ejecución
-        String className = messageClass.getSimpleName();
-        if (className.equals("FilePullRequest") || action.equals("FILE") || action.equals("DIRECTORY")) {
-            fileTransferPool.execute(task);
+        // 🚨 ENRUTAMIENTO LIMPIO: Basado en las capacidades del Handler, no en strings del núcleo
+        if (finalMetadata.mode() == ExecutionMode.SYNC) {
+            task.run();
         } else {
-            if (mode == ExecutionMode.SYNC) {
-                task.run();
+            if (finalMetadata.carrier() == ThreadCarrier.PHYSICAL) {
+                fileTransferPool.execute(task);
             } else {
                 virtualExecutor.execute(task);
             }
         }
+    }
+
+    private String buildKey(Class<? extends Communication> messageClass, String action) {
+        return messageClass.getName() + ":" + (action == null ? "" : action);
     }
 
     public void shutdown() {

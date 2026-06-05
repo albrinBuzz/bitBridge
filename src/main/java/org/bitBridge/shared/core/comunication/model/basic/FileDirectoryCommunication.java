@@ -79,6 +79,11 @@ public class FileDirectoryCommunication extends Communication implements Seriali
     public void setTotalArchivos(int totalArchivos) { this.totalArchivos = totalArchivos; }
 
     @Override
+    public String getSubAction() {
+        return isDirectory ? "DIRECTORY" : "FILE";
+    }
+
+    @Override
     public String getCommunicationId() { return this.getClass().getSimpleName(); }
 
     @Override
