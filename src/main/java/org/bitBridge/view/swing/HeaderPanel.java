@@ -132,7 +132,7 @@ public class HeaderPanel extends JPanel {
 
         // --- GRUPO 2: ACCIONES SECUNDARIAS (Monitor y Descargas) ---
         JButton btnDashboard = createStyledNavButton("📊Rendimiento", "Ver estadísticas en tiempo real");
-        btnDashboard.addActionListener(e -> new ServerDashboard(Server.getInstance()).setVisible(true));
+        btnDashboard.addActionListener(e -> new ServerDashboard().setVisible(true));
 
         JButton btnDownloads = createStyledNavButton("📂 Descargas", "Abrir carpeta de archivos");
         btnDownloads.addActionListener(e -> openDownloadsFolder());

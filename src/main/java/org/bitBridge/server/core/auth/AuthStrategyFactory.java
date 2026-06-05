@@ -32,9 +32,12 @@ public class AuthStrategyFactory {
 
             case PASSIVE_LISTENER -> (handler, handshake, context) -> {
                 handler.nick = handshake.getIdentity() + "-listener";
-                // No se une al chat general, solo se guarda en una lista de observadores pasivos
-                // context.getServer().registerPassiveObserver(handler);
-                Logger.logInfo("[AUTH] Cliente pasivo conectado para monitoreo: " + handler.nick);
+                // Enlazamos dinámicamente al gestor de telemetría remota
+                context.getServer().getTelemetryManager().registerListener(handler);
+
+                // Le notificamos de inmediato que su enlace fue exitoso
+                handler.sendComunicacion(new Mensaje("AUTH_OK: Canal de monitoreo remoto verificado."));
+                Logger.logInfo("[AUTH] Operador pasivo conectado para monitoreo remoto: " + handler.nick);
             };
         };
     }

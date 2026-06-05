@@ -17,6 +17,7 @@ import org.bitBridge.server.core.client.*;
 import org.bitBridge.server.console.ConsoleView;
 import org.bitBridge.server.handlers.NicknameService;
 import org.bitBridge.server.network.NetworkUtils;
+import org.bitBridge.server.stats.RemoteTelemetryManager;
 import org.bitBridge.server.stats.ServerStats;
 import org.bitBridge.server.transfer.TransferSessionManager;
 import org.bitBridge.shared.LogLevel;
@@ -40,7 +41,7 @@ public class Server {
     private final NicknameService nicknameService = new NicknameService();
 
 
-
+    private RemoteTelemetryManager telemetryManager;
     private final CommunicationDispatcher dispatcher;
     private final AtomicBoolean updatePending = new AtomicBoolean(false);
 
@@ -72,6 +73,7 @@ public class Server {
 
         // 1. Crear contexto sin el motor de red todavía
         this.context = new ServerContext(registry, nicknameService, transferManager, stats, this, dispatcher);
+        this.telemetryManager = new RemoteTelemetryManager(this);
 
         // 2. Crear el motor de red pasándole el contexto (que ya existe)
         this.networkEngine = new NioServerEngine(context);
@@ -198,9 +200,9 @@ public class Server {
 
 
     public void starServerCLI(String[] args) throws IOException {
-        startServerHeadless(args);
+
         // 1. Procesamiento de argumentos
-        /*for (int i = 0; i < args.length; i++) {
+        for (int i = 0; i < args.length; i++) {
             String arg = args[i];
             if (arg.equals("-h") || arg.equals("--help")) {
                 printHelp();
@@ -223,7 +225,7 @@ public class Server {
 
         // Si no fue headless, iniciamos la UI normal
         new Thread(consoleView, "Console-Monitor").start();
-        startServer();*/
+        startServer();
     }
 
     private void printHelp() {
@@ -429,6 +431,10 @@ public class Server {
 
     public ServerNetworkEngine getNetworkEngine() {
         return this.networkEngine;
+    }
+
+    public RemoteTelemetryManager getTelemetryManager() {
+        return this.telemetryManager;
     }
 }
 

@@ -1,10 +1,9 @@
 package org.bitBridge.view.swing.components.server;
 
-import org.bitBridge.Client.ClientInfo;
-import org.bitBridge.server.core.Server;
-import org.bitBridge.server.stats.ServerStats;
-import org.bitBridge.shared.network.NetworkDiagnosticEngine;
-import org.bitBridge.shared.network.NetworkManager;
+import org.bitBridge.shared.core.comunication.SocketPurpose;
+import org.bitBridge.shared.core.comunication.model.basic.HandshakeMessage;
+import org.bitBridge.shared.core.comunication.model.basic.TelemetryPacket;
+import org.bitBridge.shared.network.ProtocolService;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -12,17 +11,15 @@ import javax.swing.border.LineBorder;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
-import java.lang.management.ManagementFactory;
-import java.lang.management.RuntimeMXBean;
-import java.net.Inet4Address;
-import java.net.InetAddress;
-import java.net.NetworkInterface;
-import java.net.SocketException;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import java.net.InetSocketAddress;
+import java.net.StandardSocketOptions;
+import java.nio.channels.SocketChannel;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ServerDashboard extends JFrame {
+    // --- PALETA DE COLORES HISTÓRICA LOCAL ---
     private static final Color BG_DARK = new Color(13, 15, 18);
     private static final Color PANEL_DARK = new Color(25, 30, 35);
     private static final Color NEON_PURPLE = new Color(162, 155, 254);
@@ -31,41 +28,32 @@ public class ServerDashboard extends JFrame {
     private static final Color NEON_YELLOW = new Color(253, 203, 110);
     private static final Color DANGER_RED = new Color(231, 76, 60);
 
-    // Define estas constantes en tu clase
     private static final Color BG_AREA = new Color(5, 5, 10);
     private static final Color ACCENT_CYAN = new Color(0, 255, 200);
     private static final Color ACCENT_PURPLE = new Color(170, 100, 255);
     private static final Color ACCENT_YELLOW = new Color(255, 215, 0);
     private static final Color TEXT_DIM = new Color(150, 160, 180);
 
-    private final ServerStats stats;
-    private final int port;
-    private String currentPrimaryIp; // Cambiado a dinámico
+    // --- ELEMENTOS DE CONEXIÓN NIO ---
+    private SocketChannel networkChannel;
+    private Thread networkWorker;
+    private final AtomicBoolean isRunning = new AtomicBoolean(false);
 
+    // --- CONTROLES DE LA BARRA DE CONEXIÓN ---
+    private JTextField txtHost, txtPort;
+    private JButton btnConnect, btnDisconnect;
+
+    // --- COMPONENTES DE RENDERIZADO VISUAL ---
+    private JLabel lblTrafficMonitor, lblUptimeMetric, lblEngineMetric;
     private JLabel lblHardwareLeft, lblHardwareRight, lblSoftwareBlock, lblNetworkBlock;
     private JProgressBar ramBar;
     private DefaultTableModel threadModel, clientTableModel;
     private JTextArea txtTelemetry;
     private JTextPane txtNetworkTopology;
-    private Timer guiTimer;
+    private String currentPrimaryIp = "127.0.0.1";
 
-    // En la clase principal
-    private JLabel lblTrafficMonitor;
-    private long lastTotalBytes = 0;
-    private double currentKbs = 0;
-    private long lastTimestamp = System.currentTimeMillis();
-
-
-    // Añádelo a tu panel de métricas o a una zona visible del dashboard
-    public ServerDashboard(Server server) {
-        this.stats = server.getStats();
-        this.port = server.getPORT();
-
-        // Inicializamos con la primera IP disponible
-        List<InetAddress> initialIps = NetworkManager.getAllLocalIps();
-        this.currentPrimaryIp = initialIps.isEmpty() ? "127.0.0.1" : initialIps.get(0).getHostAddress();
-
-        setTitle("BitBridge | HUB OPERATOR PRO [v4.0]");
+    public ServerDashboard() {
+        setTitle("BitBridge | HUB OPERATOR PRO [REMOTE TELEMETRY]");
         setSize(1500, 950);
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         setLocationRelativeTo(null);
@@ -73,16 +61,60 @@ public class ServerDashboard extends JFrame {
         setLayout(new BorderLayout(15, 15));
 
         initUI();
-        updateNetworkTopology();
-        startMonitoring();
 
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) { disconnect(); }
+        });
     }
 
     private void initUI() {
-        // --- HEADER ---
+        // --- PANEL NORTE: BARRA DE CONTROL + METRICAS CABECERA ---
+        JPanel northPanel = new JPanel(new BorderLayout(0, 10));
+        northPanel.setOpaque(false);
+        northPanel.setBorder(new EmptyBorder(15, 25, 5, 25));
+
+        // Sub-barra superior de conexión
+        JPanel connectionBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 5));
+        connectionBar.setBackground(PANEL_DARK);
+        connectionBar.setBorder(new LineBorder(new Color(45, 52, 54), 1));
+
+        JLabel lblTarget = new JLabel("TARGET HUB:");
+        lblTarget.setFont(new Font("Monospaced", Font.BOLD, 12));
+        lblTarget.setForeground(Color.WHITE);
+
+        txtHost = new JTextField("127.0.0.1", 12);
+        txtHost.setFont(new Font("Monospaced", Font.PLAIN, 12));
+        txtHost.setBackground(BG_AREA);
+        txtHost.setForeground(NEON_CYAN);
+        txtHost.setCaretColor(NEON_CYAN);
+
+        txtPort = new JTextField("8080", 5);
+        txtPort.setFont(new Font("Monospaced", Font.PLAIN, 12));
+        txtPort.setBackground(BG_AREA);
+        txtPort.setForeground(NEON_CYAN);
+
+        btnConnect = new JButton("CONNECT ENGINE");
+        btnConnect.setFont(new Font("Monospaced", Font.BOLD, 11));
+        btnConnect.setBackground(BG_DARK);
+        btnConnect.setForeground(NEON_GREEN);
+        btnConnect.setBorder(new LineBorder(NEON_GREEN, 1));
+        btnConnect.addActionListener(e -> connect(txtHost.getText().trim(), Integer.parseInt(txtPort.getText().trim())));
+
+        btnDisconnect = new JButton("DISCONNECT");
+        btnDisconnect.setFont(new Font("Monospaced", Font.BOLD, 11));
+        btnDisconnect.setBackground(BG_DARK);
+        btnDisconnect.setForeground(DANGER_RED);
+        btnDisconnect.setBorder(new LineBorder(DANGER_RED, 1));
+        btnDisconnect.setEnabled(false);
+        btnDisconnect.addActionListener(e -> disconnect());
+
+        connectionBar.add(lblTarget); connectionBar.add(txtHost);
+        connectionBar.add(txtPort); connectionBar.add(btnConnect); connectionBar.add(btnDisconnect);
+
+        // Header original de telemetría estética
         JPanel header = new JPanel(new BorderLayout());
         header.setOpaque(false);
-        header.setBorder(new EmptyBorder(20, 25, 10, 25));
 
         JLabel title = new JLabel("<html>BITBRIDGE <font color='#a29bfe'>OPERATOR COMMAND</font></html>");
         title.setFont(new Font("Monospaced", Font.BOLD, 28));
@@ -91,29 +123,25 @@ public class ServerDashboard extends JFrame {
         JPanel infoHeader = new JPanel(new FlowLayout(FlowLayout.RIGHT, 30, 0));
         infoHeader.setOpaque(false);
 
-        header.add(title, BorderLayout.WEST);
-        header.add(infoHeader, BorderLayout.EAST);
-        add(header, BorderLayout.NORTH);
-
-        lblTrafficMonitor = new JLabel();
-        lblTrafficMonitor.setFont(new Font("Monospaced", Font.BOLD, 15)); // Un poco más grande para el header
+        lblTrafficMonitor = new JLabel("<html><font color='gray'>FLOW:</font> [............] <b>0.0 KB/s</b></html>");
+        lblTrafficMonitor.setFont(new Font("Monospaced", Font.BOLD, 15));
         lblTrafficMonitor.setForeground(NEON_CYAN);
 
-        JButton btnDeepAudit = new JButton("DEEP AUDIT");
-        btnDeepAudit.setFont(new Font("Monospaced", Font.BOLD, 12));
-        btnDeepAudit.setBackground(BG_DARK);
-        btnDeepAudit.setForeground(NEON_CYAN);
-        btnDeepAudit.setBorder(new LineBorder(NEON_CYAN, 1));
-        btnDeepAudit.addActionListener(e -> showDiagnosticDialog());
+        lblEngineMetric = createHeaderMetric("CORE ENGINE", "OFFLINE", NEON_PURPLE);
+        lblUptimeMetric = createHeaderMetric("UPTIME", "00:00:00", NEON_GREEN);
 
-// Añádelo al panel que prefieras
+        infoHeader.add(lblTrafficMonitor);
+        infoHeader.add(lblEngineMetric);
+        infoHeader.add(lblUptimeMetric);
 
-        infoHeader.add(lblTrafficMonitor); // <--- NUEVO: Monitor de Tráfico en vivo
-        infoHeader.add(btnDeepAudit);
-        infoHeader.add(createHeaderMetric("CORE ENGINE", "v4.0.2-STABLE", NEON_PURPLE));
-        infoHeader.add(createHeaderMetric("UPTIME", stats.getUptime(), NEON_GREEN));
+        header.add(title, BorderLayout.WEST);
+        header.add(infoHeader, BorderLayout.EAST);
 
-        // --- MAIN GRID ---
+        northPanel.add(connectionBar, BorderLayout.NORTH);
+        northPanel.add(header, BorderLayout.CENTER);
+        add(northPanel, BorderLayout.NORTH);
+
+        // --- GRID PRINCIPAL (4 BLOQUES ASIGNADOS LOCALES) ---
         JPanel mainGrid = new JPanel(new GridBagLayout());
         mainGrid.setOpaque(false);
         mainGrid.setBorder(new EmptyBorder(0, 25, 20, 25));
@@ -121,14 +149,14 @@ public class ServerDashboard extends JFrame {
         gbc.fill = GridBagConstraints.BOTH;
         gbc.insets = new Insets(8, 8, 8, 8);
 
-        // FILA 1: HARDWARE & SOFTWARE (Top Level)
+        // FILA 1: HARDWARE Y CONTEXTO SOFTWARE
         gbc.gridx = 0; gbc.gridy = 0; gbc.weightx = 0.6; gbc.weighty = 0.35;
         mainGrid.add(createExtendedHardwarePanel(), gbc);
 
         gbc.gridx = 1; gbc.gridy = 0; gbc.weightx = 0.4;
         mainGrid.add(createSoftwareNetworkPanel(), gbc);
 
-        // FILA 2: THREADS & NODES
+        // FILA 2: INSPECTOR DE HILOS Y SUB-PANELES DERECHOS
         gbc.gridx = 0; gbc.gridy = 1; gbc.weighty = 0.65;
         mainGrid.add(createThreadInspectorPanel(), gbc);
 
@@ -146,12 +174,11 @@ public class ServerDashboard extends JFrame {
         JPanel grid = new JPanel(new GridLayout(1, 2, 20, 0));
         grid.setOpaque(false);
 
-        lblHardwareLeft = new JLabel();
-        lblHardwareRight = new JLabel();
+        lblHardwareLeft = new JLabel("<html><font color='#fdcb6e'><b>HARDWARE ASSETS & SYSTEM</b></font><br><font color='gray'>Await streaming...</font></html>");
+        lblHardwareRight = new JLabel("<html><font color='#fdcb6e'><b>PROCESS & RUNTIME</b></font><br><font color='gray'>Await streaming...</font></html>");
         grid.add(lblHardwareLeft);
         grid.add(lblHardwareRight);
 
-        // RAM Meter
         ramBar = new JProgressBar(0, 100);
         ramBar.setStringPainted(true);
         ramBar.setPreferredSize(new Dimension(0, 28));
@@ -177,7 +204,7 @@ public class ServerDashboard extends JFrame {
     }
 
     private JLabel createInfoLabel(Color accent, String title) {
-        JLabel lbl = new JLabel();
+        JLabel lbl = new JLabel("<html><font color='" + toHex(accent) + "'><b>" + title + "</b></font><br><font color='gray'>No network context</font></html>");
         lbl.setOpaque(true);
         lbl.setBackground(PANEL_DARK);
         lbl.setVerticalAlignment(SwingConstants.TOP);
@@ -205,55 +232,43 @@ public class ServerDashboard extends JFrame {
         gbc.fill = GridBagConstraints.BOTH;
         gbc.weightx = 1.0;
 
-        // --- BLOQUE 1: TOPOLOGÍA DE RED (DOMINANTE) ---
         txtNetworkTopology = new JTextPane();
         txtNetworkTopology.setBackground(BG_DARK);
-        txtNetworkTopology.setForeground(new Color(85, 239, 196)); // NEON_GREEN
-        // Aumentamos un poco la fuente para legibilidad inmediata
-        txtNetworkTopology.setFont(new Font("Monospaced", Font.BOLD, 13));
+        txtNetworkTopology.setForeground(new Color(85, 239, 196));
+        txtNetworkTopology.setFont(new Font("Monospaced", Font.BOLD, 12));
         txtNetworkTopology.setEditable(false);
-        // Margen interno para que el texto no pegue a los bordes
-        txtNetworkTopology.setMargin(new java.awt.Insets(10, 10, 10, 10));
+        txtNetworkTopology.setMargin(new Insets(10, 10, 10, 10));
 
         JScrollPane scrollNet = new JScrollPane(txtNetworkTopology);
-        scrollNet.setBorder(BorderFactory.createTitledBorder(
-                new LineBorder(new Color(0, 206, 201), 2), " NETWORK TOPOLOGY MAP ", 0, 0, null, new Color(0, 206, 201)));
+        scrollNet.setBorder(BorderFactory.createTitledBorder(new LineBorder(NEON_CYAN, 2), " NETWORK TOPOLOGY MAP ", 0, 0, null, NEON_CYAN));
+        scrollNet.setPreferredSize(new Dimension(450, 320));
 
-        // Forzamos un tamaño mínimo para que sea lo primero que se vea
-        scrollNet.setPreferredSize(new java.awt.Dimension(450, 400));
-
-        gbc.gridy = 0;
-        gbc.weighty = 0.55; // 55% del espacio vertical para la red
-        gbc.insets = new java.awt.Insets(0, 0, 15, 0); // Espacio extra abajo
+        gbc.gridy = 0; gbc.weighty = 0.50;
+        gbc.insets = new Insets(0, 0, 10, 0);
         p.add(scrollNet, gbc);
 
-        // --- BLOQUE 2: TELEMETRÍA (COMPACTO) ---
         txtTelemetry = new JTextArea();
         txtTelemetry.setBackground(BG_DARK);
         txtTelemetry.setForeground(NEON_PURPLE);
         txtTelemetry.setFont(new Font("Monospaced", Font.PLAIN, 11));
+        txtTelemetry.setEditable(false);
 
         JScrollPane scrollTele = new JScrollPane(txtTelemetry);
-        scrollTele.setBorder(BorderFactory.createTitledBorder(
-                new LineBorder(NEON_PURPLE, 1), " TELEMETRY LOG ", 0, 0, null, NEON_PURPLE));
+        scrollTele.setBorder(BorderFactory.createTitledBorder(new LineBorder(NEON_PURPLE, 1), " TELEMETRY LOG ", 0, 0, null, NEON_PURPLE));
 
-        gbc.gridy = 1;
-        gbc.weighty = 0.20; // Reducimos a 20% (son logs rápidos)
-        gbc.insets = new java.awt.Insets(0, 0, 15, 0);
+        gbc.gridy = 1; gbc.weighty = 0.22;
+        gbc.insets = new Insets(0, 0, 10, 0);
         p.add(scrollTele, gbc);
 
-        // --- BLOQUE 3: NODOS ACTIVOS (RESTANTE) ---
         clientTableModel = new DefaultTableModel(new String[]{"ADDR", "SESSION", "NICK", "STATUS"}, 0);
         JTable nodeTable = new JTable(clientTableModel);
         styleTable(nodeTable);
 
         JScrollPane scrollNodes = new JScrollPane(nodeTable);
-        scrollNodes.setBorder(BorderFactory.createTitledBorder(
-                new LineBorder(NEON_CYAN, 1), " ACTIVE NODES ", 0, 0, null, NEON_CYAN));
+        scrollNodes.setBorder(BorderFactory.createTitledBorder(new LineBorder(NEON_CYAN, 1), " ACTIVE NODES ", 0, 0, null, NEON_CYAN));
 
-        gbc.gridy = 2;
-        gbc.weighty = 0.25; // 25% para la tabla de clientes
-        gbc.insets = new java.awt.Insets(0, 0, 0, 0);
+        gbc.gridy = 2; gbc.weighty = 0.28;
+        gbc.insets = new Insets(0, 0, 0, 0);
         p.add(scrollNodes, gbc);
 
         return p;
@@ -270,375 +285,236 @@ public class ServerDashboard extends JFrame {
     }
 
     private JLabel createHeaderMetric(String title, String val, Color color) {
-        String hex = String.format("#%02x%02x%02x", color.getRed(), color.getGreen(), color.getBlue());
         return new JLabel("<html><div style='text-align: right;'><font color='gray' size='2'>" + title + "</font><br>" +
-                "<font color='" + hex + "' size='4'><b>" + val + "</b></font></div></html>");
+                "<font color='" + toHex(color) + "' size='4'><b>" + val + "</b></font></div></html>");
     }
 
+    // =========================================================================
+    // INYECCIÓN DE DATOS PROVENIENTES EXCLUSIVAMENTE DEL TELEMETRYPACKET REMOTO
+    // =========================================================================
+    public void processPacketData(TelemetryPacket p) {
+        SwingUtilities.invokeLater(() -> {
+            this.currentPrimaryIp = p.currentPrimaryIp;
 
-    private void updateNetworkTopology() {
+            // 1. Cabecera Dinámica Superior
+            lblEngineMetric.setText("<html><div style='text-align: right;'><font color='gray' size='2'>CORE ENGINE</font><br><font color='" + toHex(NEON_PURPLE) + "' size='4'><b>" + p.coreVersion + "</b></font></div></html>");
+            lblUptimeMetric.setText("<html><div style='text-align: right;'><font color='gray' size='2'>UPTIME</font><br><font color='" + toHex(NEON_GREEN) + "' size='4'><b>" + p.uptime + "</b></font></div></html>");
+
+            String speedColor = (p.currentKbs > 800) ? "#e74c3c" : (p.currentKbs > 200 ? "#fdcb6e" : "#00cec9");
+            lblTrafficMonitor.setText(String.format("<html><font color='gray' size='3'>FLOW:</font> <font color='#00cec9'>%s</font> <b color='%s'>%.1f KB/s</b></html>", p.trafficBar, speedColor, p.currentKbs));
+
+            // 2. Bloque Hardware Izquierdo (Métricas nativas del OS Bean de tu Manager)
+            lblHardwareLeft.setText(String.format(
+                    "<html><font color='#fdcb6e'><b>HARDWARE ASSETS & SYSTEM</b></font><br>" +
+                            "<table style='color:white; font-family:Sans-Serif; font-size:10px;'>" +
+                            "<tr><td>CPU CORES:</td><td><b color='#00cec9'>%d</b> Lógicos</td></tr>" +
+                            "<tr><td>OS CPU LOAD:</td><td><b color='%s'>%.1f%%</b></td></tr>" +
+                            "<tr><td>JVM PROC LOAD:</td><td><b color='%s'>%.1f%%</b></td></tr>" +
+                            "<tr><td>HEAP COMMITTED:</td><td>%s</td></tr>" +
+                            "<tr><td>TOTAL OS RAM:</td><td><b color='#a29bfe'>%s</b></td></tr>" +
+                            "<tr><td>OS RAM USED:</td><td><b color='#e74c3c'>%s (%d%%)</b></td></tr>" +
+                            "<tr><td>OS RAM FREE:</td><td><b color='#55efc4'>%s</b></td></tr>" +
+                            "<tr><td>OPERATOR:</td><td>%s</td></tr>" +
+                            "</table></html>",
+                    p.cpuCores, p.loadColor, p.systemCpuLoad, p.loadColor, p.processCpuLoad,
+                    formatBytes(p.heapCommitted), formatBytes(p.totalPhysicalMemory),
+                    formatBytes(p.usedPhysicalMemory), p.systemRamPercent, formatBytes(p.freePhysicalMemory), p.username
+            ));
+
+            // 3. Bloque Hardware Derecho (JVM Runtime Internals de tu Manager)
+            lblHardwareRight.setText(String.format(
+                    "<html><font color='#fdcb6e'><b>PROCESS & RUNTIME</b></font><br>" +
+                            "<table style='color:white; font-family:Sans-Serif; font-size:10px;'>" +
+                            "<tr><td>BITBRIDGE WK:</td><td><b color='#55efc4'>%d ACTIVOS</b></td></tr>" +
+                            "<tr><td>TOTAL HILOS:</td><td><b color='#00cec9'>%d</b></td></tr>" +
+                            "<tr><td>TIPO HILOS:</td><td>D: %d / U: %d</td></tr>" +
+                            "<tr><td>PEAK THREADS:</td><td><b color='#a29bfe'>%d Hilos</b></td></tr>" +
+                            "<tr><td>JVM ENGINE:</td><td>%s</td></tr>" +
+                            "<tr><td>ARCH / VM:</td><td>%s / %s</td></tr>" +
+                            "<tr><td>THREAD LOAD:</td><td>%.1f%%</td></tr>" +
+                            "<tr><td>ESTADO ENGINE:</td><td><b color='%s'>%s</b></td></tr>" +
+                            "</table></html>",
+                    p.bitBridgeWorkers, p.totalThreadsCount, p.daemonThreadsCount, p.userThreadsCount,
+                    p.peakThreadsCount, p.javaVersion, p.osArch, p.vmName, p.threadLoad, p.healthColor, p.healthText
+            ));
+
+            // 4. Bloque Software Environment (Compiladores & JIT)
+            lblSoftwareBlock.setText(String.format(
+                    "<html><div style='margin-bottom: 2px;'><font color='#a29bfe' size='4'><b>SOFTWARE ENVIRONMENT</b></font></div>" +
+                            "<table style='color: white; font-family: Monospaced; font-size: 11px;'>" +
+                            "<tr><td><font color='gray'>HOST OS OS :</font></td><td><b>%s</b></td></tr>" +
+                            "<tr><td><font color='gray'>KERNEL VER :</font></td><td>%s</td></tr>" +
+                            "<tr><td><font color='gray'>JIT COMPILE:</font></td><td><font color='#fdcb6e'>%d ms</font></td></tr>" +
+                            "<tr><td><font color='gray'>GC ENGINE  :</font></td><td><font color='#00cec9'>[%s]</font></td></tr>" +
+                            "<tr><td><font color='gray'>GC ACTIVITY:</font></td><td><font color='#e74c3c'>%d runs (%d ms)</font></td></tr>" +
+                            "</table></html>",
+                    p.osName, p.osVersion, p.jitCompileTimeMs, p.gcName, p.gcCollectionCount, p.gcCollectionTimeMs
+            ));
+
+            // 5. Bloque Network Flow (Buffers Directos NIO)
+            lblNetworkBlock.setText(String.format(
+                    "<html><div style='margin-bottom: 2px;'><font color='#00cec9' size='4'><b>MÉTRICAS DE RED Y FLUJO</b></font></div>" +
+                            "<table style='color: white; font-family: Monospaced; font-size: 11px;'>" +
+                            "<tr><td><font color='gray'>ENDPOINT    :</font></td><td><b color='#55efc4'>%s:%d</b></td>" +
+                            "<td style='padding-left:15px;'><font color='gray'>INTERFAZ :</font></td><td><font color='#fdcb6e'>%s</font></td></tr>" +
+                            "<tr><td><font color='gray'>NIO BUFFERS :</font></td><td>Count: <font color='#a29bfe'>%d</font></td>" +
+                            "<td style='padding-left:15px;'><font color='gray'>CLASSES  :</font></td><td>%d Loaded</td></tr>" +
+                            "<tr><td><font color='gray'>ESTADÍSTICA :</font></td><td>MSG: <font color='#00cec9'>%d</font></td>" +
+                            "<td style='padding-left:15px;'><font color='gray'>SALUD    :</font></td><td><b color='%s'>%s</b></td></tr>" +
+                            "<tr><td><font color='gray'>RENDIMIENTO :</font></td><td>UP: <font color='#a29bfe'>%s</font></td>" +
+                            "<td style='padding-left:15px;'><font color='gray'>VOLUMEN  :</font></td><td><font color='#a29bfe'>%s</font></td></tr>" +
+                            "<tr><td><font color='gray'>CONEXIONES  :</font></td><td><b color='#a29bfe'>%d NODOS</b></td>" +
+                            "<td style='padding-left:15px;'><font color='gray'>DESCRIP. :</font></td><td>1500 (Auto)</td></tr>" +
+                            "</table></html>",
+                    p.currentPrimaryIp, p.port, p.activeInterfaceName, p.directBufferCount, p.totalLoadedClassCount,
+                    p.totalMessages, p.healthColor, p.healthText, p.uptime, formatBytes(p.totalBytesTransferred), p.connectedNodes.size()
+            ));
+
+            // 6. Barra de Porcentaje RAM Interna de la JVM
+            ramBar.setValue(p.ramPercent);
+            ramBar.setString(String.format("JVM MEMORY PROFILE: %d%% (Used: %s / Max: %s) [Direct: %s | Mapped: %s]",
+                    p.ramPercent, formatBytes(p.heapUsed), formatBytes(p.maxMemory), formatBytes(p.directMemoryUsed), formatBytes(p.mappedMemoryUsed)));
+            ramBar.setForeground(p.ramPercent > 80 ? DANGER_RED : NEON_GREEN);
+
+            // 7. Re-población de la tabla de Hilos provenientes del DTO
+            threadModel.setRowCount(0);
+            if (p.threadDetails != null) {
+                for (TelemetryPacket.ThreadDTO t : p.threadDetails) {
+                    threadModel.addRow(new Object[]{t.id(), t.name(), t.state(), t.priority(), t.type()});
+                }
+            }
+
+            // 8. Historial de Logs Interceptados remotos
+            txtTelemetry.setText("");
+            if (p.shortLogHistory != null) {
+                for (String log : p.shortLogHistory) txtTelemetry.append(" > " + log + "\n");
+            }
+
+            // 9. Re-población de Nodos Clientes Conectados
+            clientTableModel.setRowCount(0);
+            if (p.connectedNodes != null) {
+                for (TelemetryPacket.ActiveNodeDTO node : p.connectedNodes) {
+                    clientTableModel.addRow(new Object[]{node.address(), node.session(), node.nick(), node.status()});
+                }
+            }
+
+            // 10. Pintar el mapa de interfaces ANSI
+            renderNetworkTopologyPane(p);
+        });
+    }
+
+    private void renderNetworkTopologyPane(TelemetryPacket p) {
         txtNetworkTopology.setText("");
-        List<InetAddress> allLocalIps = NetworkManager.getAllLocalIps();
-        String primaryIp = allLocalIps.isEmpty() ? "127.0.0.1" : allLocalIps.get(0).getHostAddress();
-
-        // Paleta de Colores Estratégica
-        Color colEth = new Color(46, 204, 113);    // Verde (Ethernet - Estable)
-        Color colWifi = new Color(241, 196, 15);   // Amarillo/Oro (Wi-Fi)
-        Color colVirt = new Color(149, 165, 166);  // Gris (Virtual/Loopback)
-        Color colPrimary = new Color(255, 118, 117); // Rojo Coral (IP ACTIVA)
-        Color colInfo = new Color(0, 206, 201);    // Cian (Labels)
-        Color colText = new Color(223, 230, 233);  // Blanco humo (Texto general)
+        Color colEth = new Color(46, 204, 113);
+        Color colWifi = new Color(241, 196, 15);
+        Color colVirt = new Color(149, 165, 166);
+        Color colPrimary = new Color(255, 118, 117);
+        Color colInfo = new Color(0, 206, 201);
+        Color colText = new Color(223, 230, 233);
 
         appendPane(" ╔══════════════════════════════════════════════════════════╗\n", colInfo);
-        appendPane(" ║  BITBRIDGE Topologia De Red - HARDWARE         ║\n", colInfo);
+        appendPane(" ║   BITBRIDGE Topologia De Red - HARDWARE REMOTO           ║\n", colInfo);
         appendPane(" ╚══════════════════════════════════════════════════════════╝\n\n", colInfo);
 
-        try {
-            java.util.Enumeration<NetworkInterface> nets = NetworkInterface.getNetworkInterfaces();
-            for (NetworkInterface ni : java.util.Collections.list(nets)) {
-                if (!ni.isUp()) continue;
+        if (p.networkTopology != null) {
+            for (TelemetryPacket.NetworkInterfaceDTO ni : p.networkTopology) {
+                Color blockColor = ni.typeStr().contains("ETHERNET") ? colEth :
+                        ni.typeStr().contains("WI-FI") ? colWifi : colVirt;
 
-                String name = ni.getName().toUpperCase();
-                String display = ni.getDisplayName();
-                boolean isVirtual = ni.isVirtual() || name.matches(".*(VBOX|DOCKER|VETH|VIRBR).*");
-
-                // --- DETECCIÓN DE TECNOLOGÍA Y COLOR DE BLOQUE ---
-                String typeStr;
-                Color blockColor;
-
-                if (name.startsWith("EN") || name.startsWith("ETH")) {
-                    typeStr = "🔌 [ETHERNET]";
-                    blockColor = colEth;
-                } else if (name.startsWith("WL")) {
-                    typeStr = "📶 [WI-FI]";
-                    blockColor = colWifi;
-                } else if (isVirtual) {
-                    typeStr = "📦 [VIRTUAL]";
-                    blockColor = colVirt;
-                } else if (ni.isLoopback()) {
-                    typeStr = "🔄 [LOOPBACK]";
-                    blockColor = colVirt;
-                } else {
-                    typeStr = "🌐 [NETWORK]";
-                    blockColor = colInfo;
-                }
-
-                // --- RENDERIZADO DE CABECERA ---
-                appendPane(" " + typeStr + " ", blockColor);
-                appendPane(String.format("%-10s", name), Color.WHITE);
-                appendPane(String.format(" | MTU: %-5d", ni.getMTU()), colVirt);
+                appendPane(" " + ni.typeStr() + " ", blockColor);
+                appendPane(String.format("%-10s", ni.name()), Color.WHITE);
+                appendPane(String.format(" | MTU: %-5d", ni.mtu()), colVirt);
                 appendPane(" ● ONLINE\n", colEth);
 
-                appendPane("  id: ", colVirt);
-                appendPane(display + "\n", colText);
+                appendPane("   id: ", colVirt);
+                appendPane(ni.displayName() + "\n", colText);
 
-                // --- RENDERIZADO DE IPs ---
-                java.util.List<InetAddress> addresses = java.util.Collections.list(ni.getInetAddresses());
-                for (int i = 0; i < addresses.size(); i++) {
-                    InetAddress addr = addresses.get(i);
-                    if (!(addr instanceof Inet4Address)) continue;
-
-                    String ip = addr.getHostAddress();
-                    boolean isPrimary = ip.equals(primaryIp);
-                    String branch = (i == addresses.size() - 1) ? "  └─ " : "  ├─ ";
-
+                for (int i = 0; i < ni.addresses().size(); i++) {
+                    TelemetryPacket.IpAddressDTO addr = ni.addresses().get(i);
+                    String branch = (i == ni.addresses().size() - 1) ? "   └─ " : "   ├─ ";
                     appendPane(branch, colVirt);
-                    if (isPrimary) {
+
+                    if (addr.isPrimary()) {
                         appendPane("IPv4: ", colInfo);
-                        appendPane(String.format("%-15s", ip), colPrimary);
+                        appendPane(String.format("%-15s", addr.ip()), colPrimary);
                         appendPane(" <--- Conexion Primaria\n", colPrimary);
                     } else {
                         appendPane("IPv4: ", colVirt);
-                        appendPane(ip + "\n", Color.WHITE);
+                        appendPane(addr.ip() + "\n", Color.WHITE);
                     }
                 }
                 appendPane("\n", Color.WHITE);
             }
-        } catch (Exception e) {
-            appendPane(" [!] ERROR AL ACCEDER A INTERFACES DE RED\n", Color.RED);
         }
         txtNetworkTopology.setCaretPosition(0);
     }
 
-    // Método auxiliar para escribir con colores en el JTextPane
     private void appendPane(String msg, Color c) {
         javax.swing.text.StyleContext sc = javax.swing.text.StyleContext.getDefaultStyleContext();
         javax.swing.text.AttributeSet aset = sc.addAttribute(javax.swing.text.SimpleAttributeSet.EMPTY, javax.swing.text.StyleConstants.Foreground, c);
         int len = txtNetworkTopology.getDocument().getLength();
-        try {
-            txtNetworkTopology.getDocument().insertString(len, msg, aset);
-        } catch (Exception e) {}
+        try { txtNetworkTopology.getDocument().insertString(len, msg, aset); } catch (Exception ignored) {}
     }
 
-    private void refreshData() {
-        Runtime r = Runtime.getRuntime();
-        RuntimeMXBean rb = ManagementFactory.getRuntimeMXBean();
-        updateLiveTraffic();
+    // --- ENLACE DE RED BAJA LATENCIA (NIO CORE WORKER THREAD) ---
+    private void connect(String host, int port) {
+        if (isRunning.get()) return;
+        isRunning.set(true);
 
-        List<InetAddress> allLocalIps = NetworkManager.getAllLocalIps();
-        String interfaz=getActiveInterface(allLocalIps);
-        // --- LÓGICA DE MEMORIA ---
-        long heapUsed = r.totalMemory() - r.freeMemory();
-        long directMemUsed = 0;
-        try {
-            for (java.lang.management.BufferPoolMXBean pool : java.lang.management.ManagementFactory.getPlatformMXBeans(java.lang.management.BufferPoolMXBean.class)) {
-                if (pool.getName().equals("direct")) directMemUsed = pool.getMemoryUsed();
+        btnConnect.setEnabled(false); btnDisconnect.setEnabled(true);
+        txtHost.setEnabled(false); txtPort.setEnabled(false);
+
+        networkWorker = new Thread(() -> {
+            try {
+                networkChannel = SocketChannel.open();
+                networkChannel.setOption(StandardSocketOptions.TCP_NODELAY, true);
+                networkChannel.setOption(StandardSocketOptions.SO_RCVBUF, 2 * 1024 * 1024);
+                networkChannel.configureBlocking(true);
+                networkChannel.connect(new InetSocketAddress(host, port));
+
+                if (networkChannel.isConnected()) {
+                    HandshakeMessage handshake = new HandshakeMessage("OPERATOR-REMOTE", SocketPurpose.PASSIVE_LISTENER, "");
+                    ProtocolService.writeNIO(networkChannel, handshake);
+
+                    while (isRunning.get() && networkChannel.isOpen()) {
+                        Object incoming = ProtocolService.readNIO(networkChannel);
+                        if (incoming instanceof TelemetryPacket packet) {
+                            processPacketData(packet);
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                SwingUtilities.invokeLater(() -> txtTelemetry.append(" > [!] ERROR CENTRAL INFRAESTRUCTURA: " + e.getMessage() + "\n"));
+            } finally {
+                disconnect();
             }
+        }, "BitBridge-RemoteWorker");
+        networkWorker.setDaemon(true);
+        networkWorker.start();
+    }
+
+    private void disconnect() {
+        if (!isRunning.getAndSet(false)) return;
+        try {
+            if (networkChannel != null && networkChannel.isOpen()) networkChannel.close();
         } catch (Exception ignored) {}
+        if (networkWorker != null && networkWorker.isAlive()) networkWorker.interrupt();
 
-        long totalRealUsed = heapUsed + directMemUsed;
-        int ramPercent = (int) ((totalRealUsed * 100) / r.maxMemory());
-
-        // --- HILOS Y ESTADO ---
-        Map<Thread, StackTraceElement[]> allThreads = Thread.getAllStackTraces();
-        int totalThreads = allThreads.size();
-        int clients = stats.getClientCount();
-
-        String healthText = (clients > totalThreads * 0.8) ? "ESTRESADO" : "ESTABLE";
-        String healthColor = (clients > totalThreads * 0.8) ? "#e74c3c" : "#55efc4";
-
-        int maxExpectedThreads = r.availableProcessors() * 200;
-        double threadLoad = (totalThreads * 100.0) / maxExpectedThreads;
-        String loadColor = (threadLoad > 90) ? "#e74c3c" : (threadLoad > 70 ? "#fdcb6e" : "#55efc4");
-
-        // --- ACTUALIZACIÓN DE LABELS ---
-
-        // 1. Hardware Left
-        lblHardwareLeft.setText(String.format(
-                "<html><font color='#fdcb6e'><b>HARDWARE ASSETS & SYSTEM</b></font><br>" +
-                        "<table style='color:white; font-family:Sans-Serif; font-size:10px;'>" +
-                        "<tr><td>CPU CORES:</td><td><b color='#00cec9'>%d</b> Lógicos</td></tr>" +
-                        "<tr><td>CARGA HILOS:</td><td><b color='%s'>%.1f%%</b></td></tr>" +
-                        "<tr><td>HEAP USED:</td><td>%s</td></tr>" +
-                        "<tr><td>NIO DIRECT:</td><td><b color='#a29bfe'>%s</b></td></tr>" +
-                        "<tr><td>VM LÍMITE:</td><td><b color='#e74c3c'>%s</b></td></tr>" +
-                        "<tr><td>MEM. LIBRE:</td><td><b color='#55efc4'>%s</b></td></tr>" +
-                        "<tr><td>USER:</td><td>%s</td></tr>" +
-                        "</table></html>",
-                r.availableProcessors(), loadColor, threadLoad,
-                stats.formatBytes(heapUsed), stats.formatBytes(directMemUsed),
-                stats.getMaxMemoryFormat(), stats.formatBytes(r.freeMemory()),
-                System.getProperty("user.name")
-        ));
-
-        // 2. Process Monitor (Derecha)
-        int bitBridgeThreads = 0;
-        int daemonThreads = 0;
-        threadModel.setRowCount(0);
-        for (Thread t : allThreads.keySet()) {
-            if (t.isDaemon()) daemonThreads++;
-            if (t.getName().matches(".*(Worker|BitBridge|FT-Pool).*")) bitBridgeThreads++;
-            threadModel.addRow(new Object[]{t.getId(), t.getName().toUpperCase(), t.getState(), t.getPriority(), t.isDaemon() ? "DAEMON" : "USER"});
-        }
-
-        lblHardwareRight.setText(String.format(
-                "<html><font color='#fdcb6e'><b>PROCESS & RUNTIME</b></font><br>" +
-                        "<table style='color:white; font-family:Sans-Serif; font-size:10px;'>" +
-                        "<tr><td>BITBRIDGE WK:</td><td><b color='#55efc4'>%d ACTIVOS</b></td></tr>" +
-                        "<tr><td>TOTAL HILOS:</td><td><b color='#00cec9'>%d</b></td></tr>" +
-                        "<tr><td>TIPO HILOS:</td><td>D: %d / U: %d</td></tr>" +
-                        "<tr><td>HOST IP:</td><td><b color='#a29bfe'>%s</b></td></tr>" +
-                        "<tr><td>OS VERSION:</td><td>%s</td></tr>" +
-                        "<tr><td>ESTADO:</td><td><b color='%s'>%s</b></td></tr>" +
-                        "</table></html>",
-                bitBridgeThreads, totalThreads, daemonThreads, (totalThreads - daemonThreads),
-                currentPrimaryIp, System.getProperty("os.version"), healthColor, healthText
-        ));
-
-        // 3. Network Block
-        lblNetworkBlock.setText(String.format(
-                "<html><div style='margin-bottom: 5px;'><font color='#00cec9' size='4'><b>MÉTRICAS DE RED Y FLUJO</b></font></div>" +
-                        "<table style='color: white; font-family: Monospaced; font-size: 11px;'>" +
-                        "<tr><td><font color='gray'>PUNTO ACCESO :</font></td><td><b color='#55efc4'>%s:%d</b></td>" +
-                        "<td style='padding-left:15px;'><font color='gray'>INTERFAZ :</font></td><td><font color='#fdcb6e'>%s</font></td></tr>" +
-                        "<tr><td><font color='gray'>DIRECCIÓN IP :</font></td><td>%s</td>" +
-                        "<td style='padding-left:15px;'><font color='gray'>PUERTO :</font></td><td><font color='#fdcb6e'>%d</font></td></tr>" +
-                        "<tr><td><font color='gray'>ESTADÍSTICA :</font></td><td>MSG: <font color='#00cec9'>%d</font></td>" +
-                        "<td style='padding-left:15px;'><font color='gray'>SALUD :</font></td><td><b color='%s'>%s</b></td></tr>" +
-                        "<tr><td><font color='gray'>RENDIMIENTO :</font></td><td>UP: <font color='#a29bfe'>%s</font></td>" +
-                        "<td style='padding-left:15px;'><font color='gray'>TOTAL :</font></td><td><font color='#a29bfe'>%s</font></td></tr>" +
-                        "<tr><td><font color='gray'>CONEXIONES :</font></td><td><b color='#a29bfe'>%d NODOS</b></td>" +
-                        "<td style='padding-left:15px;'><font color='gray'>MTU :</font></td><td>1500 (Auto)</td></tr>" +
-                        "</table></html>",
-                currentPrimaryIp, port, interfaz, currentPrimaryIp, port,
-                stats.getTotalMessages(), healthColor, healthText,
-                stats.getUptime(), stats.formatBytes(stats.getTotalBytes()), clients
-        ));
-
-
-        //lblNetworkBlock.setToolTipText(ipTooltip.toString());
-
-        // 4. Ram Bar
-        ramBar.setValue(ramPercent);
-        ramBar.setString(String.format("TOTAL RAM: %d%% (H: %s | D: %s)", ramPercent, stats.formatBytes(heapUsed), stats.formatBytes(directMemUsed)));
-        ramBar.setForeground(ramPercent > 80 ? DANGER_RED : NEON_GREEN);
-
-
-        if (ramPercent > 80) ramBar.setForeground(DANGER_RED);
-        else ramBar.setForeground(NEON_GREEN);
-
-        // Logs & Nodes
-        txtTelemetry.setText("");
-        List<String> logs = stats.getMessageHistory();
-        int start = Math.max(0, logs.size() - 10);
-        for (int i = start; i < logs.size(); i++) txtTelemetry.append(" > " + logs.get(i) + "\n");
-
-        clientTableModel.setRowCount(0);
-        for (ClientInfo c : stats.getConnectedClients()) {
-            clientTableModel.addRow(new Object[]{c.getAddress(), "ACT", c.getNick().toUpperCase(), "ONLINE"});
-        }
-    }
-
-    private void startMonitoring() {
-        guiTimer = new Timer(1000, e -> {
-            refreshData();        // Actualiza etiquetas de texto
-            updateLiveTraffic();  // Actualiza el gráfico del header
+        SwingUtilities.invokeLater(() -> {
+            btnConnect.setEnabled(true); btnDisconnect.setEnabled(false);
+            txtHost.setEnabled(true); txtPort.setEnabled(true);
+            lblEngineMetric.setText("<html><div style='text-align: right;'><font color='gray' size='2'>CORE ENGINE</font><br><font color='red' size='4'><b>OFFLINE</b></font></div></html>");
         });
-        guiTimer.start();
     }
 
-    private String getActiveInterface(List<InetAddress> ips) {
-        if (ips.isEmpty()) return "LOOPBACK";
-        try {
-            NetworkInterface ni = NetworkInterface.getByInetAddress(ips.get(0));
-            return (ni != null) ? ni.getName().toUpperCase() : "UNKNOWN";
-        } catch (SocketException e) {
-            return "ERR_NET";
-        }
+    private String formatBytes(long bytes) {
+        if (bytes < 1024) return bytes + " B";
+        int exp = (int) (Math.log(bytes) / Math.log(1024));
+        return String.format("%.2f %sB", bytes / Math.pow(1024, exp), "KMGTPE".charAt(exp - 1) + "");
     }
 
-    private void updateLiveTraffic() {
-        long currentBytes = stats.getTotalBytes();
-        long currentTime = System.currentTimeMillis();
-        long timeDelta = currentTime - lastTimestamp;
-
-        if (timeDelta > 0) {
-            double bytesPerSecond = (double) (currentBytes - lastTotalBytes) / (timeDelta / 1000.0);
-            this.currentKbs = bytesPerSecond / 1024.0;
-        }
-
-        lastTotalBytes = currentBytes;
-        lastTimestamp = currentTime;
-
-        // Generar barra visual
-        String bar = getTrafficBar(currentKbs);
-        String color = (currentKbs > 800) ? "#e74c3c" : (currentKbs > 200 ? "#fdcb6e" : "#00cec9");
-
-        lblTrafficMonitor.setText(String.format(
-                "<html><font color='gray' size='3'>FLOW:</font> <font color='#00cec9'>%s</font> <b color='%s'>%.1f KB/s</b></html>",
-                bar, color, currentKbs
-        ));
-    }
-
-    private String getTrafficBar(double kbs) {
-        int segments = 12; // Ajustado para que quepa bien en el header
-        int filled = (int) Math.min(segments, (kbs / 1024.0) * segments);
-        StringBuilder sb = new StringBuilder("[");
-        for (int i = 0; i < segments; i++) {
-            sb.append(i < filled ? "■" : ".");
-        }
-        sb.append("]");
-        return sb.toString();
-    }
-
-    private void showDiagnosticDialog() {
-        // 1. Obtener auditoría rápida (Instantánea)
-        String basicReport = NetworkDiagnosticEngine.getQuickAudit(currentPrimaryIp);
-
-        // Configuración del área de texto (La Terminal)
-        JTextArea area = new JTextArea(basicReport);
-        area.setFont(new Font("Monospaced", Font.PLAIN, 12));
-        area.setBackground(BG_AREA);
-        area.setForeground(ACCENT_CYAN);
-        area.setCaretColor(ACCENT_CYAN); // El cursor también brilla
-        area.setEditable(false);
-        area.setMargin(new Insets(20, 20, 20, 20));
-
-        // Scroll con estilo personalizado
-        JScrollPane scroll = new JScrollPane(area);
-        scroll.setPreferredSize(new Dimension(750, 500));
-        scroll.setBorder(new LineBorder(new Color(40, 45, 60), 1)); // Borde sutil
-        scroll.getVerticalScrollBar().setUnitIncrement(16); // Scroll suave
-
-        // Panel de botones con mejor espaciado
-        JPanel actionPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 10));
-        actionPanel.setOpaque(false);
-
-        JButton btnConnectivity = createDebugButton("⚡ TEST CONECTIVIDAD", ACCENT_PURPLE);
-        JButton btnPortScan = createDebugButton("🚀 SCAN SUBRED", ACCENT_YELLOW);
-
-        // Lógica con Auto-Scroll
-        btnConnectivity.addActionListener(e -> {
-            area.append("\n\n> [CMD]: Executing Layer-3 connectivity handshake...\n");
-            new Thread(() -> {
-                String res = NetworkDiagnosticEngine.runConnectivityTest();
-                SwingUtilities.invokeLater(() -> {
-                    area.append(res);
-                    area.setCaretPosition(area.getDocument().getLength()); // Auto-scroll al final
-                });
-            }).start();
-        });
-
-        btnPortScan.addActionListener(e -> {
-            area.append("\n\n> [CMD]: Escanenado Red Local \n");
-
-            area.append("\n\n> [CMD]: Escanenado Red Local\n");
-            new Thread(() -> {
-                String res = NetworkDiagnosticEngine.runDeepPortScan(currentPrimaryIp);
-                SwingUtilities.invokeLater(() -> {
-                    area.append(res);
-                    area.setCaretPosition(area.getDocument().getLength());
-                });
-            }).start();
-        });
-
-        actionPanel.add(btnConnectivity);
-        actionPanel.add(btnPortScan);
-
-        // Contenedor con Header visual
-        JPanel mainPanel = new JPanel(new BorderLayout(0, 5));
-        mainPanel.setBackground(BG_DARK);
-        mainPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-
-        // Header decorativo
-        JLabel header = new JLabel(" BITBRIDGE NETWORK TELEMETRY ");
-        header.setFont(new Font("Monospaced", Font.BOLD, 14));
-        header.setForeground(TEXT_DIM);
-        header.setBorder(BorderFactory.createEmptyBorder(0, 5, 10, 0));
-
-        mainPanel.add(header, BorderLayout.NORTH);
-        mainPanel.add(scroll, BorderLayout.CENTER);
-        mainPanel.add(actionPanel, BorderLayout.SOUTH);
-
-        // Mostrar el diálogo
-        JOptionPane.showMessageDialog(this, mainPanel, "DEBUG CONSOLE", JOptionPane.PLAIN_MESSAGE);
-    }
-
-    private JButton createDebugButton(String text, Color accentColor) {
-        JButton b = new JButton(text);
-        b.setFont(new Font("Monospaced", Font.BOLD, 10));
-        b.setFocusPainted(false);
-        b.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        b.setBackground(BG_DARK);
-        b.setForeground(accentColor);
-
-        // Borde de línea con un poco de padding
-        b.setBorder(BorderFactory.createCompoundBorder(
-                new LineBorder(accentColor, 1),
-                BorderFactory.createEmptyBorder(6, 12, 6, 12)
-        ));
-
-        // Efecto de brillo al pasar el mouse (Rollover)
-        b.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseEntered(java.awt.event.MouseEvent evt) {
-                b.setBackground(new Color(accentColor.getRed(), accentColor.getGreen(), accentColor.getBlue(), 20));
-            }
-            public void mouseExited(java.awt.event.MouseEvent evt) {
-                b.setBackground(BG_DARK);
-            }
-        });
-
-        return b;
+    private String toHex(Color c) {
+        return String.format("#%02x%02x%02x", c.getRed(), c.getGreen(), c.getBlue());
     }
 
     static class ThreadStatusRenderer extends DefaultTableCellRenderer {
@@ -651,5 +527,9 @@ public class ServerDashboard extends JFrame {
             else c.setForeground(Color.GRAY);
             return c;
         }
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> new ServerDashboard().setVisible(true));
     }
 }
