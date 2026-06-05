@@ -73,7 +73,9 @@ public class Server {
 
         // 1. Crear contexto sin el motor de red todavía
         this.context = new ServerContext(registry, nicknameService, transferManager, stats, this, dispatcher);
-        this.telemetryManager = new RemoteTelemetryManager(this);
+
+        // [MODIFICADO] Ya no instanciamos RemoteTelemetryManager aquí para evitar que su
+        // ScheduledExecutorService empiece a transmitir en red antes de abrir el socket.
 
         // 2. Crear el motor de red pasándole el contexto (que ya existe)
         this.networkEngine = new NioServerEngine(context);
@@ -83,50 +85,40 @@ public class Server {
     }
 
 
-
     public CompletableFuture<Void> startServer() {
         CompletableFuture<Void> promise = new CompletableFuture<>();
 
-        // 1. Validación de rango antes de intentar abrir el socket
+        // Evitar la condición de carrera por doble llamada (Spring + Main thread)
+        if (this.isRunning) {
+            Logger.logWarn("[CORE] El servidor ya se encuentra corriendo o inicializado. Ignorando petición duplicada.");
+            promise.complete(null);
+            return promise;
+        }
+
         if (PORT < 0 || PORT > 65535) {
-            promise.completeExceptionally(new IllegalArgumentException("Puerto inválido: " + PORT + ". Debe estar entre 0 y 65535."));
+            promise.completeExceptionally(new IllegalArgumentException("Puerto inválido: " + PORT));
+            return promise;
         }
 
         try {
+            Logger.logInfo("[CORE] Intentando adueñarse del puerto " + PORT + " vía NIO...");
 
-          var status=  networkEngine.start(PORT);
-            promise.complete(null);
+            // Marcar que estamos en proceso críticas antes de abrir el socket
+            this.isRunning = true;
+
+            networkEngine.start(PORT);
             startBackgroundServices();
 
-
+            promise.complete(null);
 
         } catch (BindException e) {
-            String sugerencia = (PORT < 1024) ?
-                    " (Nota: Los puertos < 1024 son para el sistema)" :
-                    " (Verifica si otra instancia de FileTalk está abierta)";
-
+            this.isRunning = false; // Revertir estado si falló
+            String sugerencia = (PORT < 1024) ? " (Nota: Los puertos < 1024 son para el sistema)" : " (Verifica si otra instancia de BitBridge está abierta)";
             String errorMsg = String.format("Error: El puerto %d ya está en uso.%s", PORT, sugerencia);
-            //Logger.logError(errorMsg);
-            //throw new BindException(errorMsg);
             promise.completeExceptionally(new BindException(errorMsg));
-
-        } catch (SecurityException e) {
-            String errorMsg = String.format("Permiso denegado: El sistema operativo no permite abrir el puerto %d.", PORT);
-            Logger.logError(errorMsg);
-            //throw new SecurityException(errorMsg);
-            promise.completeExceptionally(new SecurityException(errorMsg));
-
-        } catch (SocketException e) {
-            String errorMsg = "Fallo de hardware o protocolo de red en puerto " + PORT + ": " + e.getMessage();
-            Logger.logError(errorMsg);
-            //throw new SocketException(errorMsg);
-            promise.completeExceptionally(new SocketException(errorMsg));
-
-        } catch (IOException e) {
-            String errorMsg = "Error crítico de E/S al iniciar en puerto " + PORT + ": " + e.getMessage();
-            Logger.logError(errorMsg);
-            promise.completeExceptionally(new IOException(errorMsg));
-            //throw new IOException(errorMsg);
+        } catch (Exception e) {
+            this.isRunning = false;
+            promise.completeExceptionally(e);
         }
 
         return promise;
@@ -173,22 +165,16 @@ public class Server {
 
 
 
+
     private void startBackgroundServices() throws UnknownHostException {
-        //ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2);
-
-        // Broadcast cada 2 segundos es suficiente
-        //scheduler.scheduleAtFixedRate(this::brocastServer, 0, 2, TimeUnit.SECONDS);
-        //String nickname = ConfiguracionServidor.getInstancia().obtener("usuario.nickname");
-        //String host=serverSocket.getInetAddress().getHostName();
         String hostName = InetAddress.getLocalHost().getHostName();
-        //int puertoReal = serverSocket.getLocalPort();
 
-        //upnpManager.openPort(puertoReal);
+        // Inicialización tardía segura (Post-binding del socket)
+        if (this.telemetryManager == null) {
+            this.telemetryManager = new RemoteTelemetryManager(this);
+        }
 
-        networkManager.startServerAnnouncement(PORT, hostName,this);
-
-        // IMPORTANTE: Cambio de MILISEGUNDOS a SEGUNDOS
-        //scheduler.scheduleAtFixedRate(this::updateStatus, 0, 1, TimeUnit.SECONDS);
+        networkManager.startServerAnnouncement(PORT, hostName, this);
     }
 
 
@@ -219,13 +205,15 @@ public class Server {
                     Logger.logInfo("Modo Headless activo. Interacción de consola desactivada.");
                     // Guardamos el estado para no iniciar la consola
                     startServerHeadless(args);
-                    return; // Terminamos aquí si es headless
+                    //return; // Terminamos aquí si es headless
             }
         }
+        if (args.length==0){
+            // Si no fue headless, iniciamos la UI normal
+            new Thread(consoleView, "Console-Monitor").start();
+            startServer().join(); // Espera segura antes de continuar en la CLI externa
+        }
 
-        // Si no fue headless, iniciamos la UI normal
-        new Thread(consoleView, "Console-Monitor").start();
-        startServer();
     }
 
     private void printHelp() {
@@ -237,9 +225,12 @@ public class Server {
     }
 
     private void startServerHeadless(String[] args) throws IOException {
-        // Lógica para iniciar solo el servidor, sin levantar ConsoleView
-        startServer();
-        Logger.logInfo("Servidor iniciado en modo headless.");
+        Logger.logInfo("[CORE] Levantando socket en modo headless seguro...");
+
+        // Bloquea aquí hasta que networkEngine.start(PORT) resuelva la promesa con éxito
+        startServer().join();
+
+        Logger.logInfo("Servidor iniciado en modo headless de forma correcta. Monitoreo listo.");
     }
 
     public void stopServer() {

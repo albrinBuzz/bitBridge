@@ -59,30 +59,74 @@ public class NetworkManager {
     public void startServerAnnouncement(int port, String serverName, Server server) {
         List<InetAddress> targetIps = getAllLocalIps();
 
-        if (targetIps.isEmpty()) {
-            Logger.logError("[mDNS] No se encontraron interfaces físicas válidas para anunciar.");
+        Logger.logInfo("[mDNS] Iniciando subsistema de descubrimiento ZeroConf (JmDNS)...");
+
+        if (targetIps == null || targetIps.isEmpty()) {
+            String errLog = "[mDNS] [❌] ERROR CRÍTICO: No se encontraron interfaces físicas activas (IPv4) para binding.";
+            Logger.logError(errLog);
+            server.notifyUI(errLog, LogLevel.ERROR);
             return;
         }
 
+        Logger.logInfo(String.format("[mDNS] Detectadas %d interfaces aptas para multidifusión local.", targetIps.size()));
+
         for (InetAddress addr : targetIps) {
+            String ifaceName = netInterfaceName(addr);
+            String hostAddr = addr.getHostAddress();
+
             try {
-                // Creamos una instancia de JmDNS por cada interfaz física/wifi real
-                JmDNS jmdns = JmDNS.create(addr, serverName + "-" + addr.getHostAddress());
+                long startTime = System.currentTimeMillis();
+
+                // Generar identificador único para evitar colisiones de nombres mDNS en el mismo segmento
+                String scopedInstanceName = String.format("%s-%s", serverName, hostAddr.replace(".", "-"));
+
+                // Forzar enlace exclusivo a la interfaz física actual
+                JmDNS jmdns = JmDNS.create(addr, scopedInstanceName);
                 jmdnsInstances.add(jmdns);
 
-                ServiceInfo serviceInfo = ServiceInfo.create(SERVICE_TYPE,
-                        serverName, port, "owner=" + System.getProperty("user.name"));
+                // Propiedades adicionales (TXT Records) para auditoría de infraestructura remota
+                String txtOwner = "owner=" + System.getProperty("user.name", "unknown");
+                String txtOs = "os=" + System.getProperty("os.name", "Linux").replace(" ", "_");
+                String txtType = "infra=BitBridge-Hub";
 
+                ServiceInfo serviceInfo = ServiceInfo.create(
+                        SERVICE_TYPE,
+                        serverName,
+                        port,
+                        0, 0, // weight, priority (estándar)
+                        true, // textRecord como mapa persistente
+                        Map.of("owner", txtOwner, "os", txtOs, "type", txtType)
+                );
+
+                // Registro en el bus mDNS (Lanza paquetes UDP Multicast a la dirección 224.0.0.251)
                 jmdns.registerService(serviceInfo);
 
-                Logger.logInfo(String.format("[📡] ANUNCIANDO EN FÍSICA: %s | IP: %s | Puerto: %d",
-                        netInterfaceName(addr), addr.getHostAddress(), port));
+                long duration = System.currentTimeMillis() - startTime;
 
-                server.notifyUI(String.format("[📡] ANUNCIANDO EN FÍSICA: %s | IP: %s | Puerto: %d",
-                        netInterfaceName(addr), addr.getHostAddress(), port), LogLevel.INFO);
+                // Log Estructurado de Éxito
+                String successLog = String.format(
+                        "[📡 mDNS] BROADCAST UP -> IFACE: %-6s | IP: %-15s | PORT: %d | TYPE: %s | INSTANCE: %s (%d ms)",
+                        ifaceName, hostAddr, port, SERVICE_TYPE, scopedInstanceName, duration
+                );
+
+                Logger.logInfo(successLog);
+                server.notifyUI(successLog, LogLevel.INFO);
 
             } catch (IOException e) {
-                Logger.logWarn("[mDNS] No se pudo anunciar en " + addr.getHostAddress() + ": " + e.getMessage());
+                String warnLog = String.format(
+                        "[⚠️ mDNS FAILED] -> No se pudo instanciar socket multicast en IFACE: %s (%s). Motivo: %s",
+                        ifaceName, hostAddr, e.getMessage()
+                );
+                Logger.logWarn(warnLog);
+                server.notifyUI(warnLog, LogLevel.WARNING);
+            } catch (Exception e) {
+                // Catch genérico por interfaz para evitar colapsar todo el arranque si una interfaz virtual (Docker/VBox) falla
+                String errLog = String.format(
+                        "[❌ mDNS CRITICAL] -> Error inesperado en bound de interfaz %s: %s",
+                        hostAddr, e.getMessage()
+                );
+                Logger.logError(errLog);
+                server.notifyUI(errLog, LogLevel.ERROR);
             }
         }
     }
