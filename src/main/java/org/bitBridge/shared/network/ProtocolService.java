@@ -239,7 +239,6 @@ public class ProtocolService {
             return fallback;
         }
 
-        Logger.logInfo(String.valueOf(totalSize));
         fillBuffer(buffer, jsonBytes, typeBytes);
         return buffer;
     }
