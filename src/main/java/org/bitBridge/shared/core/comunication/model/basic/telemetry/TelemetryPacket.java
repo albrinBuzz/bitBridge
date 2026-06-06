@@ -1,4 +1,4 @@
-package org.bitBridge.shared.core.comunication.model.basic;
+package org.bitBridge.shared.core.comunication.model.basic.telemetry;
 
 import org.bitBridge.shared.core.comunication.Communication;
 import java.io.Serializable;

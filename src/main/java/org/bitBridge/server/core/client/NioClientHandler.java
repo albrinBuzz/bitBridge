@@ -224,10 +224,20 @@ public class NioClientHandler implements BitBridgeClient {
                         try {
                             while (buf.hasRemaining()) {
                                 int written = channel.write(buf);
+
+                                // 🟢 REGISTRO AQUÍ: written devuelve los bytes reales
+                                // escritos en el búfer de socket del sistema operativo en este ciclo.
+                                if (written > 0) {
+                                    context.getServer().getStats().recordBytes(written);
+                                }
+
                                 if (written == 0) {
                                     Thread.yield();
                                 }
                             }
+                        } catch (IOException e) {
+                            // Capturar error de escritura en este canal específico si es necesario
+                            throw e;
                         } finally {
                             if (buf.isDirect()) {
                                 DirectBufferPool.release(buf);

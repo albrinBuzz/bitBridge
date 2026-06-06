@@ -4,7 +4,7 @@ import com.formdev.flatlaf.intellijthemes.FlatOneDarkIJTheme;
 import org.bitBridge.shared.Logger;
 import org.bitBridge.shared.core.comunication.SocketPurpose;
 import org.bitBridge.shared.core.comunication.model.basic.HandshakeMessage;
-import org.bitBridge.shared.core.comunication.model.basic.TelemetryPacket;
+import org.bitBridge.shared.core.comunication.model.basic.telemetry.TelemetryPacket;
 import org.bitBridge.shared.network.ProtocolService;
 import org.bitBridge.view.swing.components.server.ServerDashboard;
 

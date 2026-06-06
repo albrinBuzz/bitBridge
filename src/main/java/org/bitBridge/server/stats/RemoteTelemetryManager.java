@@ -4,12 +4,18 @@ import org.bitBridge.Client.ClientInfo;
 import org.bitBridge.server.core.Server;
 import org.bitBridge.server.core.client.BitBridgeClient;
 import org.bitBridge.shared.Logger;
-import org.bitBridge.shared.core.comunication.model.basic.TelemetryPacket;
+
+
+import org.bitBridge.shared.core.comunication.model.basic.telemetry.TelemetryHandshakePacket;
+import org.bitBridge.shared.core.comunication.model.basic.telemetry.TelemetryStreamPacket;
 import org.bitBridge.shared.network.NetworkManager;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.BufferPoolMXBean;
+import java.lang.management.ThreadInfo;
+import com.sun.management.OperatingSystemMXBean;
+
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
@@ -21,8 +27,10 @@ public class RemoteTelemetryManager {
 
     private final Server server;
     private final Set<BitBridgeClient> listeners = ConcurrentHashMap.newKeySet();
+
+    // Planificador optimizado basado en hilos virtuales corriendo a intervalos saludables (1 segundo)
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(
-            Thread.ofVirtual().name("Telemetry-Hub-", 1).factory()
+            Thread.ofVirtual().name("Telemetry-Worker-", 1).factory()
     );
 
     private long lastTotalBytes = 0;
@@ -30,94 +38,125 @@ public class RemoteTelemetryManager {
 
     public RemoteTelemetryManager(Server server) {
         this.server = server;
+        // Intervalo fijado a 1 segundo para preservar ciclos de CPU en el Core
         this.scheduler.scheduleAtFixedRate(this::broadcastTelemetry, 1, 1, TimeUnit.SECONDS);
     }
 
-    public void registerListener(BitBridgeClient client) { if (client != null) listeners.add(client); }
+    public void registerListener(BitBridgeClient client) {
+        if (client == null) return;
+        listeners.add(client);
+
+        // Despachar la foto fija de infraestructura de forma asíncrona e inmediata al conectar
+        CompletableFuture.runAsync(() -> {
+            try {
+                TelemetryHandshakePacket handshake = compileStaticHandshake();
+                client.sendComunicacion(handshake);
+            } catch (Exception e) {
+                Logger.logError("[TELEMETRY] Error enviando handshake inicial, desalojando: " + e.getMessage());
+                listeners.remove(client);
+            }
+        });
+    }
+
     public void unregisterListener(BitBridgeClient client) { if (client != null) listeners.remove(client); }
 
     private void broadcastTelemetry() {
         if (listeners.isEmpty()) return;
         try {
-            TelemetryPacket packet = compileFullTelemetry();
+            TelemetryStreamPacket streamPacket = compileStreamTelemetry();
+            //server.getStats().recordBytes(sp.getClass().size);
             for (BitBridgeClient client : listeners) {
                 try {
-                    client.sendComunicacion(packet);
+                    client.sendComunicacion(streamPacket);
                 } catch (Exception ex) {
-                    Logger.logError("[TELEMETRY] Error enviando a cliente, removiendo... : " + ex.getMessage());
+                    Logger.logError("[TELEMETRY] Error de conexión persistente en stream, removiendo cliente.");
                     listeners.remove(client);
                 }
             }
         } catch (Exception e) {
-            Logger.logError("[TELEMETRY] Fallo crítico al compilar broadcast: " + e.getMessage());
+            Logger.logError("[TELEMETRY] Fallo crítico al procesar el broadcast de métricas dinámicas: " + e.getMessage());
         }
     }
 
-    private TelemetryPacket compileFullTelemetry() {
+    /**
+     * Compila la información de infraestructura rígida. Solo se llama en el apretón de manos.
+     */
+    private TelemetryHandshakePacket compileStaticHandshake() {
+        TelemetryHandshakePacket hp = new TelemetryHandshakePacket();
+        var osBean = (OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
+
+        hp.port = server.getPORT();
+        hp.coreVersion = "v4.0.2-STABLE";
+        hp.osName = System.getProperty("os.name", "Linux");
+        hp.osVersion = System.getProperty("os.version", "Unknown");
+        hp.osArch = System.getProperty("os.arch", "amd64");
+        hp.username = System.getProperty("user.name", "root");
+        hp.javaVersion = System.getProperty("java.version", "21");
+        hp.vmName = System.getProperty("java.vm.name", "JVM");
+        hp.cpuCores = osBean.getAvailableProcessors();
+        hp.totalPhysicalMemory = osBean.getTotalMemorySize();
+        hp.maxMemory = Runtime.getRuntime().maxMemory();
+        //hp.maxFileDescriptors = osBean.getMaxFileDescriptorCount();
+
+        try {
+            List<InetAddress> allLocalIps = NetworkManager.getAllLocalIps();
+            hp.currentPrimaryIp = (allLocalIps == null || allLocalIps.isEmpty()) ? "127.0.0.1" : allLocalIps.get(0).getHostAddress();
+            hp.activeInterfaceName = getActiveInterfaceName(allLocalIps);
+            hp.networkTopology = compileNetworkTopology(hp.currentPrimaryIp);
+        } catch (Exception ignored) {}
+
+        return hp;
+    }
+
+    /**
+     * Compila estrictamente las variables volátiles y las métricas de rendimiento en tiempo real.
+     */
+    private TelemetryStreamPacket compileStreamTelemetry() {
         Runtime r = Runtime.getRuntime();
         ServerStats stats = server.getStats();
-        TelemetryPacket p = new TelemetryPacket();
+        TelemetryStreamPacket sp = new TelemetryStreamPacket();
 
-        // --- ENTORNO PROCESO ---
-        try {
-            p.uptime = stats.getUptime() != null ? stats.getUptime() : "00:00:00";
-            p.osName = System.getProperty("os.name", "Linux");
-            p.osVersion = System.getProperty("os.version", "Unknown");
-            p.osArch = System.getProperty("os.arch", "amd64");
-            p.username = System.getProperty("user.name", "root");
-            p.javaVersion = System.getProperty("java.version", "21");
-            p.vmName = System.getProperty("java.vm.name", "JVM");
-            p.totalMessages = stats.getTotalMessages();
-        } catch (Exception ignored) {}
+        var osBean = (OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
+        var threadBean = ManagementFactory.getThreadMXBean();
 
-        // --- MXBEANS Y HARDWARE NATIVO (PROTECCIÓN CONTRA VALORES MENORES A CERO) ---
-        try {
-            var osBean = (com.sun.management.OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
-            p.cpuCores = osBean.getAvailableProcessors();
+        // --- SALUD GENERAL Y TIEMPO ---
+        sp.uptime = stats.getUptime() != null ? stats.getUptime() : "00:00:00";
+        sp.totalMessages = stats.getTotalMessages();
 
-            double sysCpu = osBean.getCpuLoad() * 100.0;
-            p.systemCpuLoad = sysCpu >= 0 ? sysCpu : 0.0;
+        // --- HARDWARE DYNAMIC METRICS ---
+        double sysCpu = osBean.getCpuLoad() * 100.0;
+        sp.systemCpuLoad = sysCpu >= 0 ? sysCpu : 0.0;
+        double procCpu = osBean.getProcessCpuLoad() * 100.0;
+        sp.processCpuLoad = procCpu >= 0 ? procCpu : 0.0;
+        sp.loadColor = (sp.systemCpuLoad > 80.0) ? "#e74c3c" : (sp.systemCpuLoad > 50.0 ? "#fdcb6e" : "#55efc4");
 
-            double procCpu = osBean.getProcessCpuLoad() * 100.0;
-            p.processCpuLoad = procCpu >= 0 ? procCpu : 0.0;
-
-            p.totalPhysicalMemory = osBean.getTotalMemorySize();
-            p.freePhysicalMemory = osBean.getFreeMemorySize();
-            p.usedPhysicalMemory = Math.max(0, p.totalPhysicalMemory - p.freePhysicalMemory);
-
-            if (p.totalPhysicalMemory > 0) {
-                p.systemRamPercent = (int) ((p.usedPhysicalMemory * 100) / p.totalPhysicalMemory);
-            }
-        } catch (Exception e) {
-            p.systemCpuLoad = 0.0; p.processCpuLoad = 0.0;
+        sp.freePhysicalMemory = osBean.getFreeMemorySize();
+        long totalPhysical = osBean.getTotalMemorySize();
+        sp.usedPhysicalMemory = Math.max(0, totalPhysical - sp.freePhysicalMemory);
+        if (totalPhysical > 0) {
+            sp.systemRamPercent = (int) ((sp.usedPhysicalMemory * 100) / totalPhysical);
         }
+        //sp.openFileDescriptors = osBean.getOpenFileDescriptorCount();
 
-        // --- CONTROL DE COLORES Y ALERTA TEMPRANA ---
-        p.loadColor = (p.systemCpuLoad > 80.0) ? "#e74c3c" : (p.systemCpuLoad > 50.0 ? "#fdcb6e" : "#55efc4");
-
-        // --- JVM HEAP INTERNAL METRICS ---
-        p.heapCommitted = r.totalMemory();
-        p.freeMemory = r.freeMemory();
-        p.heapUsed = p.heapCommitted - p.freeMemory;
-        p.maxMemory = r.maxMemory();
-        if (p.maxMemory > 0) {
-            p.ramPercent = (int) ((p.heapUsed * 100) / p.maxMemory);
+        // --- JVM HEAP & BUFFER POOLS ---
+        sp.heapCommitted = r.totalMemory();
+        sp.freeMemory = r.freeMemory();
+        sp.heapUsed = sp.heapCommitted - sp.freeMemory;
+        long maxMem = r.maxMemory();
+        if (maxMem > 0) {
+            sp.ramPercent = (int) ((sp.heapUsed * 100) / maxMem);
         }
+        extractLiveBufferPoolMetrics(sp);
 
-        // --- COMPILACIÓN, CLASES Y BUFFERS ---
+        // --- SUBSISTEMAS (GC & JIT) ---
         try {
             var classBean = ManagementFactory.getClassLoadingMXBean();
-            p.totalLoadedClassCount = classBean.getTotalLoadedClassCount();
-
+            sp.totalLoadedClassCount = classBean.getTotalLoadedClassCount();
             var compBean = ManagementFactory.getCompilationMXBean();
             if (compBean != null && compBean.isCompilationTimeMonitoringSupported()) {
-                p.jitCompileTimeMs = compBean.getTotalCompilationTime();
+                sp.jitCompileTimeMs = compBean.getTotalCompilationTime();
             }
-            extractBufferPoolMetrics(p);
-        } catch (Exception ignored) {}
 
-        // --- GARBAGE COLLECTOR INSPECTOR ---
-        try {
             long totalCollections = 0;
             long totalGcTime = 0;
             StringBuilder gcNames = new StringBuilder();
@@ -129,106 +168,90 @@ public class RemoteTelemetryManager {
                     gcNames.append(gc.getName()).append(", ");
                 }
             }
-            p.gcCollectionCount = totalCollections;
-            p.gcCollectionTimeMs = totalGcTime;
-            p.gcName = gcNames.isEmpty() ? "GENERIC" : gcNames.substring(0, gcNames.length() - 2);
-        } catch (Exception e) {
-            p.gcName = "GENERIC_ERR";
+            sp.gcCollectionCount = totalCollections;
+            sp.gcCollectionTimeMs = totalGcTime;
+            sp.gcName = gcNames.isEmpty() ? "GENERIC" : gcNames.substring(0, gcNames.length() - 2);
+        } catch (Exception ignored) {}
+
+        // --- FLUJO DE RENDIMIENTO DE TRAFICO E I/O ---
+        long currentBytes = stats.getTotalBytes();
+        long currentTime = System.currentTimeMillis();
+        long timeDelta = currentTime - lastTimestamp;
+        if (timeDelta > 0) {
+            double bytesPerSecond = (double) (currentBytes - lastTotalBytes) / (timeDelta / 1000.0);
+            sp.currentKbs = Math.max(0.0, bytesPerSecond / 1024.0);
+        }
+        lastTotalBytes = currentBytes;
+        lastTimestamp = currentTime;
+        sp.totalBytesTransferred = currentBytes;
+        sp.trafficBar = generateTrafficBar(sp.currentKbs);
+
+        // Inyección de métricas específicas de transferencia mapeadas en el core de ServerStats
+        /*sp.activeTransfersCount = stats.getActiveTransfersCount();
+        sp.diskReadSpeedMbs = stats.getDiskReadSpeedMbs();
+        sp.diskWriteSpeedMbs = stats.getDiskWriteSpeedMbs();*/
+
+        // --- INSPECCIÓN INDUSTRIAL OPTIMIZADA DE HILOS (Evita Safepoints pesados) ---
+        sp.peakThreadsCount = threadBean.getPeakThreadCount();
+        sp.totalThreadsCount = threadBean.getThreadCount();
+        sp.daemonThreadsCount = threadBean.getDaemonThreadCount();
+        sp.userThreadsCount = Math.max(0, sp.totalThreadsCount - sp.daemonThreadsCount);
+
+        // dumpAllThreads(false, false) no extrae stacktraces completos, solo identificadores y estados nativos
+        ThreadInfo[] liveThreads = threadBean.dumpAllThreads(false, false);
+        for (ThreadInfo info : liveThreads) {
+            if (info == null) continue;
+            String name = info.getThreadName();
+            boolean isDaemon = info.isDaemon();
+
+            if (name != null && name.matches(".*(Worker|BitBridge|FT-Pool|NIO).*")) sp.bitBridgeWorkers++;
+
+            sp.threadDetails.add(new TelemetryStreamPacket.ThreadLiveDTO(
+                    info.getThreadId(),
+                    name != null ? name.toUpperCase() : "UNKNOWN-THREAD",
+                    info.getThreadState().toString(),
+                    info.getPriority(),
+                    isDaemon ? "DAEMON" : "USER"
+            ));
+        }
+        int maxExpectedThreads = Math.max(1, osBean.getAvailableProcessors() * 150);
+        sp.threadLoad = (sp.totalThreadsCount * 100.0) / maxExpectedThreads;
+
+        // --- LOGS Y NODOS ACTIVOS ---
+        int activeClients = stats.getClientCount();
+        sp.healthText = (sp.systemCpuLoad > 85.0 || sp.ramPercent > 90) ? "CRÍTICO" : (activeClients > sp.totalThreadsCount * 0.8) ? "ESTRESADO" : "ESTABLE";
+        sp.healthColor = sp.healthText.equals("CRÍTICO") ? "#e74c3c" : sp.healthText.equals("ESTRESADO") ? "#fdcb6e" : "#55efc4";
+
+        List<String> logs = stats.getMessageHistory();
+        if (logs != null && !logs.isEmpty()) {
+            sp.shortLogHistory = new ArrayList<>(logs.subList(Math.max(0, logs.size() - 5), logs.size()));
         }
 
-        // --- RED Y TRAFICO (EVITA INTERRUPCIONES SI RED FALLA) ---
-        try {
-            List<InetAddress> allLocalIps = NetworkManager.getAllLocalIps();
-            p.currentPrimaryIp = (allLocalIps == null || allLocalIps.isEmpty()) ? "127.0.0.1" : allLocalIps.get(0).getHostAddress();
-            p.port = server.getPORT();
-            p.activeInterfaceName = getActiveInterfaceName(allLocalIps);
-
-            long currentBytes = stats.getTotalBytes();
-            long currentTime = System.currentTimeMillis();
-            long timeDelta = currentTime - lastTimestamp;
-            if (timeDelta > 0) {
-                double bytesPerSecond = (double) (currentBytes - lastTotalBytes) / (timeDelta / 1000.0);
-                p.currentKbs = Math.max(0.0, bytesPerSecond / 1024.0);
-            }
-            lastTotalBytes = currentBytes;
-            lastTimestamp = currentTime;
-            p.totalBytesTransferred = currentBytes;
-            p.trafficBar = generateTrafficBar(p.currentKbs);
-        } catch (Exception ignored) {}
-
-        // --- INSPECCIÓN SEGURA DE HILOS (COPIA SNAPSHOT EVITA CONCURRENTMODIFICATION) ---
-        try {
-            var threadBean = ManagementFactory.getThreadMXBean();
-            p.peakThreadsCount = threadBean.getPeakThreadCount();
-
-            Map<Thread, StackTraceElement[]> allThreads = Thread.getAllStackTraces();
-            p.totalThreadsCount = allThreads.size();
-            p.threadDetails = new ArrayList<>();
-            p.bitBridgeWorkers = 0;
-            p.daemonThreadsCount = 0;
-
-            for (Thread t : allThreads.keySet()) {
-                if (t == null) continue;
-                boolean isDaemon = t.isDaemon();
-                String name = t.getName();
-
-                if (isDaemon) p.daemonThreadsCount++;
-                if (name != null && name.matches(".*(Worker|BitBridge|FT-Pool).*")) p.bitBridgeWorkers++;
-
-                p.threadDetails.add(new TelemetryPacket.ThreadDTO(
-                        t.getId(),
-                        name != null ? name.toUpperCase() : "UNKNOWN-THREAD",
-                        t.getState() != null ? t.getState().toString() : "UNKNOWN",
-                        t.getPriority(),
-                        isDaemon ? "DAEMON" : "USER"
+        Collection<ClientInfo> connected = stats.getConnectedClients();
+        if (connected != null) {
+            for (ClientInfo c : connected) {
+                if (c == null) continue;
+                sp.connectedNodes.add(new TelemetryStreamPacket.ActiveNodeLiveDTO(
+                        c.getAddress() != null ? c.getAddress() : "0.0.0.0",
+                        c.getNick() != null ? c.getNick().toUpperCase() : "ANONYMOUS",
+                        "ONLINE"
                 ));
             }
-            p.userThreadsCount = Math.max(0, p.totalThreadsCount - p.daemonThreadsCount);
+        }
 
-            int maxExpectedThreads = Math.max(1, p.cpuCores * 150);
-            p.threadLoad = (p.totalThreadsCount * 100.0) / maxExpectedThreads;
-        } catch (Exception ignored) {}
 
-        // --- ESTADOS DINÁMICOS DE SALUD INFRAESTRUCTURA ---
-        int activeClients = stats.getClientCount();
-        p.healthText = (p.systemCpuLoad > 85.0 || p.ramPercent > 90) ? "CRÍTICO" : (activeClients > p.totalThreadsCount * 0.8) ? "ESTRESADO" : "ESTABLE";
-        p.healthColor = p.healthText.equals("CRÍTICO") ? "#e74c3c" : p.healthText.equals("ESTRESADO") ? "#fdcb6e" : "#55efc4";
-
-        // --- ENTRADAS DINÁMICAS (LOGS, NODOS Y TOPOLOGÍA) ---
-        try {
-            List<String> logs = stats.getMessageHistory();
-            if (logs != null && !logs.isEmpty()) {
-                p.shortLogHistory = new ArrayList<>(logs.subList(Math.max(0, logs.size() - 10), logs.size()));
-            }
-
-            p.connectedNodes = new ArrayList<>();
-            Collection<ClientInfo> connected = stats.getConnectedClients();
-            if (connected != null) {
-                for (ClientInfo c : connected) {
-                    if (c == null) continue;
-                    p.connectedNodes.add(new TelemetryPacket.ActiveNodeDTO(
-                            c.getAddress() != null ? c.getAddress() : "0.0.0.0",
-                            "ACT",
-                            c.getNick() != null ? c.getNick().toUpperCase() : "ANONYMOUS",
-                            "ONLINE"
-                    ));
-                }
-            }
-            p.networkTopology = compileNetworkTopology(p.currentPrimaryIp);
-        } catch (Exception ignored) {}
-
-        return p;
+        return sp;
     }
 
-    private void extractBufferPoolMetrics(TelemetryPacket p) {
+    private void extractLiveBufferPoolMetrics(TelemetryStreamPacket sp) {
         try {
             for (var pool : ManagementFactory.getPlatformMXBeans(BufferPoolMXBean.class)) {
                 String name = pool.getName();
                 if ("direct".equals(name)) {
-                    p.directMemoryUsed = pool.getMemoryUsed();
-                    p.directBufferCount = pool.getCount();
+                    sp.directMemoryUsed = pool.getMemoryUsed();
+                    sp.directBufferCount = pool.getCount();
                 } else if ("mapped".equals(name)) {
-                    p.mappedMemoryUsed = pool.getMemoryUsed();
+                    sp.mappedMemoryUsed = pool.getMemoryUsed();
                 }
             }
         } catch (Exception ignored) {}
@@ -248,8 +271,8 @@ public class RemoteTelemetryManager {
         return "[" + "■".repeat(filled) + ".".repeat(segments - filled) + "]";
     }
 
-    private List<TelemetryPacket.NetworkInterfaceDTO> compileNetworkTopology(String primaryIp) {
-        List<TelemetryPacket.NetworkInterfaceDTO> topology = new ArrayList<>();
+    private List<TelemetryHandshakePacket.NetworkInterfaceStaticDTO> compileNetworkTopology(String primaryIp) {
+        List<TelemetryHandshakePacket.NetworkInterfaceStaticDTO> topology = new ArrayList<>();
         try {
             var nets = NetworkInterface.getNetworkInterfaces();
             for (NetworkInterface ni : Collections.list(nets)) {
@@ -260,13 +283,12 @@ public class RemoteTelemetryManager {
                         name.startsWith("WL") ? "📶 [WI-FI]" : isVirtual ? "📦 [VIRTUAL]" :
                                 ni.isLoopback() ? "🔄 [LOOPBACK]" : "🌐 [NETWORK]";
 
-                List<TelemetryPacket.IpAddressDTO> addrDTOs = new ArrayList<>();
+                List<String> addrList = new ArrayList<>();
                 for (InetAddress addr : Collections.list(ni.getInetAddresses())) {
                     if (!(addr instanceof Inet4Address)) continue;
-                    String ip = addr.getHostAddress();
-                    addrDTOs.add(new TelemetryPacket.IpAddressDTO(ip, ip.equals(primaryIp)));
+                    addrList.add(addr.getHostAddress());
                 }
-                topology.add(new TelemetryPacket.NetworkInterfaceDTO(typeStr, name, ni.getMTU(), ni.getDisplayName(), addrDTOs));
+                topology.add(new TelemetryHandshakePacket.NetworkInterfaceStaticDTO(typeStr, name, ni.getMTU(), ni.getDisplayName(), addrList));
             }
         } catch (Exception ignored) {}
         return topology;
