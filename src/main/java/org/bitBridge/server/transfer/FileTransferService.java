@@ -63,7 +63,7 @@ public class FileTransferService {
 
             // 3. Esperar la confirmación de aceptación del hilo de control del receptor
             Logger.logInfo(logId + " [CONTROL] Esperando ACCEPT_REQUEST lúdico del receptor (Timeout: 7s)...");
-            FileHandshakeAction action = context.transferManager().waitForResponseAction(sessionId, 7);
+            FileHandshakeAction action = context.transferManager().waitForResponseAction(sessionId, 30);
 
             if (action == FileHandshakeAction.ACCEPT_REQUEST) {
                 Logger.logInfo(logId + " [HANDSHAKE] Solicitud ACEPTADA por el receptor. Coordinando tokens unificados...");
@@ -125,7 +125,7 @@ public class FileTransferService {
                             // 1. Firmas: Receptor -> Servidor -> Emisor
                             Logger.logInfo(logId + " │  ├── [FASE 1] Leyendo firmas Adler32/MD5 del receptor...");
                             byte[] signaturesRaw = ProtocolService.readHandshakePacket(dataReceiver);
-                            Logger.logInfo(String.format("%s │  │   ↳ Descargadas: %d bytes. Reenviando al emisor...", logId, signaturesRaw.length));
+                            Logger.logInfo(String.format("%s │  │   ↳ Descargadas: %s bytes. Reenviando al emisor...", logId,formatSize( signaturesRaw.length)));
                             //sender.getWritableChannel().write(ByteBuffer.wrap(signaturesRaw));
 
                             sender.sendComunicacion(ProtocolService.fromBytes(signaturesRaw));
@@ -133,7 +133,7 @@ public class FileTransferService {
                             // 2. Deltas: Emisor -> Servidor -> Receptor
                             Logger.logInfo(logId + " │  ├── [FASE 2] Esperando paquete de deltas calculado por el emisor...");
                             byte[] deltasRaw = ProtocolService.readHandshakePacket(sender);
-                            Logger.logInfo(String.format("%s │  │   ↳ Recibidos: %d bytes. Reenviando al receptor...", logId, deltasRaw.length));
+                            Logger.logInfo(String.format("%s │  │   ↳ Recibidos: %s bytes. Reenviando al receptor...", logId, formatSize( deltasRaw.length)));
                             //dataReceiver.getWritableChannel().write(ByteBuffer.wrap(deltasRaw));
 
                             //dataReceiver.sendComunicacion(ProtocolService.fromBytes(deltasRaw));
@@ -144,7 +144,9 @@ public class FileTransferService {
                             Logger.logInfo(logId + " │  └── [FASE 3] Esperando confirmación de escritura (Disk Flush) del receptor...");
                             byte[] finalAck = ProtocolService.readHandshakePacket(dataReceiver);
                             Logger.logInfo(logId + " [FORWARD] Reenviando confirmación estructural al emisor. Sincronización Delta OK.");
-                            sender.getWritableChannel().write(ByteBuffer.wrap(finalAck));
+                            //sender.getWritableChannel().write(ByteBuffer.wrap(finalAck));
+
+                            sender.sendComunicacion(ProtocolService.fromBytes(finalAck));
 
                             Logger.logWarn(String.format("%s └──────────────────────────────────────────────────────────────────┘", logId));
                         }
@@ -158,14 +160,16 @@ public class FileTransferService {
                             Logger.logInfo(logId + " [FORWARD] Notificando START_TRANSFER de vuelta al emisor.");
                             sender.sendComunicacion(new FileHandshakeCommunication(FileHandshakeAction.START_TRANSFER, sessionId));
 
-                            Logger.logInfo(String.format("%s [KERNEL-BRIDGE] Encauzando streams NIO crudos (Tamaño payload: %d bytes)...", logId, meta.getSize()));
+                            Logger.logInfo(String.format("%s [KERNEL-BRIDGE] Encauzando streams NIO crudos (Tamaño payload: %s bytes)...", logId, formatSize( meta.getSize())));
                             bridgeSocketChannelsNoShutdown(sender, dataReceiver, meta.getSize());
 
                             Logger.logInfo(logId + " [NIO-READ] Esperando ACK físico final del receptor en disco...");
                             byte[] finalAckFromReceptor = ProtocolService.readHandshakePacket(dataReceiver);
 
                             Logger.logInfo(logId + " [FORWARD] Reenviando ACK final de disco al emisor.");
-                            sender.getWritableChannel().write(ByteBuffer.wrap(finalAckFromReceptor));
+                            //sender.getWritableChannel().write(ByteBuffer.wrap(finalAckFromReceptor));
+                            sender.sendComunicacion(ProtocolService.fromBytes(finalAckFromReceptor));
+
                         }
                     }
                 }
@@ -248,9 +252,11 @@ public class FileTransferService {
                 }
                 totalTransferred += read;
             }
+            context.getServer().addBytes(totalTransferred);
         } finally {
             if (buffer != null) BufferPool.giveBack(buffer);
         }
+
     }
 
     public void relayDirectory(FileDirectoryCommunication com, BitBridgeClient sender, String sessionId) {

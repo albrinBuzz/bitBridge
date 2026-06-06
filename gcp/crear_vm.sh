@@ -20,19 +20,3 @@ gcloud compute instances create bitbridge-host-hub \
     sudo dnf update -y
     sudo dnf install java-21-openjdk-devel -y
     '
-
- sudo rm -r bitBridge/
-
- git clone https://github.com/albrinBuzz/bitBridge.git
-
- cd bitBridge/
-
-
- git switch feat/network-nio-abstractio
-
-
- ./mvnw clean package
-
- cd target/
-
- java -jar BitBridge-CLI.jar --headless

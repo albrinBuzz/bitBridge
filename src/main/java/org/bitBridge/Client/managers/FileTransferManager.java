@@ -62,7 +62,7 @@ public class FileTransferManager implements TransferManager {
         Logger.logInfo("├──────────────────────────────────────────────────────────────────┤");
         Logger.logInfo(String.format("│  ├── ID Asignado: %s", sessionId));
         Logger.logInfo(String.format("│  ├── Archivo:    %-47s │", targetFile.getName()));
-        Logger.logInfo(String.format("│  └── Volumen:    %.2f KB", totalSize / 1024.0));
+        Logger.logInfo(String.format("│  └── Volumen:    %s ", formatSize(totalSize)));
         Logger.logInfo("└──────────────────────────────────────────────────────────────────┘");
 
         boolean rsyncMode = false;
@@ -138,12 +138,11 @@ public class FileTransferManager implements TransferManager {
 
                         RsyncDeltaPackage deltaPackage = calcularDeltasLocales(targetFile, signatures);
 
-                        // Serialización estimada o directa del tamaño de los deltas enviados
-                        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                        ObjectOutputStream oos = new ObjectOutputStream(baos);
-                        oos.writeObject(deltaPackage);
-                        oos.flush();
-                        bytesEnviadosRed = baos.size();
+                        bytesEnviadosRed = deltaPackage.getInstructions().stream()
+                                .mapToLong(inst -> inst.isLiteral() ? inst.getLiteralData().length : 4) // 4 bytes por índice de bloque coincidente
+                                .sum();
+
+                        Logger.logInfo("[NIO-WRITE] Despachando paquete de deltas optimizado hacia la red...: "+formatSize(bytesEnviadosRed));
 
                         ProtocolService.writeNIO(channel, deltaPackage);
                         transferenciaController.updateProgressMetrics(FileTransferState.SENDING, idTransfe, totalSize, totalSize);
@@ -185,12 +184,17 @@ public class FileTransferManager implements TransferManager {
         transferenciaController.updateProgressMetrics(FileTransferState.SENDING, idTransfe, file.length(), file.length());
     }
 
+
     private RsyncDeltaPackage calcularDeltasLocales(File file, RsyncSignatures remoteSignatures) throws Exception {
+        long startTime = System.currentTimeMillis();
+        Logger.logInfo(String.format("[RSYNC-DIAG] 🔍 Iniciando análisis local para: %s (%s)", file.getName(), formatSize(file.length())));
+
         byte[] fileData = Files.readAllBytes(file.toPath());
         int n = fileData.length;
 
-        // 1. Optimización del mapa: Si estimas el tamaño inicial evitas colisiones y resizes del HashMap
         int expectedBlocks = remoteSignatures.getSignatures().size();
+        Logger.logInfo("[RSYNC-DIAG] 📥 Firmas remotas recibidas: " + expectedBlocks + " bloques.");
+
         Map<Long, List<BlockSignature>> adlerMap = new HashMap<>((int) (expectedBlocks / 0.75f) + 1);
         for (BlockSignature sig : remoteSignatures.getSignatures()) {
             adlerMap.computeIfAbsent(sig.getAdler32(), k -> new ArrayList<>(2)).add(sig);
@@ -202,24 +206,31 @@ public class FileTransferManager implements TransferManager {
         int i = 0;
         int matchedBlocks = 0;
         int literalBytesCount = 0;
-
-        // Puntero para el inicio de la secuencia de bytes literales (evita usar ByteArrayOutputStream)
         int literalStart = 0;
-
-        // Constante para el módulo de Adler-32
         final int MOD_ADLER = 65521;
+
+        // --- VARIABLES DE DIAGNÓSTICO ---
+        int adlerCollisions = 0;      // Coincidencias de Adler que fallaron en MD5
+        int totalAdlerHits = 0;       // Cuántas veces entró al 'containsKey'
+        int totalRollingSteps = 0;    // Pasos dados en O(1) sin hacer match
+        int ultimoProgresoReportado = -1;
 
         while (i < n) {
             int remainingBytes = n - i;
 
-            // Si lo que queda es menor que un bloque completo, se trata directamente como literal
+            // Muestreo de progreso para no saturar la consola de Fedora/Rocky
+            int progresoActual = (int) (((double) i / n) * 100);
+            if (progresoActual % 10 == 0 && progresoActual != ultimoProgresoReportado) {
+                Logger.logInfo(String.format("   ↳ [PROGRESO %d%%] Puntero i: %d/%d bytes. Ints. acumuladas: %d | Matches: %d | Literales: %s",
+                        progresoActual, i, n, instructions.size(), matchedBlocks, formatSize(literalBytesCount)));
+                ultimoProgresoReportado = progresoActual;
+            }
+
             if (remainingBytes < BLOCK_SIZE) {
                 literalBytesCount += remainingBytes;
                 break;
             }
 
-            // --- INICIALIZACIÓN DE LA VENTANA DESLIZANTE ---
-            // Calculamos el Adler32 inicial del bloque actual de forma iterativa rápida
             int s1 = 1;
             int s2 = 0;
             for (int j = 0; j < BLOCK_SIZE; j++) {
@@ -232,14 +243,14 @@ public class FileTransferManager implements TransferManager {
                 boolean matchFound = false;
 
                 if (adlerMap.containsKey(currentAdler)) {
-                    // Verificación criptográfica fuerte (MD5) solo si el Adler coincide
+                    totalAdlerHits++;
                     md5.reset();
                     md5.update(fileData, i, BLOCK_SIZE);
                     byte[] currentMd5 = md5.digest();
 
+                    boolean cryptographicMatch = false;
                     for (BlockSignature sig : adlerMap.get(currentAdler)) {
                         if (Arrays.equals(sig.getMd5(), currentMd5)) {
-                            // 2. Volcar literales pendientes acumulados usando sub-arrays eficientes
                             int literalLength = i - literalStart;
                             if (literalLength > 0) {
                                 byte[] literalData = new byte[literalLength];
@@ -248,29 +259,31 @@ public class FileTransferManager implements TransferManager {
                                 literalBytesCount += literalLength;
                             }
 
-                            // Agregar instrucción de bloque coincidente
                             instructions.add(new RsyncDeltaInstruction(sig.getBlockIndex()));
 
                             i += BLOCK_SIZE;
-                            literalStart = i; // El siguiente literal potencial empieza después de este bloque
+                            literalStart = i;
                             matchFound = true;
+                            cryptographicMatch = true;
                             matchedBlocks++;
-                            break; // Rompe el bucle de firmas
+                            break;
                         }
+                    }
+
+                    // Si el Adler coincidió pero ningún MD5 fue idéntico, hay colisión de hash débil
+                    if (!cryptographicMatch) {
+                        adlerCollisions++;
                     }
                 }
 
                 if (matchFound) {
-                    // Si hubo match, salimos del bucle interno de rolling hash para
-                    // re-inicializar la ventana en la nueva posición 'i'
                     break;
                 } else {
-                    // --- ROLLING HASH EN TIEMPO CONSTANTE O(1) ---
+                    totalRollingSteps++;
                     if (i + BLOCK_SIZE < n) {
                         int byteSaliente = fileData[i] & 0xFF;
                         int byteEntrante = fileData[i + BLOCK_SIZE] & 0xFF;
 
-                        // Fórmulas matemáticas del algoritmo clásico de rolling Adler-32
                         s1 = (s1 - byteSaliente + byteEntrante) % MOD_ADLER;
                         if (s1 < 0) s1 += MOD_ADLER;
 
@@ -286,7 +299,6 @@ public class FileTransferManager implements TransferManager {
             }
         }
 
-        // 3. Volcar remanente final de bytes si es que quedaron huérfanos al final del archivo
         int finalLiteralLength = n - literalStart;
         if (finalLiteralLength > 0) {
             byte[] literalData = new byte[finalLiteralLength];
@@ -294,7 +306,21 @@ public class FileTransferManager implements TransferManager {
             instructions.add(new RsyncDeltaInstruction(literalData));
         }
 
-        Logger.logInfo("[CLIENT-SENDER] Análisis Delta optimizado completado. Bloques coincidentes: " + matchedBlocks + " | Bytes literales: " + literalBytesCount);
+        long duration = System.currentTimeMillis() - startTime;
+
+        // --- REPORTE DE METADATOS FORENSE DEL DESASTRE ---
+        Logger.logInfo("┌──────────────────────────────────────────────────────────────────┐");
+        Logger.logInfo("│ 🛠️  [INFORME DE REDUNDANCIA RSYNC - BITBRIDGE]                   │");
+        Logger.logInfo("├──────────────────────────────────────────────────────────────────┤");
+        Logger.logInfo(String.format("│  ├── Tiempo en CPU:           %s", String.format("%-38s │", duration + " ms")));
+        Logger.logInfo(String.format("│  ├── Instrucciones Totales:   %-38d │", instructions.size()));
+        Logger.logInfo(String.format("│  ├── Bloques Coincidentes:   %-38d │", matchedBlocks));
+        Logger.logInfo(String.format("│  ├── Tamaño de Payload Literal:%s", String.format("%-38s │", formatSize(literalBytesCount))));
+        Logger.logInfo(String.format("│  ├── Evaluaciones Adler32:    %-38d │", totalAdlerHits));
+        Logger.logInfo(String.format("│  ├── Desplazamientos O(1):    %-38d │", totalRollingSteps));
+        Logger.logInfo(String.format("│  └── Colisiones Falsas Adler: %-38d │", adlerCollisions));
+        Logger.logInfo("└──────────────────────────────────────────────────────────────────┘");
+
         return new RsyncDeltaPackage(instructions);
     }
 
@@ -328,7 +354,7 @@ public class FileTransferManager implements TransferManager {
         Logger.logInfo("├──────────────────────────────────────────────────────────────────┤");
         Logger.logInfo(String.format("│  ↳ ID Sesión:  %s", sessionId));
         Logger.logInfo(String.format("│  ↳ Objetivo:   %-50s │", info.getName()));
-        Logger.logInfo(String.format("│  ↳ Tamaño:     %.2f KB", info.getSize() / 1024.0));
+        Logger.logInfo(String.format("│  ↳ Tamaño:     %s", formatSize(info.getSize())));
         Logger.logInfo("└──────────────────────────────────────────────────────────────────┘");
 
         boolean rsyncMode = false;
