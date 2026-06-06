@@ -7,6 +7,8 @@ import io.github.classgraph.ScanResult;
 import org.bitBridge.server.core.client.BitBridgeClient;
 import org.bitBridge.shared.Logger;
 import org.bitBridge.shared.core.comunication.*;
+import org.bitBridge.shared.core.comunication.model.sync.RsyncDeltaInstruction;
+import org.bitBridge.shared.core.comunication.model.sync.RsyncDeltaPackage;
 import org.bitBridge.shared.memory.DirectBufferPool;
 
 import java.io.*;
@@ -24,29 +26,21 @@ public class ProtocolService {
     private static final Gson gson = new Gson();
     private static final Gson prettyGson = new GsonBuilder().setPrettyPrinting().create();
 
-    // Paquete base común donde residen las clases de datos
-// Cambia esto para que use "comunication" (con una sola m, como tu carpeta) y termine en ".model.basic."
     private static final String PACKET_PACKAGE = "org.bitBridge.shared.core.comunication.";
     private static final Map<String, Class<?>> dynamicClassRegistry = new HashMap<>();
-
-    // Caché de clases para evitar penalizaciones de rendimiento por reflexión en el loop NIO
     private static final Map<String, Class<?>> classCache = new ConcurrentHashMap<>();
 
     static {
         long startTime = System.currentTimeMillis();
-
-        // Escaneamos el paquete raíz de comunicaciones de forma completamente recursiva
         try (ScanResult scanResult = new ClassGraph()
                 .acceptPackages("org.bitBridge.shared.core.comunication")
                 .scan()) {
 
-            // Buscamos todas las clases que extiendan de tu clase base abstracta
             List<Class<?>> communicationSubclasses = scanResult
                     .getSubclasses(Communication.class.getName())
                     .loadClasses();
 
             for (Class<?> clazz : communicationSubclasses) {
-                // El Key será el nombre simple (ej: "Mensaje", "RsyncDeltaPackage")
                 dynamicClassRegistry.put(clazz.getSimpleName(), clazz);
             }
 
@@ -60,31 +54,40 @@ public class ProtocolService {
     }
 
     /**
-     * Escribe un objeto Communication en el stream usando el formato compatible:
-     * [INT: Tamaño JSON] [INT: Tamaño Tipo] [BYTES: Nombre Clase] [BYTES: JSON]
+     * Escribe un objeto Communication en el stream usando el formato compatible.
      */
     public static void writeFormattedPayload(DataOutputStream out, Communication comm) throws IOException {
+        // Intercepción binaria para streams convencionales
+        if (comm instanceof org.bitBridge.shared.core.comunication.model.sync.RsyncDeltaPackage deltaPkg) {
+            writeRsyncDeltaStream(out, deltaPkg);
+            return;
+        }
+
         String json = gson.toJson(comm);
         byte[] jsonBytes = json.getBytes(StandardCharsets.UTF_8);
         byte[] typeBytes = comm.getCommunicationId().getBytes(StandardCharsets.UTF_8);
 
-        out.writeInt(jsonBytes.length);          // 4 bytes
-        out.writeInt(typeBytes.length);          // 4 bytes simétricos
-        out.write(typeBytes);                     // Nombre de la clase como bytes
-        out.write(jsonBytes);                    // El JSON crudo
+        out.writeInt(jsonBytes.length);
+        out.writeInt(typeBytes.length);
+        out.write(typeBytes);
+        out.write(jsonBytes);
         out.flush();
     }
 
     /**
-     * Lee y reconstruye el objeto desde el stream (Firma mantenida para compatibilidad)
+     * Lee y reconstruye el objeto desde un DataInputStream tradicional.
      */
     public static Communication readFormattedPayload(DataInputStream in) throws IOException {
-        int jsonLen = in.readInt();
+        int jsonLen = in.readInt(); // Representa payloadSize si es binario
         int typeLen = in.readInt();
 
         byte[] typeBytes = new byte[typeLen];
         in.readFully(typeBytes);
         String className = new String(typeBytes, StandardCharsets.UTF_8).trim();
+
+        if ("RsyncDeltaPackage".equals(className)) {
+            return deserializeRsyncDeltaFromStream(in, jsonLen);
+        }
 
         byte[] jsonBytes = new byte[jsonLen];
         in.readFully(jsonBytes);
@@ -95,15 +98,14 @@ public class ProtocolService {
     }
 
     /**
-     * LEER DESDE NIO: Reconstruye lo que viene de un SocketChannel o de un DataStream alternativo.
+     * 🚀 ARREGLADO: LEER DESDE ARREGLOS DE BYTES (El punto exacto del Crash del Relay)
      */
     public static Communication fromBytes(byte[] data) throws IOException {
-        //dumpTargetPacket(data, "THREAD-" + Thread.currentThread().getName());
         ByteBuffer buffer = ByteBuffer.wrap(data);
 
         if (buffer.remaining() < 8) throw new IOException("Paquete demasiado corto (falta longitud)");
 
-        int jsonLen = buffer.getInt();
+        int jsonLen = buffer.getInt(); // Representa payloadSize si es binario
         int typeLen = buffer.getInt();
 
         if (buffer.remaining() < typeLen) throw new IOException("Paquete incompleto (falta identificador)");
@@ -115,6 +117,11 @@ public class ProtocolService {
             throw new IOException("Protocol Desync: Nombre de tipo vacío detectado.");
         }
 
+        // Interceptamos la conversión antes de que Gson intente parsear binario crudo
+        if ("RsyncDeltaPackage".equals(className)) {
+            return deserializeRsyncDeltaFromBuffer(buffer, jsonLen);
+        }
+
         if (buffer.remaining() < jsonLen) throw new IOException("Paquete incompleto (faltan bytes de JSON)");
         byte[] jsonBytes = new byte[jsonLen];
         buffer.get(jsonBytes);
@@ -123,43 +130,6 @@ public class ProtocolService {
         logJsonString(json, className);
 
         return deserializeByClassName(json, className);
-    }
-
-    /**
-     * MÉTODOS DE RED NIO CONSERVADOS PARA RETROCOMPATIBILIDAD ABSOLUTA
-     */
-
-    public static byte[] readHandshakePacket(BitBridgeClient client) throws IOException {
-        ReadableByteChannel channel = client.getReadableChannel();
-
-        ByteBuffer header = ByteBuffer.allocate(8);
-        while (header.hasRemaining()) {
-            int read = channel.read(header);
-            if (read == -1) throw new IOException("Conexión cerrada durante lectura de header handshake");
-        }
-        header.flip();
-
-        int jsonSize = header.getInt();
-        int typeSize = header.getInt();
-
-        if (jsonSize <= 0 || jsonSize > 1024 * 1024 * 1024) {
-            Logger.logError("[NIO-SYNC] ¡Desfase de flujo detectado! Tamaño JSON inválido: " + jsonSize);
-            throw new IOException("Protocol Desync: Invalid JSON size.");
-        }
-
-        ByteBuffer payload = ByteBuffer.allocate(typeSize + jsonSize);
-        while (payload.hasRemaining()) {
-            int read = channel.read(payload);
-            if (read == -1) throw new IOException("Conexión cerrada durante lectura de payload handshake");
-        }
-
-        ByteBuffer fullPacket = ByteBuffer.allocate(8 + typeSize + jsonSize);
-        header.rewind();
-        fullPacket.put(header);
-        payload.flip();
-        fullPacket.put(payload);
-
-        return fullPacket.array();
     }
 
     public static Communication readNIO(SocketChannel channel) throws IOException {
@@ -179,7 +149,10 @@ public class ProtocolService {
         }
         String className = new String(typeNameBuffer.array(), StandardCharsets.UTF_8).trim();
 
-        // Obtención dinámica del pool según la clase
+        if ("RsyncDeltaPackage".equals(className)) {
+            return deserializeRsyncDeltaDirect(channel, jsonLen);
+        }
+
         DirectBufferPool.BufferType poolType = getPoolForClassName(className);
         ByteBuffer body = DirectBufferPool.acquire(poolType, 100);
 
@@ -222,8 +195,11 @@ public class ProtocolService {
     }
 
     public static ByteBuffer toNioBuffer(Communication comm, long timeout) throws IOException {
-        String json = gson.toJson(comm);
+        if (comm instanceof RsyncDeltaPackage deltaPkg) {
+            return serializeRsyncDeltaDirect(deltaPkg, timeout);
+        }
 
+        String json = gson.toJson(comm);
         byte[] jsonBytes = json.getBytes(StandardCharsets.UTF_8);
         byte[] typeBytes = comm.getCommunicationId().getBytes(StandardCharsets.UTF_8);
 
@@ -243,6 +219,139 @@ public class ProtocolService {
         return buffer;
     }
 
+    // --- MÉTODOS AUXILIARES DE SERIALIZACIÓN Y DESERIALIZACIÓN BINARIA ---
+
+    private static ByteBuffer serializeRsyncDeltaDirect(RsyncDeltaPackage deltaPkg, long timeout) throws IOException {
+        byte[] typeBytes = deltaPkg.getCommunicationId().getBytes(StandardCharsets.UTF_8);
+
+        // Estructura: 8 bytes (longitud del archivo) + 4 bytes (tamaño de lista) + iteración de elementos
+        int payloadSize = 8 + 4;
+        for (var inst : deltaPkg.getInstructions()) {
+            if (inst.isLiteral()) {
+                payloadSize += 1 + 4 + inst.getLiteralData().length;
+            } else {
+                payloadSize += 1 + 4;
+            }
+        }
+
+        int totalSize = 4 + 4 + typeBytes.length + payloadSize;
+        DirectBufferPool.BufferType targetPool = getPoolForClassName(deltaPkg.getCommunicationId());
+
+        ByteBuffer buffer = DirectBufferPool.acquire(targetPool, timeout);
+        if (buffer == null || buffer.capacity() < totalSize) {
+            if (buffer != null) DirectBufferPool.release(buffer);
+            buffer = ByteBuffer.allocate(totalSize);
+        }
+
+        buffer.clear();
+        buffer.putInt(payloadSize);
+        buffer.putInt(typeBytes.length);
+        buffer.put(typeBytes);
+
+        // Payload de datos
+        buffer.putLong(deltaPkg.getTotalFileSize()); // Mantenemos el metadato del tamaño lógico
+        buffer.putInt(deltaPkg.getInstructions().size());
+        for (var inst : deltaPkg.getInstructions()) {
+            if (inst.isLiteral()) {
+                buffer.put((byte) 1);
+                byte[] rawBytes = inst.getLiteralData();
+                buffer.putInt(rawBytes.length);
+                buffer.put(rawBytes);
+            } else {
+                buffer.put((byte) 0);
+                buffer.putInt(inst.getBlockIndex());
+            }
+        }
+
+        buffer.flip();
+        return buffer;
+    }
+
+    private static void writeRsyncDeltaStream(DataOutputStream out, RsyncDeltaPackage deltaPkg) throws IOException {
+        byte[] typeBytes = deltaPkg.getCommunicationId().getBytes(StandardCharsets.UTF_8);
+
+        int payloadSize = 8 + 4;
+        for (var inst : deltaPkg.getInstructions()) {
+            if (inst.isLiteral()) {
+                payloadSize += 1 + 4 + inst.getLiteralData().length;
+            } else {
+                payloadSize += 1 + 4;
+            }
+        }
+
+        out.writeInt(payloadSize);
+        out.writeInt(typeBytes.length);
+        out.write(typeBytes);
+
+        out.writeLong(deltaPkg.getTotalFileSize());
+        out.writeInt(deltaPkg.getInstructions().size());
+        for (var inst : deltaPkg.getInstructions()) {
+            if (inst.isLiteral()) {
+                out.writeByte(1);
+                byte[] rawBytes = inst.getLiteralData();
+                out.writeInt(rawBytes.length);
+                out.write(rawBytes);
+            } else {
+                out.writeByte(0);
+                out.writeInt(inst.getBlockIndex());
+            }
+        }
+        out.flush();
+    }
+
+    private static Communication deserializeRsyncDeltaDirect(SocketChannel channel, int payloadSize) throws IOException {
+        ByteBuffer body = ByteBuffer.allocate(payloadSize);
+        while (body.hasRemaining()) {
+            if (channel.read(body) == -1) throw new IOException("Canal cerrado leyendo payload binario rsync");
+        }
+        body.flip();
+        return deserializeRsyncDeltaFromBuffer(body, payloadSize);
+    }
+
+    private static Communication deserializeRsyncDeltaFromBuffer(ByteBuffer buffer, int payloadSize) throws IOException {
+        long totalFileSize = buffer.getLong();
+        int totalInstructions = buffer.getInt();
+        List<RsyncDeltaInstruction> instructions = new ArrayList<>(totalInstructions);
+
+        for (int k = 0; k < totalInstructions; k++) {
+            byte flag = buffer.get();
+            if (flag == 1) {
+                int len = buffer.getInt();
+                byte[] rawBytes = new byte[len];
+                buffer.get(rawBytes);
+                instructions.add(new RsyncDeltaInstruction(rawBytes));
+            } else if (flag == 0) {
+                int blockIdx = buffer.getInt();
+                instructions.add(new RsyncDeltaInstruction(blockIdx));
+            } else {
+                throw new IOException("Protocol Desync binario en Buffer: Flag desconocido " + flag);
+            }
+        }
+        return new RsyncDeltaPackage(instructions, totalFileSize);
+    }
+
+    private static Communication deserializeRsyncDeltaFromStream(DataInputStream in, int payloadSize) throws IOException {
+        long totalFileSize = in.readLong();
+        int totalInstructions = in.readInt();
+        List<org.bitBridge.shared.core.comunication.model.sync.RsyncDeltaInstruction> instructions = new ArrayList<>(totalInstructions);
+
+        for (int k = 0; k < totalInstructions; k++) {
+            byte flag = in.readByte();
+            if (flag == 1) {
+                int len = in.readInt();
+                byte[] rawBytes = new byte[len];
+                in.readFully(rawBytes);
+                instructions.add(new org.bitBridge.shared.core.comunication.model.sync.RsyncDeltaInstruction(rawBytes));
+            } else if (flag == 0) {
+                int blockIdx = in.readInt();
+                instructions.add(new org.bitBridge.shared.core.comunication.model.sync.RsyncDeltaInstruction(blockIdx));
+            } else {
+                throw new IOException("Protocol Desync binario en Stream: Flag desconocido " + flag);
+            }
+        }
+        return new org.bitBridge.shared.core.comunication.model.sync.RsyncDeltaPackage(instructions, totalFileSize);
+    }
+
     private static void fillBuffer(ByteBuffer buffer, byte[] json, byte[] type) {
         buffer.clear();
         int totalNeeded = 4 + 4 + type.length + json.length;
@@ -259,12 +368,7 @@ public class ProtocolService {
         buffer.flip();
     }
 
-    /**
-     * Deserializador Dinámico basado en Reflexión con Caché Atómica.
-     */
-
     private static Communication deserializeByClassName(String json, String className) throws IOException {
-        // Normalización de compatibilidad con clientes CLI antiguos
         String fixedClassName = switch (className.toUpperCase()) {
             case "MESSAGE" -> "Mensaje";
             case "ACK" -> "MessageAck";
@@ -272,12 +376,9 @@ public class ProtocolService {
             default -> className;
         };
 
-        // Búsqueda directa O(1) en el mapa indexado por ClassGraph
         Class<?> clazz = dynamicClassRegistry.get(className);
-
         if (clazz == null) {
-            Logger.logError("[PROTOCOL DESYNC] No se encontró la clase '" + fixedClassName +
-                    "' en ninguna subcarpeta de comunicación indexada.");
+            Logger.logError("[PROTOCOL DESYNC] No se encontró la clase '" + fixedClassName + "' en ninguna subcarpeta.");
             throw new IOException("Fallo de deserialización: " + fixedClassName);
         }
 
@@ -288,12 +389,7 @@ public class ProtocolService {
         }
     }
 
-    /**
-     * Mapeo de pools off-heap 100% DINÁMICO guiado por anotaciones.
-     * ¡Ya no requiere actualizar ningún switch manual!
-     */
     public static DirectBufferPool.BufferType getPoolForClassName(String className) {
-        // 1. Normalizamos el nombre por compatibilidad con clientes viejos
         String fixedClassName = switch (className.toUpperCase()) {
             case "MESSAGE" -> "Mensaje";
             case "ACK" -> "MessageAck";
@@ -301,30 +397,51 @@ public class ProtocolService {
             default -> className;
         };
 
-        // 2. Buscamos la clase real en nuestro registro dinámico indexado por ClassGraph
         Class<?> clazz = dynamicClassRegistry.get(fixedClassName);
+        if (clazz == null) return DirectBufferPool.BufferType.MESSAGE;
 
-        if (clazz == null) {
-            // Si de verdad no existe la clase, aplicamos el fallback seguro
-            return DirectBufferPool.BufferType.MESSAGE;
-        }
-
-        // 3. Extraemos la anotación directamente del objeto Class real
         if (clazz.isAnnotationPresent(BufferPoolMapping.class)) {
             BufferPoolMapping mapping = clazz.getAnnotation(BufferPoolMapping.class);
-            //Logger.logInfo(clazz.getSimpleName());
-            return mapping.value(); // Retorna MESSAGE, DIRECTORY o TRANSFER perfectamente
+            return mapping.value();
         }
-
-        // Fallback si la clase existe pero olvidaste ponerle la anotación
         return DirectBufferPool.BufferType.MESSAGE;
     }
 
+    public static byte[] readHandshakePacket(BitBridgeClient client) throws IOException {
+        ReadableByteChannel channel = client.getReadableChannel();
 
+        ByteBuffer header = ByteBuffer.allocate(8);
+        while (header.hasRemaining()) {
+            int read = channel.read(header);
+            if (read == -1) throw new IOException("Conexión cerrada durante lectura de header handshake");
+        }
+        header.flip();
+
+        int jsonSize = header.getInt();
+        int typeSize = header.getInt();
+
+        if (jsonSize <= 0 || jsonSize > 1024 * 1024 * 1024) {
+            Logger.logError("[NIO-SYNC] ¡Desfase de flujo detectado! Tamaño JSON inválido: " + jsonSize);
+            throw new IOException("Protocol Desync: Invalid JSON size.");
+        }
+
+        ByteBuffer payload = ByteBuffer.allocate(typeSize + jsonSize);
+        while (payload.hasRemaining()) {
+            int read = channel.read(payload);
+            if (read == -1) throw new IOException("Conexión cerrada durante lectura de payload handshake");
+        }
+
+        ByteBuffer fullPacket = ByteBuffer.allocate(8 + typeSize + jsonSize);
+        header.rewind();
+        fullPacket.put(header);
+        payload.flip();
+        fullPacket.put(payload);
+
+        return fullPacket.array();
+    }
 
     private static void logJsonString(String json, String className) {
         /*try {
-            // Parseamos el JSON crudo a un elemento genérico de Gson para formatearlo limpiamente
             com.google.gson.JsonElement jsonElement = com.google.gson.JsonParser.parseString(json);
             String prettyJsonString = prettyGson.toJson(jsonElement);
 
@@ -333,19 +450,9 @@ public class ProtocolService {
                     "\n" + prettyJsonString +
                     "\n" + "─".repeat(50));
         } catch (Exception e) {
-            // Fallback defensivo si el JSON viene corrupto o incompleto para no tirar la lectura de red
             Logger.logWarn("[ProtocolService] No se pudo formatear el JSON entrante para '" + className + "': " + e.getMessage());
         }*/
     }
-
-    /**
-     * Mapeo heredado e inalterado para métodos externos heredados que aún invoquen este registro manual.
-     * @deprecated El sistema ahora autodesubre los tipos dinámicamente mediante el nombre de la clase.
-     */
-    /*@Deprecated
-    public static void registerType(CommunicationType type, Class<? extends Communication> clazz) {
-        // Mantenido únicamente por firmas de compatibilidad binaria externa.
-    }*/
 
     /**
      * Realiza una autopsia anatómica y dinámica de un paquete en bruto.

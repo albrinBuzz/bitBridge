@@ -35,8 +35,8 @@ public class FileTransferManager implements TransferManager {
     private final TransferenciaController transferenciaController;
     private final String downloadDir;
 
-    private static final int BLOCK_SIZE = 64 * 1024;
-    private static final int TRANSFER_CHUNK_SIZE = 4 * 1024 * 1024;
+    private int BLOCK_SIZE = 64 * 1024;
+    private int TRANSFER_CHUNK_SIZE = 4 * 1024 * 1024;
 
     public FileTransferManager(TransferenciaController transferenciaController) {
         this.transferenciaController = transferenciaController;
@@ -64,6 +64,8 @@ public class FileTransferManager implements TransferManager {
         Logger.logInfo(String.format("│  ├── Archivo:    %-47s │", targetFile.getName()));
         Logger.logInfo(String.format("│  └── Volumen:    %s ", formatSize(totalSize)));
         Logger.logInfo("└──────────────────────────────────────────────────────────────────┘");
+        BLOCK_SIZE=calcularTamanoBloqueOptimo(totalSize);
+        //Logger.logInfo("Tamaño del bloque: "+ BLOCK_SIZE);
 
         boolean rsyncMode = false;
         long bytesEnviadosRed = 0;
@@ -356,6 +358,7 @@ public class FileTransferManager implements TransferManager {
         Logger.logInfo(String.format("│  ↳ Objetivo:   %-50s │", info.getName()));
         Logger.logInfo(String.format("│  ↳ Tamaño:     %s", formatSize(info.getSize())));
         Logger.logInfo("└──────────────────────────────────────────────────────────────────┘");
+        BLOCK_SIZE=calcularTamanoBloqueOptimo(info.getSize());
 
         boolean rsyncMode = false;
         long bytesRecibidosRed = 0;
@@ -598,6 +601,19 @@ public class FileTransferManager implements TransferManager {
             Logger.logInfo(String.format("│  └── Tasa de Transferencia: %-20s                 │", String.format("%.2f Mbps", throughputMbps)));
         }
         Logger.logInfo("└──────────────────────────────────────────────────────────────────┘");
+    }
+
+    public  int calcularTamanoBloqueOptimo(long tamanoArchivo) {
+        if (tamanoArchivo < 1024 * 1024) return 2048; // 2KB para archivos < 1MB
+
+        // Cálculo basado en la raíz cuadrada
+        int calculado = (int) Math.sqrt(tamanoArchivo);
+
+        // Alinear a potencias de 2 para mejorar el rendimiento de lectura en disco (Buffer de NIO)
+        int bloque = Integer.highestOneBit(calculado);
+
+        // Acotar entre 4KB y 64KB (o 128KB según tu infraestructura física)
+        return Math.max(4096, Math.min(bloque, 64 * 1024));
     }
 
     public void stop() { running = false; resume(); }
