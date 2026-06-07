@@ -6,7 +6,9 @@ import org.bitBridge.Client.managers.TransferManager;
 import org.bitBridge.Observers.TransferencesObserver;
 import org.bitBridge.models.TransferProgress;
 import org.bitBridge.models.Transferencia;
+import org.bitBridge.server.config.ConfigKey;
 import org.bitBridge.shared.*;
+import org.bitBridge.shared.config.ConfiguracionApp;
 import org.bitBridge.shared.core.comunication.FileHandshakeAction;
 import org.bitBridge.shared.core.comunication.model.basic.FileHandshakeCommunication;
 
@@ -164,16 +166,27 @@ public class TransferenciaController {
         }
     }
 
-    public boolean notifyTranference(FileHandshakeCommunication handshakeCommunication)
-    {
+    public boolean notifyTranference(FileHandshakeCommunication handshakeCommunication) {
+        // 1. Verificar si la configuración global tiene activada la aceptación automática
+        boolean autoAccept = ConfiguracionApp.getInstancia()
+                .obtenerBoolean(org.bitBridge.server.config.ConfigKey.TRANSFER_AUTO_ACCEPT, false);
 
-         /*if (transferencesObserver!=null){
-             return transferencesObserver.notifyTranference(handshakeCommunication);
-         }
-        else*/
-        return true;
+        if (autoAccept) {
+            Logger.logInfo("🤖 [CONTROLADOR] Auto-Accept activo. Autorizando transferencia entrante de forma automática.");
+            return true;
+        }
 
+        // 2. Si no está en auto-accept, recurrir al comportamiento por defecto (UI / Observador)
+        if (transferencesObserver != null) {
+            Logger.logInfo("🖥️ [CONTROLADOR] Solicitando confirmación manual al observador de la interfaz...");
+            return transferencesObserver.notifyTranference(handshakeCommunication);
+        }
+
+        // Fallback de seguridad: si no hay interfaz ni auto-accept, rechazamos para no colgar el socket
+        Logger.logWarn("⚠️ [CONTROLADOR] No hay observador registrado ni Auto-Accept activo. Rechazando por seguridad.");
+        return false;
     }
+
     public void notifyTranference(FileHandshakeAction action){
         transferencesObserver.notifyTranference(action);
     }

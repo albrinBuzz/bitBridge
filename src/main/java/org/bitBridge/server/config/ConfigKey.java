@@ -22,6 +22,7 @@ public enum ConfigKey {
     TRANSFER_MAX_ACTIVE("transfer.max_active"),
     TRANSFER_AUTO_RESUME("transfer.auto_resume"),
     TRANSFER_OVERWRITE("transfer.overwrite"),
+    TRANSFER_AUTO_ACCEPT("transfer.auto_accept"),
 
     // PERFORMANCE
     NIO_BUFFER_SIZE("nio.buffer_size"),

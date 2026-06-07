@@ -68,6 +68,7 @@ public class ConfiguracionApp {
         setProperty(ConfigKey.TRANSFER_MAX_ACTIVE, "3");
         setProperty(ConfigKey.TRANSFER_AUTO_RESUME, "true");
         setProperty(ConfigKey.TRANSFER_OVERWRITE, "false");
+        setProperty(ConfigKey.TRANSFER_AUTO_ACCEPT, "false");
 
         // --- 4. CONFIGURACIONES EXCLUSIVAS DE CLIENTE ---
         propiedades.setProperty("cliente.id", "CL-" + (System.currentTimeMillis() % 1000));

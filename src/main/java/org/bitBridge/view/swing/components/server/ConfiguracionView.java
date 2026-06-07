@@ -606,6 +606,7 @@ public class ConfiguracionView extends JDialog {
         private JTextField txtSharedPath;   // NUEVO: Ruta para compartir
         private JTextField txtMaxActive;
         private JCheckBox chkResume, chkOverwrite;
+        private JCheckBox chkAutoAccept;    // NUEVO: Checkbox para aceptación automática
 
         public StorageTab() {
             // --- SECCIÓN 1: DESCARGAS ---
@@ -636,9 +637,20 @@ public class ConfiguracionView extends JDialog {
             add(txtMaxActive);
 
             add(Box.createVerticalStrut(10));
-            chkResume = new JCheckBox("Reanudar transferencias automáticamente", true);
+
+            // Configuración existente: Reanudar
+            boolean initResume = config.obtenerBoolean(ConfigKey.TRANSFER_AUTO_RESUME, true);
+            chkResume = new JCheckBox("Reanudar transferencias automáticamente", initResume);
             styleCheckBox(chkResume);
             add(chkResume);
+
+            add(Box.createVerticalStrut(5));
+
+            // NUEVO: Checkbox para Aceptar Transferencias Automáticamente
+            boolean initAutoAccept = config.obtenerBoolean(ConfigKey.TRANSFER_AUTO_ACCEPT, false);
+            chkAutoAccept = new JCheckBox("Aceptar descargas entrantes automáticamente (Modo Headless/Peer)", initAutoAccept);
+            styleCheckBox(chkAutoAccept);
+            add(chkAutoAccept);
 
             add(Box.createVerticalGlue());
         }
@@ -671,10 +683,17 @@ public class ConfiguracionView extends JDialog {
 
         @Override
         public void save() {
-            // Guardamos ambas rutas en el archivo de configuración
+            // Guardamos las rutas y variables numéricas en el archivo de configuración
             config.setProperty(ConfigKey.DOWNLOAD_DIR, txtDownloadPath.getText());
             config.setProperty(ConfigKey.SHARED_DIR, txtSharedPath.getText());
             config.setProperty(ConfigKey.TRANSFER_MAX_ACTIVE, txtMaxActive.getText());
+
+            // NUEVO: Persistencia del estado de los JCheckBoxes en la mutación de la config global
+            config.setProperty(ConfigKey.TRANSFER_AUTO_RESUME, chkResume.isSelected());
+            config.setProperty(ConfigKey.TRANSFER_AUTO_ACCEPT, chkAutoAccept.isSelected());
+
+            // Forzar el vaciado físico a disco del archivo .properties unificado
+            config.guardarEnArchivo();
         }
     }
 
