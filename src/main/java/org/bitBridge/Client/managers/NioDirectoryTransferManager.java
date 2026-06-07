@@ -39,7 +39,7 @@ public class NioDirectoryTransferManager implements TransferManager {
     // Variables dinámicas para el cálculo del ahorro físico real en red
     private long totalWireBytesTransmitted = 0;
 
-    private static final int BLOCK_SIZE = 64 * 1024; // Bloques de 64KB para el rolling hash
+    private   int BLOCK_SIZE = 64 * 1024; // Bloques de 64KB para el rolling hash
 
     public NioDirectoryTransferManager(TransferenciaController controller) {
         this.transferenciaController = controller;
@@ -144,7 +144,7 @@ public class NioDirectoryTransferManager implements TransferManager {
             ProtocolService.writeNIO(socket, meta);
 
             FileHandshakeCommunication ack = waitForHandshakeNIO(socket);
-
+            BLOCK_SIZE=calcularTamanoBloqueOptimo(target.length());
             if (ack.getAction() == FileHandshakeAction.SKIP_FILE) {
                 Logger.logInfo(String.format(" │ ⏩ [OMITIDO] Nodo remoto reporta archivo idéntico: %s", relativePath));
                 totalBytesProcessed += target.length();
@@ -195,84 +195,95 @@ public class NioDirectoryTransferManager implements TransferManager {
             adlerMap.computeIfAbsent(sig.getAdler32(), k -> new ArrayList<>()).add(sig);
         }
 
-        byte[] fileData = Files.readAllBytes(file.toPath());
-        int n = fileData.length;
-
         List<RsyncDeltaInstruction> instructions = new ArrayList<>();
         ByteArrayOutputStream literalBuffer = new ByteArrayOutputStream();
 
         Adler32 adler = new Adler32();
         MessageDigest md5 = MessageDigest.getInstance("MD5");
 
-        int i = 0;
-        int matchedBlocks = 0;
-        int literalBytes = 0;
+        // Optimizacion O(1): Usamos FileChannel y un ByteBuffer de tamaño fijo
+        try (FileChannel fc = FileChannel.open(file.toPath(), StandardOpenOption.READ)) {
+            long fileSize = fc.size();
+            long i = 0;
+            int matchedBlocks = 0;
+            int literalBytes = 0;
 
-        while (i < n) {
-            int remainingBytes = n - i;
-            int currentBlockSize = Math.min(BLOCK_SIZE, remainingBytes);
+            // Buffer reutilizable en la Stack para las operaciones de hashing
+            byte[] blockWindow = new byte[BLOCK_SIZE];
+            java.nio.ByteBuffer byteBuffer = java.nio.ByteBuffer.wrap(blockWindow);
 
-            if (currentBlockSize < BLOCK_SIZE && remainingBytes == currentBlockSize) {
-                for (int j = i; j < n; j++) {
-                    literalBuffer.write(fileData[j]);
-                    literalBytes++;
+            while (i < fileSize) {
+                long remainingBytes = fileSize - i;
+                int currentBlockSize = (int) Math.min(BLOCK_SIZE, remainingBytes);
+
+                // Leer la ventana actual desde el canal sin cargar el archivo completo
+                byteBuffer.clear();
+                byteBuffer.limit(currentBlockSize);
+                fc.position(i);
+                fc.read(byteBuffer);
+
+                if (currentBlockSize < BLOCK_SIZE && remainingBytes == currentBlockSize) {
+                    for (int j = 0; j < currentBlockSize; j++) {
+                        literalBuffer.write(blockWindow[j]);
+                        literalBytes++;
+                    }
+                    break;
                 }
-                break;
-            }
 
-            adler.reset();
-            adler.update(fileData, i, currentBlockSize);
-            long currentAdler = adler.getValue();
+                adler.reset();
+                adler.update(blockWindow, 0, currentBlockSize);
+                long currentAdler = adler.getValue();
 
-            boolean matchFound = false;
-            if (adlerMap.containsKey(currentAdler)) {
-                md5.reset();
-                md5.update(fileData, i, currentBlockSize);
-                byte[] currentMd5 = md5.digest();
+                boolean matchFound = false;
+                if (adlerMap.containsKey(currentAdler)) {
+                    md5.reset();
+                    md5.update(blockWindow, 0, currentBlockSize);
+                    byte[] currentMd5 = md5.digest();
 
-                for (BlockSignature sig : adlerMap.get(currentAdler)) {
-                    if (Arrays.equals(sig.getMd5(), currentMd5)) {
-                        if (literalBuffer.size() > 0) {
-                            instructions.add(new RsyncDeltaInstruction(literalBuffer.toByteArray()));
-                            literalBuffer.reset();
+                    for (BlockSignature sig : adlerMap.get(currentAdler)) {
+                        if (Arrays.equals(sig.getMd5(), currentMd5)) {
+                            if (literalBuffer.size() > 0) {
+                                instructions.add(new RsyncDeltaInstruction(literalBuffer.toByteArray()));
+                                literalBuffer.reset();
+                            }
+                            instructions.add(new RsyncDeltaInstruction(sig.getBlockIndex()));
+                            i += currentBlockSize;
+                            matchFound = true;
+                            matchedBlocks++;
+                            break;
                         }
-                        instructions.add(new RsyncDeltaInstruction(sig.getBlockIndex()));
-                        i += currentBlockSize;
-                        matchFound = true;
-                        matchedBlocks++;
-                        break;
                     }
                 }
+
+                if (!matchFound) {
+                    literalBuffer.write(blockWindow[0]); // Inyectar el byte del frente de la ventana
+                    literalBytes++;
+                    i++;
+                }
             }
 
-            if (!matchFound) {
-                literalBuffer.write(fileData[i]);
-                literalBytes++;
-                i++;
+            if (literalBuffer.size() > 0) {
+                instructions.add(new RsyncDeltaInstruction(literalBuffer.toByteArray()));
             }
+
+            RsyncDeltaPackage deltaPackage = new RsyncDeltaPackage(instructions);
+
+            // Estimar el tamaño en bytes del paquete de deltas serializado para medir ahorro de red
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            try (ObjectOutputStream oos = new ObjectOutputStream(baos)) {
+                oos.writeObject(deltaPackage);
+            }
+            long deltaSerializedSize = baos.size();
+            totalWireBytesTransmitted += deltaSerializedSize;
+
+            Logger.logInfo(String.format(" │   ├── [ANALISIS DELTA] Coincidencias: %d bloques | Literales: %s", matchedBlocks, formatSize(literalBytes)));
+            Logger.logInfo(String.format(" │   └── [REDUCCION] Tamaño lógico original: %s » Payload Delta inyectado a red: %s", formatSize(fileSize), formatSize(deltaSerializedSize)));
+
+            ProtocolService.writeNIO(socket, deltaPackage);
+
+            totalBytesProcessed += fileSize;
+            transferenciaController.updateProgressMetrics(FileTransferState.SENDING, idTransfe, totalBytesProcessed, totalSize);
         }
-
-        if (literalBuffer.size() > 0) {
-            instructions.add(new RsyncDeltaInstruction(literalBuffer.toByteArray()));
-        }
-
-        RsyncDeltaPackage deltaPackage = new RsyncDeltaPackage(instructions);
-
-        // Estimar el tamaño en bytes del paquete de deltas serializado para medir ahorro de red
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        try (ObjectOutputStream oos = new ObjectOutputStream(baos)) {
-            oos.writeObject(deltaPackage);
-        }
-        long deltaSerializedSize = baos.size();
-        totalWireBytesTransmitted += deltaSerializedSize;
-
-        Logger.logInfo(String.format(" │   ├── [ANALISIS DELTA] Coincidencias: %d bloques | Literales: %s", matchedBlocks, formatSize(literalBytes)));
-        Logger.logInfo(String.format(" │   └── [REDUCCION] Tamaño lógico original: %s » Payload Delta inyectado a red: %s", formatSize(file.length()), formatSize(deltaSerializedSize)));
-
-        ProtocolService.writeNIO(socket, deltaPackage);
-
-        totalBytesProcessed += file.length();
-        transferenciaController.updateProgressMetrics(FileTransferState.SENDING, idTransfe, totalBytesProcessed, totalSize);
     }
 
     // --- LÓGICA DE RECEPCIÓN (RECEPTOR) ---
@@ -338,7 +349,7 @@ public class NioDirectoryTransferManager implements TransferManager {
                                             ProtocolService.writeNIO(channel, new FileHandshakeCommunication(FileHandshakeAction.SKIP_FILE, sessionId));
                                             continue;
                                         }
-
+                                        BLOCK_SIZE=calcularTamanoBloqueOptimo(info.getSize());
                                         Logger.logWarn(" │ ⚡ [DIFERENCIA DETECTADA] Activando motor de sincronización Rsync...");
                                         ProtocolService.writeNIO(channel, new FileHandshakeCommunication(FileHandshakeAction.PROCESS_DELTAS, sessionId));
 
@@ -352,11 +363,14 @@ public class NioDirectoryTransferManager implements TransferManager {
                                         RsyncDeltaPackage deltaPkg = (RsyncDeltaPackage) ProtocolService.readNIO(channel);
 
                                         // Medir el peso del delta en el receptor
-                                        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                                        /*ByteArrayOutputStream baos = new ByteArrayOutputStream();
                                         try (ObjectOutputStream oos = new ObjectOutputStream(baos)) {
                                             oos.writeObject(deltaPkg);
                                         }
-                                        totalWireBytesTransmitted += baos.size();
+                                        totalWireBytesTransmitted += baos.size();/*
+
+                                         */
+
 
                                         Logger.logInfo(" │  ├── Reconstruyendo archivo binario aplicando instrucciones...");
                                         reconstruirArchivoRsync(destPath, deltaPkg);
@@ -405,47 +419,75 @@ public class NioDirectoryTransferManager implements TransferManager {
 
     private RsyncSignatures generarFirmasLocales(Path path) throws Exception {
         List<BlockSignature> list = new ArrayList<>();
-        byte[] fileData = Files.readAllBytes(path);
-        int totalBytes = fileData.length;
-        int index = 0;
-        int blockIdx = 0;
 
-        Adler32 adler = new Adler32();
-        MessageDigest md5 = MessageDigest.getInstance("MD5");
+        // Optimización O(1): Leer secuencialmente con FileChannel
+        try (FileChannel fc = FileChannel.open(path, StandardOpenOption.READ)) {
+            long totalBytes = fc.size();
+            long index = 0;
+            int blockIdx = 0;
 
-        while (index < totalBytes) {
-            int length = Math.min(BLOCK_SIZE, totalBytes - index);
+            Adler32 adler = new Adler32();
+            MessageDigest md5 = MessageDigest.getInstance("MD5");
 
-            adler.reset();
-            adler.update(fileData, index, length);
-            long adlerHash = adler.getValue();
+            byte[] buffer = new byte[BLOCK_SIZE];
+            java.nio.ByteBuffer byteBuffer = java.nio.ByteBuffer.wrap(buffer);
 
-            md5.reset();
-            md5.update(fileData, index, length);
-            byte[] md5Hash = md5.digest();
+            while (index < totalBytes) {
+                int length = (int) Math.min(BLOCK_SIZE, totalBytes - index);
 
-            list.add(new BlockSignature(blockIdx++, adlerHash, md5Hash));
-            index += length;
+                byteBuffer.clear();
+                byteBuffer.limit(length);
+                fc.read(byteBuffer);
+
+                adler.reset();
+                adler.update(buffer, 0, length);
+                long adlerHash = adler.getValue();
+
+                md5.reset();
+                md5.update(buffer, 0, length);
+                byte[] md5Hash = md5.digest();
+
+                list.add(new BlockSignature(blockIdx++, adlerHash, md5Hash));
+                index += length;
+            }
         }
         return new RsyncSignatures(list);
     }
 
     private void reconstruirArchivoRsync(Path targetPath, RsyncDeltaPackage packageDeltas) throws Exception {
         Path tempFile = Paths.get(targetPath.toString() + ".tmp");
-        byte[] originalData = Files.readAllBytes(targetPath);
 
-        try (FileOutputStream fos = new FileOutputStream(tempFile.toFile())) {
+        // Optimización Extrema: Copia quirúrgica bloque a bloque sin tocar la Heap
+        try (FileChannel fcOriginal = FileChannel.open(targetPath, StandardOpenOption.READ);
+             FileChannel fcTarget = FileChannel.open(tempFile, StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
+
+            long currentTargetPosition = 0;
+
             for (RsyncDeltaInstruction inst : packageDeltas.getInstructions()) {
                 if (inst.isLiteral()) {
-                    fos.write(inst.getLiteralData());
+                    // Es data nueva: Escribir directo desde los bytes literales del delta
+                    byte[] literal = inst.getLiteralData();
+                    java.nio.ByteBuffer buf = java.nio.ByteBuffer.wrap(literal);
+                    while (buf.hasRemaining()) {
+                        currentTargetPosition += fcTarget.write(buf, currentTargetPosition);
+                    }
                 } else {
+                    // Es un MATCH: Hacemos transferencia Zero-Copy entre descriptores de archivos locales
                     int blockIdx = inst.getBlockIndex();
-                    int startOffset = blockIdx * BLOCK_SIZE;
-                    int length = Math.min(BLOCK_SIZE, originalData.length - startOffset);
-                    fos.write(originalData, startOffset, length);
+                    long startOffset = (long) blockIdx * BLOCK_SIZE;
+                    long length = Math.min(BLOCK_SIZE, fcOriginal.size() - startOffset);
+
+                    long written = 0;
+                    while (written < length) {
+                        long transferred = fcOriginal.transferTo(startOffset + written, length - written, fcTarget);
+                        fcTarget.position(currentTargetPosition + transferred);
+                        written += transferred;
+                        currentTargetPosition += transferred;
+                    }
                 }
             }
         }
+        // Reemplazo atómico en el FileSystem de Linux
         Files.move(tempFile, targetPath, StandardCopyOption.REPLACE_EXISTING);
     }
 
@@ -507,7 +549,18 @@ public class NioDirectoryTransferManager implements TransferManager {
         Logger.logInfo(String.format("│  └── Tasa Real de Inyección:  %-20s                │", String.format("%.2f Mbps", throughputMbps)));
         Logger.logInfo("└──────────────────────────────────────────────────────────────────┘");
     }
+    public  int calcularTamanoBloqueOptimo(long tamanoArchivo) {
+        if (tamanoArchivo < 1024 * 1024) return 2048; // 2KB para archivos < 1MB
 
+        // Cálculo basado en la raíz cuadrada
+        int calculado = (int) Math.sqrt(tamanoArchivo);
+
+        // Alinear a potencias de 2 para mejorar el rendimiento de lectura en disco (Buffer de NIO)
+        int bloque = Integer.highestOneBit(calculado);
+
+        // Acotar entre 4KB y 64KB (o 128KB según tu infraestructura física)
+        return Math.max(4096, Math.min(bloque, 64 * 1024));
+    }
     @Override public void stop() { running = false; }
     @Override public void cancel() { stop(); }
     @Override public void pause() {}
