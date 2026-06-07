@@ -29,6 +29,7 @@ import org.bitBridge.shared.core.comunication.model.basic.Mensaje;
 import org.bitBridge.shared.network.ServerNetworkEngine;
 import org.bitBridge.shared.network.NetworkManager;
 import org.bitBridge.utils.UPnPManager;
+import org.bitBridge.web.MainWeb;
 import org.springframework.context.ConfigurableApplicationContext;
 
 
@@ -185,11 +186,24 @@ public class Server {
 
 
 
+    /**
+     * Punto de entrada para el procesamiento de argumentos pasados vía consola (CLI).
+     * Modifica las propiedades globales y orquesta el encendido de los componentes asíncronos.
+     * java -jar bitBridge.jar --port 9090 --no-encryption --web-server 9091
+     * java -jar bitBridge.jar --headless --auto-accept --port 8080 --web-server 8081
+     * java -jar bitBridge.jar --headless --auto-accept --workers 16 --download-dir /mnt/storage/downloads --shared-dir /mnt/storage/shared
+     */
     public void starServerCLI(String[] args) throws IOException {
-        startServerHeadless(args);
-        // 1. Procesamiento de argumentos
-        /*for (int i = 0; i < args.length; i++) {
+        boolean headless = false;
+        boolean iniciarWebHeadless = false;
+        int puertoWebInyectado = 8081; // Puerto web por defecto para evitar colisiones con el de datos (8080)
+
+        ConfiguracionApp configGlobal = ConfiguracionApp.getInstancia();
+
+        // 1. Procesamiento quirúrgico de argumentos de entrada
+        for (int i = 0; i < args.length; i++) {
             String arg = args[i];
+
             if (arg.equals("-h") || arg.equals("--help")) {
                 printHelp();
                 System.exit(0);
@@ -199,38 +213,184 @@ public class Server {
                 case "--port":
                     if (i + 1 < args.length) {
                         this.PORT = Integer.parseInt(args[++i]);
+                        configGlobal.setProperty(ConfigKey.SERVER_PORT, this.PORT);
+                        Logger.logInfo("[CLI-BIND] 🌐 Sobrescribiendo puerto de sockets bitBridge » " + this.PORT);
                     }
                     break;
+
                 case "--headless":
-                    Logger.logInfo("Modo Headless activo. Interacción de consola desactivada.");
-                    // Guardamos el estado para no iniciar la consola
-                    startServerHeadless(args);
-                    //return; // Terminamos aquí si es headless
+                    headless = true;
+                    Logger.logInfo("[CLI-BIND] 🤖 Modo Headless detectado. Se omitirá el despliegue de hilos de interfaz gráfica Swing.");
+                    break;
+
+                case "--auto-accept":
+                    configGlobal.setProperty(ConfigKey.TRANSFER_AUTO_ACCEPT, "true");
+                    Logger.logInfo("[CLI-BIND] 🤖 Auto-Accept forzado vía CLI. Handshakes entrantes se aprobarán automáticamente.");
+                    break;
+
+                case "--download-dir":
+                    if (i + 1 < args.length) {
+                        String nuevoPath = args[++i];
+                        configGlobal.setProperty(ConfigKey.DOWNLOAD_DIR, nuevoPath);
+                        Logger.logInfo("[CLI-BIND] 📂 Redireccionando directorio de entrada (Downloads) » " + nuevoPath);
+                    }
+                    break;
+
+                case "--shared-dir":
+                    if (i + 1 < args.length) {
+                        String nuevoShared = args[++i];
+                        configGlobal.setProperty(ConfigKey.SHARED_DIR, nuevoShared);
+                        Logger.logInfo("[CLI-BIND] 📂 Redireccionando directorio de activos compartidos (Assets) » " + nuevoShared);
+                    }
+                    break;
+
+                case "--workers":
+                    if (i + 1 < args.length) {
+                        int numWorkers = Integer.parseInt(args[++i]);
+                        configGlobal.setProperty(ConfigKey.NET_WORKER_THREADS, numWorkers);
+                        Logger.logInfo("[CLI-BIND] ⚙️ Escalando Pool de Subprocesos reactivos » " + numWorkers + " Worker Threads.");
+                    }
+                    break;
+
+                case "--no-encryption":
+                    configGlobal.setProperty(ConfigKey.NET_ENCRYPTION, "NONE");
+                    Logger.logWarn("[CLI-BIND] ⚠️ ALERTA: Criptografía de canal desactivada vía CLI. Datos viajarán en texto plano.");
+                    break;
+
+                case "--web-server":
+                    iniciarWebHeadless = true;
+                    // Evalúa si el siguiente argumento es un puerto numérico y no otra bandera de comando
+                    if (i + 1 < args.length && !args[i + 1].startsWith("-")) {
+                        try {
+                            puertoWebInyectado = Integer.parseInt(args[++i]);
+                        } catch (NumberFormatException e) {
+                            Logger.logError("[CLI-ERROR] El puerto provisto para el servidor web no es válido.");
+                            System.exit(1);
+                        }
+                    }
+                    Logger.logInfo("[CLI-BIND] 🌐 Servidor Web bitBridge programado en el puerto » " + puertoWebInyectado);
+                    break;
+
+                default:
+                    Logger.logError("[CLI-ERROR] Argumento desconocido o mal configurado: '" + arg + "'. Use --help para el listado.");
+                    System.exit(1);
             }
         }
-        if (args.length==0){
-            // Si no fue headless, iniciamos la UI normal
-            new Thread(consoleView, "Console-Monitor").start();
-            startServer().join(); // Espera segura antes de continuar en la CLI externa
-        }*/
 
+        // 2. Orquestación del arranque (Previene dobles inicios del Socket NIO gracias a tu validación nativa)
+        if (headless) {
+            startServerHeadless(args);
+
+            if (iniciarWebHeadless) {
+                ejecutarServidorWebHeadless(puertoWebInyectado);
+            }
+        } else {
+            Logger.logInfo("[CORE] Lanzando consola interactiva de monitoreo ConsoleView...");
+            new Thread(this.consoleView, "Console-Monitor").start();
+
+            if (iniciarWebHeadless) {
+                ejecutarServidorWebHeadless(puertoWebInyectado);
+            }
+
+            try {
+                // Ejecuta el arranque asíncrono y bloquea de forma segura el hilo principal para que la terminal no se muera
+                startServer().join();
+            } catch (Exception e) {
+                Logger.logError("[CORE-FATAL] Error crítico al arrancar el socket interactivo: " + e.getMessage());
+            }
+        }
     }
 
+    /**
+     * Muestra el menú instructivo formateado para la terminal de administración en Linux.
+     */
     private void printHelp() {
+        System.out.println("=======================================================================");
+        System.out.println("   bitBridge Engine v1.0.0-SNAPSHOT - CLI Core Management System");
+        System.out.println("=======================================================================");
         System.out.println("Uso: java -jar bitBridge.jar [opciones]");
-        System.out.println("Opciones:");
-        System.out.println("  -h, --help        Muestra esta ayuda");
-        System.out.println("  --port <puerto>   Sobrescribe el puerto configurado");
-        System.out.println("  --headless        Inicia sin interfaz de consola (modo servidor puro)");
+        System.out.println("\nOpciones de Infraestructura:");
+        System.out.println("  -h, --help               Muestra este menú de ayuda estructurado y finaliza.");
+        System.out.println("  --port <puerto>          Sobrescribe el puerto TCP del socket binario (Default: 8080).");
+        System.out.println("  --headless               Inicia el servidor sin monitores gráficos (Modo Daemon).");
+        System.out.println("  --workers <cantidad>     Define el tamaño del pool de hilos para procesamiento masivo.");
+        System.out.println("  --no-encryption          Desactiva el cifrado de payloads (Optimiza CPU en LANs locales).");
+        System.out.println("\nOpciones de Almacenamiento y Servidores Auxiliares:");
+        System.out.println("  --auto-accept            Acepta automáticamente transferencias entrantes (Rsync Bypass).");
+        System.out.println("  --download-dir <ruta>    Especifica la ruta absoluta para depositar descargas locales.");
+        System.out.println("  --shared-dir <ruta>      Especifica la ruta raíz del catálogo que verán los peers.");
+        System.out.println("  --web-server [puerto]    Levanta el puente web HTTP/JSF embebido (Por defecto: 8081).");
+        System.out.println("=======================================================================");
     }
 
+    /**
+     * Lanza el motor asíncrono en modo demonio oculto esperando de forma segura que el binding de red finalice.
+     */
     private void startServerHeadless(String[] args) throws IOException {
-        Logger.logInfo("[CORE] Levantando socket en modo headless seguro...");
+        Logger.logInfo("[CORE] Levantando socket en modo headless seguro (Daemon)...");
 
-        // Bloquea aquí hasta que networkEngine.start(PORT) resuelva la promesa con éxito
+        // Bloquea de forma asíncrona controlada utilizando la promesa CompletableFuture que ya programaste en startServer()
         startServer().join();
 
-        Logger.logInfo("Servidor iniciado en modo headless de forma correcta. Monitoreo listo.");
+        Logger.logInfo("[CORE] Servidor iniciado en modo headless de forma correcta. Monitoreo pasivo en ejecución.");
+    }
+
+    /**
+     * Comprueba de manera rápida la disponibilidad de un puerto en el Kernel de Linux.
+     */
+    private boolean esPuertoDisponible(int puerto) {
+        try (java.net.ServerSocket ss = new java.net.ServerSocket(puerto)) {
+            ss.setReuseAddress(true);
+            return true;
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Inicializa el servidor Web embebido de Spring Boot utilizando la variable global de la clase Server.
+     */
+    private void ejecutarServidorWebHeadless(int puertoAIntentar) {
+        if (!esPuertoDisponible(puertoAIntentar)) {
+            Logger.logError(String.format("[WEB-CRITICAL] El puerto HTTP %d ya está siendo utilizado por otra aplicación.", puertoAIntentar));
+            System.exit(1);
+        }
+
+        Logger.logInfo("[WEB-HTTP] Levantando contexto Spring Boot en segundo plano...");
+
+        new Thread(() -> {
+            try {
+                System.setProperty("server.port", String.valueOf(puertoAIntentar));
+
+                // Levantamos el contexto directamente sobre tu variable de clase privada: springContext
+                this.springContext = new org.springframework.boot.builder.SpringApplicationBuilder(MainWeb.class)
+                        .properties("server.port=" + puertoAIntentar)
+                        .headless(true) // Forzar headless nativo de Spring (Aísla de entornos gráficos X11)
+                        .run();
+
+                String ip = InetAddress.getLocalHost().getHostAddress();
+                String urlFinal = "http://" + ip + ":" + puertoAIntentar + "/home/index.xhtml";
+
+                Logger.logInfo("┌──────────────────────────────────────────────────────────────────┐");
+                Logger.logInfo("│ 🌐  [PUENTE WEB ACTIVO] El panel de control está en línea       │");
+                Logger.logInfo("├──────────────────────────────────────────────────────────────────┤");
+                Logger.logInfo(String.format("│ 🔗  URL de Acceso: %-45s │", urlFinal));
+                Logger.logInfo("└──────────────────────────────────────────────────────────────────┘");
+
+            } catch (Exception e) {
+                Logger.logError("[WEB-FATAL] Falló el arranque del puente web HTTP.");
+
+                String msg = e.getMessage() != null ? e.getMessage() : e.toString();
+                if (msg.contains("Port already in use") || msg.contains("BindException")) {
+                    Logger.logError("   ├── [CAUSA] Puerto ocupado. Libera el puerto o reasigna con --web-server [puerto_libre]");
+                } else if (msg.contains("Permission denied")) {
+                    Logger.logError("   ├── [CAUSA] Permiso denegado por el Kernel de Linux (Puertos < 1024 requieren privilegios root/sudo).");
+                } else {
+                    Logger.logError("   ├── [DETALLE] " + msg);
+                }
+                System.exit(1);
+            }
+        }, "Nio-Web-Engine").start();
     }
 
     public void stopServer() {
