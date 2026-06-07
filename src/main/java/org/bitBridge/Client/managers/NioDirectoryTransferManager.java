@@ -7,6 +7,7 @@ import org.bitBridge.shared.config.ConfiguracionApp;
 import org.bitBridge.shared.core.comunication.*;
 import org.bitBridge.shared.core.comunication.model.basic.FileDirectoryCommunication;
 import org.bitBridge.shared.core.comunication.model.basic.FileHandshakeCommunication;
+import org.bitBridge.shared.core.comunication.model.basic.HandshakeMessage;
 import org.bitBridge.shared.core.comunication.model.basic.Mensaje;
 import org.bitBridge.shared.core.comunication.model.sync.BlockSignature;
 import org.bitBridge.shared.core.comunication.model.sync.RsyncDeltaInstruction;
@@ -77,7 +78,8 @@ public class NioDirectoryTransferManager implements TransferManager {
 
             if (channel.isConnected()) {
                 Logger.logInfo("[SENDER-NIO] Canal conectado. Despachando metadatos estructurales de la raíz...");
-                ProtocolService.writeNIO(channel, new Mensaje(sessionId));
+                //ProtocolService.writeNIO(channel, new Mensaje(sessionId));
+                ProtocolService.writeNIO(channel, new HandshakeMessage(sessionId,SocketPurpose.FILE_TRANSFER,""));
                 ProtocolService.writeNIO(channel, new FileDirectoryCommunication(rootDir.getName(), fileCount.get(), recipient, totalSize));
 
                 Logger.logInfo("[SENDER-NIO] Esperando autorización START_TRANSFER del nodo receptor...");
@@ -302,7 +304,8 @@ public class NioDirectoryTransferManager implements TransferManager {
 
                 if (channel.isConnected()) {
                     Logger.logInfo("[RECEPTOR-NIO] Canal de datos abierto. Transmitiendo Tokens de Handshake...");
-                    ProtocolService.writeNIO(channel, new Mensaje(sessionId));
+                    //ProtocolService.writeNIO(channel, new Mensaje(sessionId));
+                    ProtocolService.writeNIO(channel, new HandshakeMessage(sessionId,SocketPurpose.FILE_TRANSFER,""));
                     ProtocolService.writeNIO(channel, new FileHandshakeCommunication(FileHandshakeAction.ACCEPT_REQUEST, sessionId));
 
                     if (confirmarInicioNIO(channel, sessionId)) {

@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 public class Logger {
-    private static final String LOG_FILE = "filetalk.log";
+    private static final String LOG_FILE = "bitBridge.log";
     private static final long MAX_FILE_SIZE = 5 * 1024 * 1024;
     private static boolean enableColors = true;
 
@@ -37,7 +37,9 @@ public class Logger {
         }
     }
 
-    private static final DateTimeFormatter dtf = DateTimeFormatter.ofPattern("HH:mm:ss.SSS");
+    //private static final DateTimeFormatter dtf = DateTimeFormatter.ofPattern("HH:mm:ss.SSS");
+    // Formato robusto: 2026-06-06 21:50:34.411
+    private static final DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
 
     public static synchronized void log(LogLevel level, String message) {
         StackTraceElement ste = Thread.currentThread().getStackTrace()[3];
