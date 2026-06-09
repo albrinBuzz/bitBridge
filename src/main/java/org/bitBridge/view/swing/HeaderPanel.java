@@ -35,6 +35,7 @@ public class HeaderPanel extends JPanel {
 
     private final MainController controller;
     private long connectionStartTime;
+    private JComboBox<ConexionPerfil> comboPerfiles;
 
     public HeaderPanel(MainController controller) {
         this.controller = controller;
@@ -63,6 +64,18 @@ public class HeaderPanel extends JPanel {
         lblBrand.setFont(new Font("Inter", Font.BOLD, 16));
         lblBrand.setForeground(ACCENT_COLOR);
 
+        comboPerfiles = new JComboBox<>();
+        comboPerfiles.setPreferredSize(new Dimension(160, 30));
+        // Carga inicial (esto lo traerías de un gestor de archivos)
+        comboPerfiles.addItem(new ConexionPerfil("Localhost", "127.0.0.1", "8080"));
+        comboPerfiles.addItem(new ConexionPerfil("Servidor PROD", "192.168.1.50", "8080"));
+
+        comboPerfiles.addActionListener(e -> {
+            ConexionPerfil p = (ConexionPerfil) comboPerfiles.getSelectedItem();
+            // Opcional: mostrar tooltip con puerto
+            comboPerfiles.setToolTipText("Puerto: " + p.puerto());
+        });
+
         lblConnectionStatus = new JLabel("● OFFLINE");
         lblConnectionStatus.setForeground(DANGER_RED);
         lblConnectionStatus.setFont(new Font("Monospaced", Font.BOLD, 11));
@@ -90,6 +103,8 @@ public class HeaderPanel extends JPanel {
 
 
         panel.add(lblBrand);
+        //panel.add(new JLabel("Nodo:"));
+        //panel.add(comboPerfiles);
         panel.add(new JSeparator(SwingConstants.VERTICAL));
         panel.add(lblConnectionStatus);
         panel.add(new JLabel("Host:"));
@@ -371,4 +386,9 @@ public class HeaderPanel extends JPanel {
     // Getters para que el controlador obtenga los datos de los campos
     public String getIp() { return txtIp.getText(); }
     public String getPort() { return txtPort.getText(); }
+
+      record ConexionPerfil(String nombre, String ip, String puerto) {
+        @Override
+        public String toString() { return nombre + " (" + ip + ")"; }
+    }
 }

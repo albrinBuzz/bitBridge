@@ -4,6 +4,8 @@ import org.bitBridge.shared.Logger;
 import org.bitBridge.shared.core.comunication.model.basic.NodoDirectorio;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableRowSorter;
@@ -19,7 +21,7 @@ import java.util.function.Consumer;
 
 /**
  * Componente de Tabla Atómica reutilizable para bitBridge Pro.
- * Incorpora un menú contextual ultra-estilizado y una barra de acciones rápidas por lotes.
+ * Incorpora barra de búsqueda inteligente, filtros por estado de red y estadísticas de cuota.
  * * Copyright 2026 Cristobal Roman Zamora
  */
 public class FileTablePanel extends JPanel {
@@ -28,6 +30,14 @@ public class FileTablePanel extends JPanel {
     private DefaultTableModel fileModel;
     private TableRowSorter<DefaultTableModel> sorter;
     private List<NodoDirectorio> nodosActuales = new ArrayList<>();
+
+    // Componentes de control agregados para Filtros y Busqueda
+    private JTextField txtSearch;
+    private JComboBox<String> comboSyncFilter;
+
+
+
+
 
     // Paleta de Alto Contraste (JetBrains / Code Style)
     public static final Color STATE_SYNCHRONIZED   = new Color(102, 217, 102);
@@ -49,7 +59,18 @@ public class FileTablePanel extends JPanel {
     private final Consumer<NodoDirectorio> onDoubleClick;
     private final Consumer<List<NodoDirectorio>> onActionRequested;
     private final String etiquetaAccionPrincipal;
-
+    private JComboBox<String> comboTypeFilter; // ⚡ NUEVO: Combo de tipos de archivo
+    private JLabel lblFooterStats;
+    // Categorías de filtrado rápido por extensión
+    private final String[] OPCIONES_TIPOS = {
+            "Todos los formatos",
+            "Solo Carpetas 📁",
+            "Solo Archivos 📄",
+            "Código Fuente (*.java, *.py, *.cpp, *.go)",
+            "Documentos (*.pdf, *.docx, *.txt, *.xlsx)",
+            "Imágenes (*.png, *.jpg, *.gif, *.svg)",
+            "Binarios/Ejecutables (*.exe, *.sh, *.jar, *.bat)"
+    };
     public FileTablePanel(String etiquetaAccionPrincipal,
                           Consumer<NodoDirectorio> onSelection,
                           Consumer<NodoDirectorio> onDoubleClick,
@@ -64,9 +85,6 @@ public class FileTablePanel extends JPanel {
     }
 
     private void initComponents() {
-        // --- BARRA DE HERRAMIENTAS SUPERIOR (ACCIONES RÁPIDAS) ---
-        setupTopToolBar();
-
         // --- CONFIGURACIÓN DE TABLA ---
         String[] columns = {"Nombre", "Tamaño", "Tipo", "Modificado", "Estado Sync"};
         fileModel = new DefaultTableModel(columns, 0) {
@@ -82,6 +100,13 @@ public class FileTablePanel extends JPanel {
         fileTable.setSelectionForeground(Color.WHITE);
         fileTable.setFont(new Font("Segoe UI", Font.PLAIN, 13));
 
+        // Vinculamos el Sorter para habilitar ordenamiento por columnas y filtros combinados
+        sorter = new TableRowSorter<>(fileModel);
+        fileTable.setRowSorter(sorter);
+
+        // --- BARRA DE HERRAMIENTAS SUPERIOR (ACCIONES RÁPIDAS + BUSQUEDA) ---
+        setupTopToolBar();
+
         setupRenderers();
         setupMouseListeners();
         setupKeyBindings();
@@ -90,49 +115,215 @@ public class FileTablePanel extends JPanel {
         scrollPane.getViewport().setBackground(new Color(24, 24, 24));
         scrollPane.setBorder(BorderFactory.createEmptyBorder());
         add(scrollPane, BorderLayout.CENTER);
+
+        // --- BARRA INFERIOR DE ESTADÍSTICAS ---
+        setupBottomStatusBar();
     }
 
     /**
-     * Crea e integra la barra superior de acciones rápidas para procesamiento por lotes (Batch Processing).
+     * Crea e integra la barra superior de acciones rápidas incorporando controles de filtrado activo.
      */
     private void setupTopToolBar() {
         JPanel pnlToolbar = new JPanel(new BorderLayout());
         pnlToolbar.setBackground(TOOLBAR_BG);
         pnlToolbar.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, FANCY_BORDER));
 
-        JToolBar toolBar = new JToolBar();
-        toolBar.setFloatable(false);
-        toolBar.setOpaque(false);
-        toolBar.setBorder(new EmptyBorder(4, 8, 4, 8));
+        JToolBar toolBarLeft = new JToolBar();
+        toolBarLeft.setFloatable(false);
+        toolBarLeft.setOpaque(false);
+        toolBarLeft.setBorder(new EmptyBorder(4, 8, 4, 4));
 
         boolean esPanelLocal = etiquetaAccionPrincipal.contains("PUSH");
-
-        // Configuramos el botón inteligente de sincronización masiva asimétrica
-        String textoBotonBatch = esPanelLocal
-                ? "📤  Subir No Sincronizados (Solo Locales)"
-                : "📥  Bajar No Sincronizados (Solo Remotos)";
+        String textoBotonBatch = esPanelLocal ? "📤 Subir No Sincronizados" : "📥 Bajar No Sincronizados";
 
         JButton btnSyncBatch = new JButton(textoBotonBatch);
         btnSyncBatch.setFont(new Font("Segoe UI", Font.BOLD, 11));
-        btnSyncBatch.setBackground(esPanelLocal ? new Color(34, 139, 34) : FANCY_ACCENT_ORANGE); // Verde bosque o Naranja Nicotina
+        btnSyncBatch.setBackground(esPanelLocal ? new Color(34, 139, 34) : FANCY_ACCENT_ORANGE);
         btnSyncBatch.setForeground(Color.WHITE);
         btnSyncBatch.setFocusPainted(false);
         btnSyncBatch.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnSyncBatch.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(btnSyncBatch.getBackground().darker()),
-                new EmptyBorder(5, 12, 5, 12)
+                new EmptyBorder(5, 10, 5, 10)
         ));
-
         btnSyncBatch.addActionListener(e -> ejecutarSincronizacionBatch(esPanelLocal));
+        toolBarLeft.add(btnSyncBatch);
 
-        toolBar.add(btnSyncBatch);
-        pnlToolbar.add(toolBar, BorderLayout.WEST);
+        // --- SUB-PANEL DERECHO: CONMUTADORES Y FILTROS EN CADENA ---
+        JPanel pnlFilterActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 4));
+        pnlFilterActions.setOpaque(false);
+
+        // 1. Combo de filtrado por Estado Sync
+        String[] syncStates = {"Todos los estados", "Sincronizados", "Modificados", "Conflictos / Huérfanos"};
+        comboSyncFilter = new JComboBox<>(syncStates);
+        comboSyncFilter.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        comboSyncFilter.setBackground(FANCY_BG);
+        comboSyncFilter.setForeground(FANCY_TEXT);
+        comboSyncFilter.addActionListener(e -> aplicarFiltroCompuesto());
+
+        // 2. ⚡ NUEVO: Combo de filtrado por Extensiones / Formato
+        comboTypeFilter = new JComboBox<>(OPCIONES_TIPOS);
+        comboTypeFilter.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        comboTypeFilter.setBackground(FANCY_BG);
+        comboTypeFilter.setForeground(FANCY_TEXT);
+        comboTypeFilter.addActionListener(e -> aplicarFiltroCompuesto());
+
+        // 3. Buscador por texto plano
+        txtSearch = new JTextField(10);
+        txtSearch.putClientProperty("JTextField.placeholderText", "🔍 Buscar...");
+        txtSearch.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        txtSearch.setBackground(FANCY_BG);
+        txtSearch.setForeground(Color.WHITE);
+        txtSearch.setCaretColor(Color.WHITE);
+        txtSearch.setBorder(BorderFactory.createLineBorder(FANCY_BORDER));
+        txtSearch.getDocument().addDocumentListener(new DocumentListener() {
+            public void insertUpdate(DocumentEvent e) { aplicarFiltroCompuesto(); }
+            public void removeUpdate(DocumentEvent e) { aplicarFiltroCompuesto(); }
+            public void changedUpdate(DocumentEvent e) { aplicarFiltroCompuesto(); }
+        });
+
+        pnlFilterActions.add(new JLabel("Estado:"));
+        pnlFilterActions.add(new JLabel("    a    "));
+        pnlFilterActions.add(new JPopupMenu.Separator());
+
+        pnlFilterActions.add(comboSyncFilter);
+        pnlFilterActions.add(new JLabel("Tipo:"));
+        pnlFilterActions.add(comboTypeFilter);
+        pnlFilterActions.add(Box.createHorizontalStrut(2));
+        pnlFilterActions.add(txtSearch);
+
+        pnlToolbar.add(toolBarLeft, BorderLayout.WEST);
+        pnlToolbar.add(pnlFilterActions, BorderLayout.EAST);
         add(pnlToolbar, BorderLayout.NORTH);
     }
 
     /**
-     * Barre la tabla buscando archivos huérfanos o modificados localmente y los manda en un solo lote al pipeline.
+     * Construcción de barra inferior atómica para control de cuota de almacenamiento.
      */
+    private void setupBottomStatusBar() {
+        JPanel pnlFooter = new JPanel(new BorderLayout());
+        pnlFooter.setBackground(TOOLBAR_BG);
+        pnlFooter.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, FANCY_BORDER));
+        pnlFooter.setPreferredSize(new Dimension(0, 24));
+
+        lblFooterStats = new JLabel(" 📁 0 Carpetas | 📄 0 Archivos | ⚖️ 0 B en total");
+        lblFooterStats.setFont(new Font("SansSerif", Font.PLAIN, 11));
+        lblFooterStats.setForeground(Color.GRAY);
+
+        pnlFooter.add(lblFooterStats, BorderLayout.WEST);
+        add(pnlFooter, BorderLayout.SOUTH);
+    }
+
+    /**
+     * Resuelve en simultáneo la intersección de tres filtros: texto predictivo,
+     * estado de réplica Rsync y tipo/extensión del asset.
+     * Corregido: Extrae el estado sync directamente del modelo de datos.
+     */
+    private void aplicarFiltroCompuesto() {
+        SwingUtilities.invokeLater(() -> {
+            String textoBusqueda = txtSearch.getText().trim().toLowerCase();
+            int seleccionSync = comboSyncFilter.getSelectedIndex();
+            int seleccionTipo = comboTypeFilter.getSelectedIndex();
+
+            RowFilter<DefaultTableModel, Integer> filtroMatriz = new RowFilter<>() {
+                @Override
+                public boolean include(Entry<? extends DefaultTableModel, ? extends Integer> entry) {
+                    int modelIdx = entry.getIdentifier();
+                    if (modelIdx < 0 || modelIdx >= nodosActuales.size()) return false;
+
+                    // Extraemos el nodo real desde la memoria para evitar errores de desfase de columnas
+                    NodoDirectorio nodo = nodosActuales.get(modelIdx);
+                    String nombre = nodo.getNombre().toLowerCase();
+                    String ext = nodo.getExtension().toLowerCase();
+
+                    // Recuperamos el estado directamente desde la celda del modelo mapeado
+                    // para garantizar consistencia con los renderizadores visuales
+                    String estadoSync = entry.getModel().getValueAt(modelIdx, 4).toString();
+
+                    // --- NIVEL 1: TEXTO PLANO ---
+                    boolean pasaTexto = textoBusqueda.isEmpty() || nombre.contains(textoBusqueda) || ext.contains(textoBusqueda);
+
+                    // --- NIVEL 2: ESTADO SYNC (Evaluación robusta sobre texto de celda) ---
+                    boolean pasaSync = true;
+                    switch (seleccionSync) {
+                        case 1: // Solo Sincronizados
+                            pasaSync = estadoSync.contains("Sincronizado");
+                            break;
+                        case 2: // Modificados
+                            pasaSync = estadoSync.contains("Modificado");
+                            break;
+                        case 3: // Conflictos o Solo Local/Remoto
+                            pasaSync = estadoSync.contains("Conflicto") || estadoSync.contains("Solo");
+                            break;
+                    }
+
+                    // --- NIVEL 3: TIPO DE ASSET / EXTENSIÓN ---
+                    boolean pasaTipo = true;
+                    switch (seleccionTipo) {
+                        case 1: // Solo Carpetas
+                            pasaTipo = nodo.esDirectorio();
+                            break;
+                        case 2: // Solo Archivos
+                            pasaTipo = !nodo.esDirectorio();
+                            break;
+                        case 3: // Código Fuente
+                            pasaTipo = !nodo.esDirectorio() && ".java.py.cpp.h.go.js.ts.sh.rs.c".contains(ext);
+                            break;
+                        case 4: // Documentos
+                            pasaTipo = !nodo.esDirectorio() && ".pdf.docx.doc.txt.xlsx.xls.csv.md".contains(ext);
+                            break;
+                        case 5: // Imágenes
+                            pasaTipo = !nodo.esDirectorio() && ".png.jpg.jpeg.gif.svg.ico.webp".contains(ext);
+                            break;
+                        case 6: // Binarios / Ejecutables
+                            pasaTipo = !nodo.esDirectorio() && ".exe.sh.jar.bat.msi.bin".contains(ext);
+                            break;
+                    }
+
+                    return pasaTexto && pasaSync && pasaTipo;
+                }
+            };
+
+            sorter.setRowFilter(filtroMatriz);
+            actualizarMetricasFooter();
+        });
+    }
+
+
+    /**
+     * Recalcula dinámicamente el almacenamiento mapeado en base a las filas visibles (post-filtrado).
+     */
+    private void actualizarMetricasFooter() {
+        int filasVisibles = fileTable.getRowCount();
+        int carpetas = 0;
+        int archivos = 0;
+        long pesoTotalBytes = 0;
+
+        for (int i = 0; i < filasVisibles; i++) {
+            int modelIdx = fileTable.convertRowIndexToModel(i);
+            if (modelIdx >= 0 && modelIdx < nodosActuales.size()) {
+                NodoDirectorio n = nodosActuales.get(modelIdx);
+                if (n.esDirectorio()) {
+                    carpetas++;
+                } else {
+                    archivos++;
+                    pesoTotalBytes += n.getTamaño();
+                }
+            }
+        }
+
+        // Formateo legible del peso calculado
+        String pesoFormateado;
+        if (pesoTotalBytes < 1024) pesoFormateado = pesoTotalBytes + " B";
+        else {
+            int exp = (int) (Math.log(pesoTotalBytes) / Math.log(1024));
+            pesoFormateado = String.format("%.2f %cB", pesoTotalBytes / Math.pow(1024, exp), "KMGTPE".charAt(exp - 1));
+        }
+
+        lblFooterStats.setText(String.format(" 📁 %d Carpetas | 📄 %d Archivos | ⚖️ El filtro contiene: %s",
+                carpetas, archivos, pesoFormateado));
+    }
+
     private void ejecutarSincronizacionBatch(boolean esLocal) {
         List<NodoDirectorio> loteNoSincronizado = new ArrayList<>();
         String condicionFiltro = esLocal ? "Solo Local" : "Solo Remoto";
@@ -214,10 +405,8 @@ public class FileTablePanel extends JPanel {
                 if (e.getClickCount() == 1) onSelection.accept(nodo);
                 else if (e.getClickCount() == 2) onDoubleClick.accept(nodo);
             }
-
             @Override
             public void mousePressed(MouseEvent e) { evaluarPopUp(e); }
-
             @Override
             public void mouseReleased(MouseEvent e) { evaluarPopUp(e); }
         });
@@ -242,7 +431,6 @@ public class FileTablePanel extends JPanel {
     private void evaluarPopUp(MouseEvent e) {
         if (e.isPopupTrigger()) {
             int row = fileTable.rowAtPoint(e.getPoint());
-
             if (row != -1 && !fileTable.isRowSelected(row)) {
                 fileTable.setRowSelectionInterval(row, row);
                 NodoDirectorio nodo = getSelectedNode();
@@ -270,7 +458,7 @@ public class FileTablePanel extends JPanel {
                 ? (multiple ? "Subir Réplicas de Origen" : "Subir Réplica en Destino")
                 : (multiple ? "Bajar Selección Estructural" : "Bajar Asset del Servidor");
 
-        String iconAccionPrincipal = esPanelLocal ? "📤  " : "📥  ";
+        String iconAccionPrincipal = esPanelLocal ? "📤 " : "📥 ";
 
         JMenuItem itemCoreAction = createFancyMenuItem(iconAccionPrincipal + labelAccionPrincipal, true);
         itemCoreAction.addActionListener(e -> {
@@ -278,10 +466,10 @@ public class FileTablePanel extends JPanel {
         });
         menu.add(itemCoreAction);
 
-        JMenu menuSmartActions = createFancySubMenu("⚡  Transmisión Inteligente");
-        JMenuItem itemDelta = createFancyMenuItem("↳  Sincronización Diferencial Delta", false);
+        JMenu menuSmartActions = createFancySubMenu("⚡ Transmisión Inteligente");
+        JMenuItem itemDelta = createFancyMenuItem("↳ Sincronización Diferencial Delta", false);
         itemDelta.addActionListener(e -> Logger.logInfo("Calculando matrices rsync checksum."));
-        JMenuItem itemLz4 = createFancyMenuItem("↳  Flujo Comprimido Stream (LZ4)", false);
+        JMenuItem itemLz4 = createFancyMenuItem("↳ Flujo Comprimido Stream (LZ4)", false);
         itemLz4.addActionListener(e -> Logger.logInfo("Instanciando pipeline LZ4."));
 
         menuSmartActions.add(itemDelta);
@@ -290,26 +478,26 @@ public class FileTablePanel extends JPanel {
 
         menu.add(createFancySeparator());
 
-        JMenuItem itemDiff = createFancyMenuItem("🔍  Comparar Estructura (Diff)", false);
+        JMenuItem itemDiff = createFancyMenuItem("🔍 Comparar Estructura (Diff)", false);
         itemDiff.setEnabled(!multiple && primerNodo != null && !primerNodo.esDirectorio());
         itemDiff.addActionListener(e -> Logger.logInfo("Abriendo Diff Engine para: " + primerNodo.getNombre()));
         menu.add(itemDiff);
 
-        JMenuItem itemIntegrity = createFancyMenuItem("🛡️  Cotejar Firma de Datos (SHA-1)", false);
+        JMenuItem itemIntegrity = createFancyMenuItem("🛡️ Cotejar Firma de Datos (SHA-1)", false);
         itemIntegrity.addActionListener(e -> JOptionPane.showMessageDialog(this,
                 "Calculando firmas criptográficas en caliente...", "Auditoría bitBridge", JOptionPane.INFORMATION_MESSAGE));
         menu.add(itemIntegrity);
 
-        JMenuItem itemHistory = createFancyMenuItem("⏳  Historial de Commits (Rollback)", false);
+        JMenuItem itemHistory = createFancyMenuItem("⏳ Historial de Commits (Rollback)", false);
         itemHistory.setEnabled(!multiple);
         menu.add(itemHistory);
 
         menu.add(createFancySeparator());
 
-        JMenuItem itemIgnore = createFancyMenuItem("🚫  Añadir a .bitbridgeignore", false);
+        JMenuItem itemIgnore = createFancyMenuItem("🚫 Añadir a .bitbridgeignore", false);
         menu.add(itemIgnore);
 
-        JMenuItem itemCopyPath = createFancyMenuItem("📋  Copiar Ruta de Almacenamiento", false);
+        JMenuItem itemCopyPath = createFancyMenuItem("📋 Copiar Ruta de Almacenamiento", false);
         itemCopyPath.addActionListener(e -> {
             if (primerNodo != null) {
                 StringSelection selection = new StringSelection(primerNodo.getRutaString());
@@ -320,13 +508,13 @@ public class FileTablePanel extends JPanel {
 
         menu.add(createFancySeparator());
 
-        JMenuItem itemRename = createFancyMenuItem("✏️  Renombrar Entrada (F2)", false);
+        JMenuItem itemRename = createFancyMenuItem("✏️ Renombrar Entrada (F2)", false);
         itemRename.setEnabled(!multiple);
         itemRename.addActionListener(e -> {
             if (primerNodo != null) ejecutarRenombrado(primerNodo);
         });
 
-        JMenuItem itemDelete = createFancyMenuItem(multiple ? "🗑️  Destruir Seleccionados (DEL)" : "🗑️  Destruir Asset Físico (DEL)", false);
+        JMenuItem itemDelete = createFancyMenuItem(multiple ? "🗑️ Destruir Seleccionados (DEL)" : "🗑️ Destruir Asset Físico (DEL)", false);
         itemDelete.setForeground(new Color(255, 100, 100));
         itemDelete.addActionListener(e -> ejecutarEliminacion(seleccionados));
 
@@ -411,8 +599,6 @@ public class FileTablePanel extends JPanel {
         }
     }
 
-    // --- MÉTODOS DE COMPATIBILIDAD DE FIRMAS OBLIGATORIOS ---
-
     public void updateData(List<NodoDirectorio> nuevosHijos, String nombrePadre) {
         clear();
         if (nuevosHijos != null) {
@@ -425,6 +611,7 @@ public class FileTablePanel extends JPanel {
     public void clear() {
         fileModel.setRowCount(0);
         nodosActuales.clear();
+        actualizarMetricasFooter();
     }
 
     public void agregarFila(NodoDirectorio n, String estadoSync) {
@@ -439,6 +626,7 @@ public class FileTablePanel extends JPanel {
                 (fecha == null || fecha.equalsIgnoreCase("Desconocido")) ? "--" : fecha,
                 estadoSync
         });
+        actualizarMetricasFooter();
     }
 
     public NodoDirectorio getSelectedNode() {

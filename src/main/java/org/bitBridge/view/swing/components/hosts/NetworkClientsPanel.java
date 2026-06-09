@@ -14,6 +14,7 @@ import javax.swing.*;
 import javax.swing.border.*;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableCellEditor;
 import java.awt.*;
 import java.awt.event.*;
 import java.io.File;
@@ -21,13 +22,15 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * Panel que visualiza los nodos de la red en una tabla avanzada.
- * Implementa HostsObserver para recibir actualizaciones en tiempo real del Core.
+ * Panel visual simplificado y amigable para el usuario final.
+ * Muestra información operativa útil ocultando los tecnicismos de red complejos.
+ * * Copyright 2026 Cristobal Roman Zamora
  */
 public class NetworkClientsPanel extends JPanel implements HostsObserver {
 
-    private static final Color ACCENT_COLOR = new Color(255, 140, 0); // Naranja más profundo
+    private static final Color ACCENT_COLOR = new Color(255, 140, 0);
     private static final Color SUCCESS_COLOR = new Color(46, 204, 113);
+    private static final Color WARN_COLOR = new Color(241, 196, 15);
     private static final Color PANEL_BG = new Color(30, 31, 34);
     private static final Color CARD_BG = new Color(43, 45, 48);
     private static final Color TEXT_MAIN = new Color(220, 221, 222);
@@ -42,10 +45,6 @@ public class NetworkClientsPanel extends JPanel implements HostsObserver {
     private JLabel lblTotalHosts;
     private JTextPane clientInfo;
     private List<ClientInfo> currentHosts;
-    JPanel centerPanel;
-    JLabel lblBandwidth = new JLabel("0.0 MB/s");
-    JLabel lblRamUsage = new JLabel("0 MB");
-    JLabel lblSessionTime = new JLabel("00:00:00");
 
     public NetworkClientsPanel(Client client) {
         this.client = client;
@@ -54,16 +53,12 @@ public class NetworkClientsPanel extends JPanel implements HostsObserver {
         setLayout(new BorderLayout());
         setBackground(PANEL_BG);
         initComponents();
-
-        //startMetricUpdater();
     }
 
-
     private void initComponents() {
-        // 1. DASHBOARD
+        // 1. Panel de estadísticas superior
         add(createDashboard(), BorderLayout.NORTH);
 
-        // 2. CONTENIDO CENTRAL
         JPanel container = new JPanel(new BorderLayout());
         container.setOpaque(false);
         container.setBorder(new EmptyBorder(15, 15, 15, 15));
@@ -75,31 +70,48 @@ public class NetworkClientsPanel extends JPanel implements HostsObserver {
         add(createSidePanel(), BorderLayout.EAST);
     }
 
-    // --- LÓGICA DE OBSERVADOR (REPLICANDO COMPORTAMIENTO DE HOSTSPANELSWING) ---
-
     @Override
     public void updateAllHosts(List<ClientInfo> hostList) {
-
         this.currentHosts = hostList.stream()
                 .filter(h -> h.getNick() != null && !h.getNick().isEmpty())
                 .toList();
+
         for (ClientInfo info : hostList) {
             Logger.logInfo(info.toString());
         }
+
         SwingUtilities.invokeLater(() -> {
+            int selectedRow = table.getSelectedRow();
+
             model.setRowCount(0);
             lblTotalHosts.setText(String.valueOf(currentHosts.size()));
+
             for (ClientInfo host : currentHosts) {
+                // Traducimos el estado técnico a algo familiar
+                String estadoAmigable = mapearEstadoAmigable(host.getStatus());
+
+                // Columnas de Datos Amigables: Nombre, Actividad Actual, Sistema, Tiempo Conectado
                 model.addRow(new Object[]{
-                        host.getNick(), host.getAddress(), "Conectado", "12 ms", "Active"
+                        host.getNick(),
+                        estadoAmigable,
+                        host.getOsName(),
+                        host.formatUptime(),
+                        "", "", ""
                 });
             }
+
+            // Si había un elemento seleccionado, mantenemos la selección viva y refrescamos su panel lateral
+            if (selectedRow != -1 && selectedRow < table.getRowCount()) {
+                table.setRowSelectionInterval(selectedRow, selectedRow);
+                updateSidePanel(selectedRow);
+            }
+
             if (countListener != null) countListener.onCountChanged(this, model.getRowCount());
         });
     }
 
     private JPanel createDashboard() {
-        JPanel dashboard = new JPanel(new GridLayout(1, 4, 15, 0));
+        JPanel dashboard = new JPanel(new GridLayout(1, 2, 20, 0));
         dashboard.setBackground(CARD_BG);
         dashboard.setBorder(new CompoundBorder(
                 new MatteBorder(0, 0, 1, 0, new Color(60, 63, 65)),
@@ -108,22 +120,17 @@ public class NetworkClientsPanel extends JPanel implements HostsObserver {
 
         lblTotalHosts = new JLabel("0");
 
-        dashboard.setLayout(new GridLayout(1, 5, 20, 0));
-
-        dashboard.add(createStatCard("HOSTS DISPONIBLES", lblTotalHosts, SUCCESS_COLOR));
-        dashboard.add(createStatCard("DIRECCIÓN LOCAL", new JLabel(client.getSERVER_ADDRESS() != null ? client.getSERVER_ADDRESS() : "127.0.0.1"), TEXT_MAIN));
-
-        //dashboard.add(createStatCard("TRÁFICO TOTAL", lblBandwidth, ACCENT_COLOR));
-        //dashboard.add(createStatCard("MEMORIA (JVM)", lblRamUsage, new Color(155, 89, 182))); // Púrpura
-        ///dashboard.add(createStatCard("TIEMPO SESIÓN", lblSessionTime, TEXT_MAIN));
+        dashboard.add(createStatCard("EQUIPOS CONECTADOS A TI", lblTotalHosts, SUCCESS_COLOR));
+        dashboard.add(createStatCard("TU NOMBRE EN LA RED", new JLabel(client.getHostName() != null ? client.getHostName() : "Iniciando..."), TEXT_MAIN));
 
         return dashboard;
     }
 
     private JScrollPane createTableArea() {
-        String[] cols = {"Nickname", "Dirección IP", "Status", "Latencia", "Uptime"};
+        // Estructura limpia y descriptiva sin IPs ni Puertos
+        String[] cols = {"Nombre del Equipo", "Actividad Actual", "Sistema", "Tiempo Conectado", "Centro de Sincronización", "Enviar Archivo", "Enviar Carpeta"};
         model = new DefaultTableModel(cols, 0) {
-            @Override public boolean isCellEditable(int r, int c) { return false; }
+            @Override public boolean isCellEditable(int r, int c) { return c >= 4; } // Columnas de botones activas
         };
 
         table = new JTable(model);
@@ -133,16 +140,16 @@ public class NetworkClientsPanel extends JPanel implements HostsObserver {
         table.setSelectionBackground(new Color(45, 47, 50));
         table.setSelectionForeground(Color.WHITE);
 
-        // Estilo moderno de FlatLaf para la tabla
         table.putClientProperty(FlatClientProperties.STYLE,
                 "showHorizontalLines: true; " +
                         "intercellSpacing: 0,1; " +
                         "selectionArc: 10");
 
-        // Custom Renderer para el estado
-        table.getColumnModel().getColumn(2).setCellRenderer(new StatusCellRenderer());
+        // Renderer para cambiar los colores del texto del estado
+        table.getColumnModel().getColumn(1).setCellRenderer(new FriendlyStatusCellRenderer());
 
-        setupContextMenu();
+        // Inyectar los botones de interacción directa en las columnas correspondientes
+        setupActionButtons();
 
         JScrollPane scroll = new JScrollPane(table);
         scroll.setBorder(new LineBorder(new Color(60, 63, 65), 1, true));
@@ -150,135 +157,69 @@ public class NetworkClientsPanel extends JPanel implements HostsObserver {
         return scroll;
     }
 
-    private void setupContextMenu() {
-        JPopupMenu serverMenu = new JPopupMenu();
+    private void setupActionButtons() {
+        // Columna 4: Botón principal de sincronización y gestión bidireccional
+        table.getColumnModel().getColumn(4).setCellRenderer(new TableButtonRenderer("🔄 Sincronizar y Compartir", ACCENT_COLOR));
+        table.getColumnModel().getColumn(4).setCellEditor(new TableButtonEditor(e -> ejecutarAccionExplorar()));
 
-        // --- 1. SECCIÓN DE EXPLORACIÓN ---
-        //JMenuItem itemExplore = new JMenuItem("📂 Explorar Archivos Remotos");
-        JMenuItem itemExplore = new JMenuItem("📂 Visualizar Archivos Remotos");
-        itemExplore.addActionListener(e -> {
-            String targetIp = getSelectedTargetIp();
+        // Columna 5: Enviar Archivo Directo
+        table.getColumnModel().getColumn(5).setCellRenderer(new TableButtonRenderer("📄 Enviar Archivo", TEXT_MAIN));
+        table.getColumnModel().getColumn(5).setCellEditor(new TableButtonEditor(e -> handleAction(TransferType.ARCHIVO)));
 
-            // 1. Instanciamos la vista desde la propia UI
-            RemoteExplorer explorer = null;
-            try {
-                explorer = new RemoteExplorer(client,targetIp);
-            } catch (IOException ex) {
-                throw new RuntimeException(ex);
-            }
-
-            // 2. La vista se suscribe para recibir los datos que lleguen por red
-            client.addDirectoryListener(explorer);
-
-            // 3. Pedimos los datos
-            try {
-                client.requestFileList(targetIp);
-            } catch (IOException ex) {
-                throw new RuntimeException(ex);
-            }
-
-            explorer.setVisible(true);
-        });
-        serverMenu.add(itemExplore);
-        serverMenu.addSeparator();
-
-        // --- 2. SECCIÓN DE TRANSFERENCIA (PUSH) ---
-        JMenuItem itemPushFile = new JMenuItem("Enviar Archivo...");
-        //itemPushFile.addActionListener(e -> handleSendAction(false));
-        itemPushFile.addActionListener(e -> handleAction(TransferType.ARCHIVO));
-
-        JMenuItem itemPushDir = new JMenuItem("📁 Enviar Carpeta...");
-        //itemPushDir.addActionListener(e -> handleSendAction(true));
-        itemPushDir.addActionListener(e -> handleAction(TransferType.CARPETA));
-
-        serverMenu.add(itemPushFile);
-        serverMenu.add(itemPushDir);
-        serverMenu.addSeparator();
-
-        // --- 3. SECCIÓN DE HERRAMIENTAS DE RED ---
-        JMenuItem itemPing = new JMenuItem("⚡ Ejecutar Ping Test");
-        itemPing.addActionListener(e -> {
-            String ip = getSelectedTargetIp();
-            // Lógica: int ms = client.ping(ip);
-            JOptionPane.showMessageDialog(this, "Latencia con " + ip + ": 12ms", "Ping Result", JOptionPane.INFORMATION_MESSAGE);
-        });
-
-        JMenuItem itemScreen = new JMenuItem("🖥️ Solicitar Screenshot");
-        serverMenu.add(itemPing);
-        serverMenu.add(itemScreen);
-        serverMenu.addSeparator();
-
-        // --- 4. SECCIÓN DE PELIGRO ---
-        JMenuItem itemDisconnect = new JMenuItem("⚠️ Forzar Desconexión");
-        itemDisconnect.setForeground(new Color(231, 76, 60)); // Color Danger/Rojo
-        itemDisconnect.addActionListener(e -> {
-            int confirm = JOptionPane.showConfirmDialog(this, "¿Cerrar conexión con este nodo?", "Atención", JOptionPane.YES_NO_OPTION);
-            // if(confirm == 0) client.disconnectPeer(getSelectedTargetIp());
-        });
-        serverMenu.add(itemDisconnect);
-
-        // --- GESTIÓN DE EVENTOS DE RATÓN ---
-        table.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mousePressed(MouseEvent e) { if (e.isPopupTrigger()) showMenu(e); }
-            @Override
-            public void mouseReleased(MouseEvent e) { if (e.isPopupTrigger()) showMenu(e); }
-
-            private void showMenu(MouseEvent e) {
-                int row = table.rowAtPoint(e.getPoint());
-                if (row != -1) {
-                    table.setRowSelectionInterval(row, row);
-                    serverMenu.show(e.getComponent(), e.getX(), e.getY());
-                }
-            }
-        });
+        // Columna 6: Enviar Carpeta Directa
+        table.getColumnModel().getColumn(6).setCellRenderer(new TableButtonRenderer("📁 Enviar Carpeta", TEXT_MAIN));
+        table.getColumnModel().getColumn(6).setCellEditor(new TableButtonEditor(e -> handleAction(TransferType.CARPETA)));
     }
 
-    /**
-     * Lógica robusta para enviar archivos o carpetas
-     */
-    /**
-     * Mapea la lógica de handleAction de tu clase original a la fila seleccionada
-     */
+    private void ejecutarAccionExplorar() {
+        String targetIp = getSelectedTargetIp();
+        if (targetIp == null) return;
+
+        RemoteExplorer explorer = null;
+        try {
+            explorer = new RemoteExplorer(client, targetIp);
+        } catch (IOException ex) {
+            throw new RuntimeException(ex);
+        }
+
+        client.addDirectoryListener(explorer);
+
+        try {
+            client.requestFileList(targetIp);
+        } catch (IOException ex) {
+            throw new RuntimeException(ex);
+        }
+
+        explorer.setVisible(true);
+    }
+
     private void handleAction(TransferType type) {
         int row = table.getSelectedRow();
         if (row == -1) return;
 
-        // Recuperamos el objeto ClientInfo correspondiente a la fila
-        // Es vital que currentHosts esté sincronizado con el modelo de la tabla
         ClientInfo targetHost = currentHosts.get(row);
-
-        // 1. Delegar selección de archivo (Lógica copiada de tu original)
         File file = selectFileNative(type == TransferType.ARCHIVO);
 
         if (file != null) {
-            // 2. Ejecutar transferencia con SwingWorker (Lógica copiada de tu original)
             executeTransfer(targetHost, file, type);
         }
     }
 
     private File selectFileNative(boolean isFile) {
-
-        //JFileChooser chooser = new JFileChooser();
         SystemFileChooser chooser = new SystemFileChooser();
         chooser.setFileSelectionMode(isFile ? JFileChooser.FILES_ONLY : JFileChooser.DIRECTORIES_ONLY);
-        chooser.setDialogTitle(isFile ? "Seleccionar Archivo" : "Seleccionar Carpeta");
+        chooser.setDialogTitle(isFile ? "Elige el archivo a mandar" : "Elige la carpeta a mandar");
 
         if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
             return chooser.getSelectedFile();
         }
         return null;
-
     }
 
-    /**
-     * Implementación idéntica a tu lógica original pero adaptada a la tabla
-     */
     private void executeTransfer(ClientInfo targetHost, File file, TransferType type) {
         new SwingWorker<Void, Void>() {
             @Override
             protected Void doInBackground() throws Exception {
-                // AGNOSTICISMO: La UI no sabe de IPs, solo le pasa el objeto y el archivo al core
                 if (type == TransferType.ARCHIVO) {
                     client.sendFileToHost(targetHost, file);
                 } else {
@@ -290,33 +231,27 @@ public class NetworkClientsPanel extends JPanel implements HostsObserver {
             @Override
             protected void done() {
                 try {
-                    get(); // Verifica si hubo excepciones
-                    Logger.logInfo("Transferencia exitosa a " + targetHost.getNick());
-                    // Feedback visual opcional
+                    get();
+                    Logger.logInfo("Envío completado hacia " + targetHost.getNick());
                 } catch (Exception e) {
                     Logger.logError("Fallo en transferencia: " + e.getMessage());
                     JOptionPane.showMessageDialog(NetworkClientsPanel.this,
-                            "Error: " + (e.getCause() != null ? e.getCause().getMessage() : e.getMessage()),
-                            "Error de Transferencia", JOptionPane.ERROR_MESSAGE);
+                            "No se pudo realizar el envío en este momento.",
+                            "Aviso", JOptionPane.ERROR_MESSAGE);
                 }
             }
         }.execute();
     }
 
-    /**
-     * Método auxiliar para obtener la IP de la fila seleccionada
-     */
     private String getSelectedTargetIp() {
         int row = table.getSelectedRow();
         if (row != -1) {
-            // Asumiendo que la IP está en la columna 1
+            // Sigue obteniendo el Nick (Columna 0) para no romper tus consultas originales del core
             return model.getValueAt(row, 0).toString();
         }
         return null;
     }
 
-
-    // Método auxiliar para crear las tarjetas del dashboard de forma limpia
     private JPanel createStatCard(String title, JLabel valueLabel, Color valueColor) {
         JPanel card = new JPanel();
         card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
@@ -340,7 +275,7 @@ public class NetworkClientsPanel extends JPanel implements HostsObserver {
         toolbar.setOpaque(false);
         toolbar.setBorder(new EmptyBorder(0, 0, 10, 0));
 
-        JButton btnScan = new JButton("Actualizar Red");
+        JButton btnScan = new JButton("Buscar Equipos Nuevos");
         btnScan.putClientProperty(FlatClientProperties.STYLE,
                 "background: " + String.format("#%02x%02x%02x", CARD_BG.getRed(), CARD_BG.getGreen(), CARD_BG.getBlue()) + "; " +
                         "borderWidth: 1; " +
@@ -361,15 +296,15 @@ public class NetworkClientsPanel extends JPanel implements HostsObserver {
                 new EmptyBorder(25, 20, 25, 20)
         ));
 
-        JLabel title = new JLabel("DETALLES DEL NODO");
-        title.setFont(new Font("Inter", Font.BOLD, 14));
+        JLabel title = new JLabel("RESUMEN DE USO");
+        title.setFont(new Font("Inter", Font.BOLD, 13));
         title.setForeground(ACCENT_COLOR);
 
         clientInfo = new JTextPane();
         clientInfo.setContentType("text/html");
         clientInfo.setEditable(false);
         clientInfo.setOpaque(false);
-        clientInfo.setText("<html><body style='color:#888; font-family:sans-serif;'>Seleccione un host para ver telemetría...</body></html>");
+        clientInfo.setText("<html><body style='color:#888; font-family:sans-serif;'>Selecciona un equipo de la lista para ver cuánto uso lleva en la aplicación...</body></html>");
 
         side.add(title, BorderLayout.NORTH);
         side.add(clientInfo, BorderLayout.CENTER);
@@ -383,84 +318,120 @@ public class NetworkClientsPanel extends JPanel implements HostsObserver {
         return side;
     }
 
+    /**
+     * Muestra datos de uso de recursos convertidos a métricas humanas
+     */
     private void updateSidePanel(int row) {
-        String nick = model.getValueAt(row, 0).toString();
-        String ip = model.getValueAt(row, 1).toString();
-        clientInfo.setText("<html><body style='color:#ccc; font-family:sans-serif;'>"
-                + "<div style='margin-top:20px;'>"
-                + "<p><b>NICK:</b> <span style='color:white;'>" + nick + "</span></p>"
-                + "<p><b>IPV4:</b> <span style='color:white;'>" + ip + "</span></p>"
-                + "<hr style='border: 0; border-top: 1px solid #444;'>"
-                + "<p style='color:#888; font-size:10px;'>DATOS DE SESIÓN</p>"
-                + "<p><b>OS:</b> Linux Fedora 40</p>"
-                + "<p><b>ENC:</b> AES-256-GCM</p>"
+        if (currentHosts == null || row >= currentHosts.size()) return;
+
+        ClientInfo host = currentHosts.get(row);
+
+        // Convertimos los bytes crudos a formatos legibles como MB o KB automáticamente
+        String enviados = transformarBytesALegible(host.getTotalBytesSent());
+        String recibidos = transformarBytesALegible(host.getTotalBytesReceived());
+
+        clientInfo.setText("<html><body style='color:#ccc; font-family:sans-serif; font-size:11px;'>"
+                + "<div style='margin-top:15px;'>"
+                + "<p style='margin: 5px 0;'><b>Nombre:</b> <span style='color:white;'>" + host.getNick() + "</span></p>"
+                + "<p style='margin: 5px 0;'><b>Sistema Operativo:</b> <span style='color:white;'>" + host.getOsName() + "</span></p>"
+                + "<p style='margin: 5px 0;'><b>Versión App:</b> <span style='color:#2ecc71;'>" + host.getClientVersion() + "</span></p>"
+                + "<hr style='border: 0; border-top: 1px solid #444; margin: 12px 0;'>"
+                + "<p style='color:#888; font-size:10px; font-weight:bold; margin-bottom: 6px;'>ARCHIVOS COMPARTIDOS EN ESTA SESIÓN</p>"
+                + "<p style='margin: 4px 0;'><b>Datos Enviados:</b> <span style='color:#3498db;'>" + enviados + "</span></p>"
+                + "<p style='margin: 4px 0;'><b>Datos Recibidos:</b> <span style='color:#9b59b6;'>" + recibidos + "</span></p>"
                 + "</div></body></html>");
     }
 
-    // --- RENDERER PARA EL ESTADO (CÍRCULO VERDE) ---
-    static class StatusCellRenderer extends DefaultTableCellRenderer {
+    /**
+     * Convierte valores numéricos de red gigantescos a texto intuitivo (Bytes, KB, MB, GB)
+     */
+    private String transformarBytesALegible(long bytes) {
+        if (bytes <= 0) return "Ninguno todavía";
+        if (bytes < 1024) return bytes + " Bytes";
+        int exp = (int) (Math.log(bytes) / Math.log(1024));
+        char pre = "KMGTPE".charAt(exp - 1);
+        return String.format("%.1f %cB", bytes / Math.pow(1024, exp), pre);
+    }
+
+    /**
+     * Traduce los flags de texto del core en estados lógicos que un usuario entienda
+     */
+    private String mapearEstadoAmigable(String status) {
+        if (status == null) return "Conectado";
+        return switch (status.toUpperCase()) {
+            case "IDLE" -> "En Espera";
+            case "TRANSFRIENDO", "TRANSFER" -> "Compartiendo Archivos...";
+            default -> "Listo";
+        };
+    }
+
+    // --- RENDERIZADORES DE DISEÑO ---
+
+    /**
+     * Renderer personalizado para los textos de estado
+     */
+    static class FriendlyStatusCellRenderer extends DefaultTableCellRenderer {
         @Override
         public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
             JLabel label = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
-            label.setIcon(new StatusIcon(SUCCESS_COLOR));
-            label.setHorizontalTextPosition(SwingConstants.RIGHT);
-            label.setIconTextGap(10);
+            String val = value != null ? value.toString() : "Listo";
+
+            Color statusColor = SUCCESS_COLOR;
+            if (val.contains("Compartiendo")) {
+                statusColor = ACCENT_COLOR;
+            } else if (val.contains("Espera")) {
+                statusColor = TEXT_MAIN;
+            }
+
+            if (!isSelected) {
+                label.setForeground(statusColor);
+            }
             return label;
         }
     }
 
-    static class StatusIcon implements Icon {
-        private final Color color;
-        public StatusIcon(Color color) { this.color = color; }
-        @Override public void paintIcon(Component c, Graphics g, int x, int y) {
-            Graphics2D g2 = (Graphics2D) g.create();
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g2.setColor(color);
-            g2.fillOval(x, y + 2, 8, 8);
-            g2.dispose();
+    static class TableButtonRenderer extends JButton implements javax.swing.table.TableCellRenderer {
+        public TableButtonRenderer(String text, Color textColor) {
+            setText(text);
+            setOpaque(false);
+            setForeground(textColor);
+            setFont(new Font("SansSerif", Font.BOLD, 11));
+            putClientProperty(FlatClientProperties.STYLE, "arc: 6; borderWidth: 1; focusWidth: 0;");
         }
-        @Override public int getIconWidth() { return 10; }
-        @Override public int getIconHeight() { return 10; }
+        @Override
+        public Component getTableCellRendererComponent(JTable table, Object val, boolean isSel, boolean hasFoc, int r, int c) {
+            return this;
+        }
+    }
+
+    static class TableButtonEditor extends AbstractCellEditor implements TableCellEditor, ActionListener {
+        private final JButton button;
+        private final java.awt.event.ActionListener actionListener;
+
+        public TableButtonEditor(java.awt.event.ActionListener actionListener) {
+            this.actionListener = actionListener;
+            this.button = new JButton();
+            this.button.addActionListener(this);
+            this.button.putClientProperty(FlatClientProperties.STYLE, "arc: 6; focusWidth: 0;");
+        }
+
+        @Override
+        public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {
+            table.setRowSelectionInterval(row, row);
+            return button;
+        }
+
+        @Override
+        public Object getCellEditorValue() { return ""; }
+
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            fireEditingStopped();
+            actionListener.actionPerformed(e);
+        }
     }
 
     public void setHostCountListener(GenericCountListener<NetworkClientsPanel> listener) {
         this.countListener = listener;
-    }
-
-
-    private void startMetricUpdater() {
-        Timer timer = new Timer(1000, e -> {
-            // 1. Actualizar RAM
-            long usedRam = (Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()) / 1024 / 1024;
-            lblRamUsage.setText(usedRam + " MB");
-
-            long cTime = client.getConnectionTime();
-
-            // Si es 0, significa que no hay conexión activa todavía
-            if (cTime <= 0) {
-                lblSessionTime.setText("Desconectado");
-                lblSessionTime.setForeground(Color.GRAY);
-            } else {
-                long uptime = System.currentTimeMillis() - cTime;
-                lblSessionTime.setText(formatUptime(uptime));
-                lblSessionTime.setForeground(SUCCESS_COLOR); // Cambia a verde al conectar
-            }
-
-            // 3. Bandwidth (Si tu core expone los bytes transferidos)
-            // lblBandwidth.setText(client.getTransferManager().getCurrentSpeed());
-        });
-        timer.start();
-    }
-
-
-    private String formatUptime(long millis) {
-        if (millis < 0) return "00:00:00";
-
-        long hours = java.util.concurrent.TimeUnit.MILLISECONDS.toHours(millis);
-        long minutes = java.util.concurrent.TimeUnit.MILLISECONDS.toMinutes(millis) % 60;
-        long seconds = java.util.concurrent.TimeUnit.MILLISECONDS.toSeconds(millis) % 60;
-
-        // Formato tipo cronómetro: 01:24:05
-        return String.format("%02dh %02dm %02ds", hours, minutes, seconds);
     }
 }

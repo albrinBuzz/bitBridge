@@ -321,8 +321,8 @@ public class FileTransferService {
                     fileCounter++;
                     String tipoNodo = meta.isDirectory() ? "DIR" : "FILE";
 
-                    Logger.logInfo(logId + String.format(" [NODE-%03d] [%s] Evaluando metadato entrante: %s (%s)",
-                            fileCounter, tipoNodo, meta.getRelativePath(), formatSize(meta.getSize())));
+                    /*Logger.logInfo(logId + String.format(" [NODE-%03d] [%s] Evaluando metadato entrante: %s (%s)",
+                            fileCounter, tipoNodo, meta.getRelativePath(), formatSize(meta.getSize())));*/
 
                     // Reenviar metadato al receptor para su análisis
                     dataReceiver.sendComunicacion(meta);
@@ -370,18 +370,18 @@ public class FileTransferService {
                         }
 
                         if (accionReceptor == FileHandshakeAction.START_TRANSFER) {
-                            Logger.logInfo(logId + "  ├── 📥 [TRANSFER-STREAM] Modo tradicional activado. Solicitando payload crudo.");
+                            //Logger.logInfo(logId + "  ├── 📥 [TRANSFER-STREAM] Modo tradicional activado. Solicitando payload crudo.");
                             sender.sendComunicacion(new FileHandshakeCommunication(FileHandshakeAction.START_TRANSFER, sessionId));
 
                             if (!meta.isDirectory()) {
-                                Logger.logInfo(logId + "  │   ├── [KERNEL] Enlazando descriptores de socket (bridgeSocketChannels)...");
+                              //  Logger.logInfo(logId + "  │   ├── [KERNEL] Enlazando descriptores de socket (bridgeSocketChannels)...");
                                 bridgeSocketChannelsNoShutdown(sender, dataReceiver, meta.getSize());
 
-                                Logger.logInfo(logId + "  │   └── Descarga completa. Esperando ACK físico del receptor...");
+                                //Logger.logInfo(logId + "  │   └── Descarga completa. Esperando ACK físico del receptor...");
                                 byte[] finalAckFromReceptor = ProtocolService.readHandshakePacket(dataReceiver);
                                 sender.getWritableChannel().write(ByteBuffer.wrap(finalAckFromReceptor));
                             } else {
-                                Logger.logInfo(logId + "  │   └── Árbol de directorios creado en destino.");
+                                //Logger.logInfo(logId + "  │   └── Árbol de directorios creado en destino.");
                             }
                             continue;
                         }

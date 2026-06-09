@@ -1,13 +1,11 @@
 package org.bitBridge.controller;
 
-
-
 import org.bitBridge.Client.managers.TransferManager;
 import org.bitBridge.Observers.TransferencesObserver;
 import org.bitBridge.models.TransferProgress;
 import org.bitBridge.models.Transferencia;
-import org.bitBridge.server.config.ConfigKey;
-import org.bitBridge.shared.*;
+import org.bitBridge.shared.FileTransferState;
+import org.bitBridge.shared.Logger;
 import org.bitBridge.shared.config.ConfiguracionApp;
 import org.bitBridge.shared.core.comunication.FileHandshakeAction;
 import org.bitBridge.shared.core.comunication.model.basic.FileHandshakeCommunication;
@@ -15,128 +13,96 @@ import org.bitBridge.shared.core.comunication.model.basic.FileHandshakeCommunica
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Controlador que gestiona el ciclo de vida de las transferencias.
+ * Implementa el patrón Observador con soporte multi-suscriptor (Thread-Safe).
+ */
 public class TransferenciaController {
 
-    private Map<String, Transferencia> transferMap; // Mapa de transferencias activas
-    //private TransferencesView view; // Vista para notificar cambios
-    private TransferencesObserver transferencesObserver;
+    private final Map<String, Transferencia> transferMap;
+    private final Map<String, Long> startTimes = new ConcurrentHashMap<>();
 
-    private Map<String, Long> startTimes = new ConcurrentHashMap<>();
-    // Constructor
-    /*public TransferenciaController(TransferencesView view) {
-        this.view = view;
-        this.transferMap = new HashMap<>();
-    }*/
+    // Lista multi-observador segura para operaciones concurrentes de lectura/escritura
+    private final List<TransferencesObserver> observers = new CopyOnWriteArrayList<>();
 
     public TransferenciaController() {
         this.transferMap = new HashMap<>();
     }
 
+    /**
+     * Registra un nuevo observador en el controlador.
+     */
+    public void addTransferencesObserver(TransferencesObserver observer) {
+        if (observer != null && !observers.contains(observer)) {
+            observers.add(observer);
+        }
+    }
+
+    /**
+     * Elimina un observador registrado.
+     */
+    public void removeTransferencesObserver(TransferencesObserver observer) {
+        if (observer != null) {
+            observers.remove(observer);
+        }
+    }
+
     // Método para agregar una nueva transferencia
-    public String addTransference(String mode, String srcAddr, String dstAddr, String fileName, TransferManager transferManager,long lengh) {
+    public String addTransference(String mode, String srcAddr, String dstAddr, String fileName, TransferManager transferManager, long length) {
         UUID uuid = UUID.randomUUID();
         String id = uuid.toString();
 
         Transferencia transferencia = new Transferencia(id, fileName, srcAddr, dstAddr, FileTransferState.IN_PROGRESS, transferManager);
-        transferencia.setTamano(lengh);
+        transferencia.setTamano(length);
         transferMap.put(id, transferencia);
 
-        // REGISTRAMOS EL TIEMPO DE INICIO AQUÍ
         startTimes.put(id, System.currentTimeMillis());
 
-        if (transferencesObserver != null) {
-            transferencesObserver.addTransference(mode, transferencia, transferManager);
+        // Notificar a todos los observadores registrados
+        for (TransferencesObserver observer : observers) {
+            observer.addTransference(mode, transferencia, transferManager);
         }
         return id;
     }
 
     // Método para actualizar el progreso de una transferencia
-    public void updateProgress(FileTransferState transferState,String id, int progress) {
-        //transferencesObserver.updateTransference(FileTransferState.RECEIVING, recipientNick, (int)((totalBytesRead * 100) / fileSize));
+    public void updateProgress(FileTransferState transferState, String id, int progress) {
         Transferencia transferencia = transferMap.get(id);
         if (transferencia != null) {
             transferencia.setProgress(progress);
-            //Logger.logInfo("Actualizando progreso de la transferencia: " + id + " - " + progress + "%");
-            //transferencesObserver.updateTransference(FileTransferState.SENDING, id, (int) ((totalBytesReaded * 100) / length));
-            if (transferencesObserver!=null){
-                transferencesObserver.updateTransference(transferState, id,progress);
+
+            // Notificar la actualización simple a toda la lista de suscritos
+            for (TransferencesObserver observer : observers) {
+                observer.updateTransference(transferState, id, progress);
             }
-
-            // Notificar a la vista para actualizar la barra de progreso
-            //Platform.runLater(() -> view.updateTransferenceProgress(fileName, progress));
-        }else {
-            Logger.logInfo("no existe la transferencia");
+        } else {
+            Logger.logInfo("No existe la transferencia con ID: " + id);
         }
     }
-
-    // Método para cambiar el estado de una transferencia (pausar, reanudar, cancelar)
-    public void changeState(String fileName, FileTransferState newState) {
-        Transferencia transferencia = transferMap.get(fileName);
-        if (transferencia != null) {
-            transferencia.setState(newState);
-            Logger.logInfo("Cambiando estado de la transferencia: " + fileName + " a " + newState);
-
-            // Notificar a la vista sobre el cambio de estado
-            //Platform.runLater(() -> view.updateTransferenceState(fileName, newState));
-        }
-    }
-
-    // Pausar una transferencia
-    public void pauseTransference(String fileName) {
-        Transferencia transferencia = transferMap.get(fileName);
-        if (transferencia != null && transferencia.getState() == FileTransferState.IN_PROGRESS) {
-            transferencia.pause();
-            changeState(fileName, FileTransferState.PAUSED);
-        }
-    }
-
-    // Reanudar una transferencia
-    public void resumeTransference(String fileName) {
-        Transferencia transferencia = transferMap.get(fileName);
-        if (transferencia != null && transferencia.getState() == FileTransferState.PAUSED) {
-            transferencia.resume();
-            changeState(fileName, FileTransferState.IN_PROGRESS);
-        }
-    }
-
-    // Cancelar una transferencia
-    public void cancelTransference(String fileName) {
-        Transferencia transferencia = transferMap.get(fileName);
-        if (transferencia != null) {
-            transferencia.cancel();
-            changeState(fileName, FileTransferState.CANCELLED);
-        }
-    }
-
-
 
     public void updateProgressMetrics(FileTransferState state, String id, long currentBytes, long totalBytes) {
         Transferencia trans = transferMap.get(id);
-
         Long startTime = startTimes.get(id);
 
         if (trans != null && startTime != null && totalBytes > 0) {
             long now = System.currentTimeMillis();
             long durationMillis = now - startTime;
 
-            // 1. Porcentaje
             int percentage = (int) ((currentBytes * 100) / totalBytes);
             trans.setProgress(percentage);
 
-            // 2. Velocidad (MB/s)
             double speedMBs = 0;
             if (durationMillis > 0) {
-                // (Bytes / 1024 / 1024) / (Segundos)
                 speedMBs = (currentBytes / 1048576.0) / (durationMillis / 1000.0);
             }
 
-            // 3. ETA (Tiempo estimado)
             String eta = "Calc...";
             if (currentBytes > 0) {
                 long remainingBytes = totalBytes - currentBytes;
-                // Tiempo restante en ms = (bytes restantes) * (tiempo transcurrido / bytes ya enviados)
                 long msRemaining = (long) (remainingBytes * ((double) durationMillis / currentBytes));
 
                 long sec = (msRemaining / 1000) % 60;
@@ -144,30 +110,21 @@ public class TransferenciaController {
                 eta = String.format("%02d:%02d", min, sec);
             }
 
-            // 4. Notificar al Observer
-            if (transferencesObserver != null) {
-                // Creamos el objeto con toda la info
-                TransferProgress progress = new TransferProgress(id, percentage, speedMBs, eta, state);
+            TransferProgress progressObj = new TransferProgress(id, percentage, speedMBs, eta, state);
 
-                // NOTA: Deberías añadir este método a tu interfaz TransferencesObserver
-                transferencesObserver.updateTransferenceFull(progress);
-
-                // Mantenemos compatibilidad con tu método viejo por si acaso
-                //transferencesObserver.updateTransference(state, id, percentage);
+            // Notificar las métricas avanzadas calculadas a todos los observadores
+            for (TransferencesObserver observer : observers) {
+                observer.updateTransferenceFull(progressObj);
             }
-        }else {
-            // Log diagnóstico mejorado
+        } else {
             StringBuilder motivo = new StringBuilder("Fallo al actualizar métricas para ID: " + id + ". Motivo: ");
-            if (trans == null) motivo.append("[Transferencia no encontrada en transferMap] ");
-            if (startTime == null) motivo.append("[StartTime no registrado (cronómetro no iniciado)] ");
-            if (totalBytes <= 0) motivo.append("[Tamaño total inválido o cero: ").append(totalBytes).append("] ");
-
-            ///Logger.logWarn(motivo.toString());
+            if (trans == null) motivo.append("[Transferencia no encontrada] ");
+            if (startTime == null) motivo.append("[Tiempo de inicio ausente] ");
+            if (totalBytes <= 0) motivo.append("[Tamaño inválido: ").append(totalBytes).append("] ");
         }
     }
 
     public boolean notifyTranference(FileHandshakeCommunication handshakeCommunication) {
-        // 1. Verificar si la configuración global tiene activada la aceptación automática
         boolean autoAccept = ConfiguracionApp.getInstancia()
                 .obtenerBoolean(org.bitBridge.server.config.ConfigKey.TRANSFER_AUTO_ACCEPT, false);
 
@@ -176,41 +133,85 @@ public class TransferenciaController {
             return true;
         }
 
-        // 2. Si no está en auto-accept, recurrir al comportamiento por defecto (UI / Observador)
-        if (transferencesObserver != null) {
-            Logger.logInfo("🖥️ [CONTROLADOR] Solicitando confirmación manual al observador de la interfaz...");
-            return transferencesObserver.notifyTranference(handshakeCommunication);
+        // Para flujos de confirmación condicionales (boolean), evaluamos los observadores.
+        // Si al menos uno de ellos procesa y aprueba (UI o módulo de políticas), se acepta.
+        if (!observers.isEmpty()) {
+            Logger.logInfo("🖥️ [CONTROLADOR] Solicitando confirmación manual a los observadores...");
+            boolean aprobado = false;
+            for (TransferencesObserver observer : observers) {
+                // Si algún observador responde afirmativamente, capturamos la bandera
+                if (observer.notifyTranference(handshakeCommunication)) {
+                    aprobado = true;
+                }
+            }
+            return aprobado;
         }
 
-        // Fallback de seguridad: si no hay interfaz ni auto-accept, rechazamos para no colgar el socket
-        Logger.logWarn("⚠️ [CONTROLADOR] No hay observador registrado ni Auto-Accept activo. Rechazando por seguridad.");
+        Logger.logWarn("⚠️ [CONTROLADOR] No hay observadores registrados ni Auto-Accept activo. Rechazando por seguridad.");
         return false;
     }
 
-    public void notifyTranference(FileHandshakeAction action){
-        transferencesObserver.notifyTranference(action);
-    }
-    public void removeTransference(String id) {
-        transferMap.remove(id);
-        startTimes.remove(id); // Limpiar tiempo al terminar
-    }
-    // Finalizar una transferencia (llamado cuando se completa o se ha cancelado)
-    public void endTransference(String fileName) {
-        removeTransference(fileName);
+    public void notifyTranference(FileHandshakeAction action) {
+        for (TransferencesObserver observer : observers) {
+            observer.notifyTranference(action);
+        }
     }
 
-    // Obtener una transferencia por su nombre
+    public void changeState(String fileName, FileTransferState newState) {
+        Transferencia transferencia = transferMap.get(fileName);
+        if (transferencia != null) {
+            transferencia.setState(newState);
+            Logger.logInfo("Cambiando estado de la transferencia: " + fileName + " a " + newState);
+        }
+    }
+
+    public void pauseTransference(String fileName) {
+        Transferencia transferencia = transferMap.get(fileName);
+        if (transferencia != null && transferencia.getState() == FileTransferState.IN_PROGRESS) {
+            transferencia.pause();
+            changeState(fileName, FileTransferState.PAUSED);
+        }
+    }
+
+    public void resumeTransference(String fileName) {
+        Transferencia transferencia = transferMap.get(fileName);
+        if (transferencia != null && transferencia.getState() == FileTransferState.PAUSED) {
+            transferencia.resume();
+            changeState(fileName, FileTransferState.IN_PROGRESS);
+        }
+    }
+
+    public void cancelTransference(String fileName) {
+        Transferencia transferencia = transferMap.get(fileName);
+        if (transferencia != null) {
+            transferencia.cancel();
+            changeState(fileName, FileTransferState.CANCELLED);
+        }
+    }
+
+    public void removeTransference(String id) {
+        transferMap.remove(id);
+        startTimes.remove(id);
+    }
+
+    public void endTransference(String fileName) {
+        removeTransference(fileName);
+        for (TransferencesObserver observer : observers) {
+            observer.endTransference(null, fileName); // Ajustado para propagar el término del flujo
+        }
+    }
+
     public Transferencia getTransference(String fileName) {
         return transferMap.get(fileName);
     }
 
-    // Método para obtener todas las transferencias
     public Map<String, Transferencia> getAllTransferencias() {
         return transferMap;
     }
 
+    @Deprecated
     public TransferencesObserver setTransferencesObserver(TransferencesObserver transferencesObserver) {
-        this.transferencesObserver = transferencesObserver;
+        this.addTransferencesObserver(transferencesObserver);
         return transferencesObserver;
     }
 }

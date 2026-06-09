@@ -9,7 +9,7 @@ import java.util.List;
 
 /**
  * Inspector Lateral de Atributos de archivos para bitBridge Pro.
- * Expone de manera limpia su botón operativo principal para la sincronización cruzada.
+ * Diseñado con enfoque en administración Linux y auditoría Rsync.
  */
 public class FileInspectorPanel extends JPanel {
 
@@ -17,13 +17,13 @@ public class FileInspectorPanel extends JPanel {
     private static final Color BG_COLOR = new Color(25, 25, 25);
     private static final Color TERMINAL_BG = new Color(40, 44, 52);
 
-    private JLabel lblIcon, lblName, lblTypeVal, lblSizeVal, lblOwnerVal, lblHashVal;
+    private JLabel lblIcon, lblName;
+    private JLabel lblTypeVal, lblSizeVal, lblOwnerVal, lblModVal, lblPermsVal, lblPathVal;
     private JButton btnPullAction, btnTerminal;
     private NodoDirectorio currentNodo;
 
     public FileInspectorPanel() {
         initComponents();
-        setupActions();
     }
 
     private void initComponents() {
@@ -35,7 +35,7 @@ public class FileInspectorPanel extends JPanel {
 
         // --- ENCABEZADO ---
         lblIcon = new JLabel("🗄️");
-        lblIcon.setFont(new Font("Serif", Font.PLAIN, 80));
+        lblIcon.setFont(new Font("Serif", Font.PLAIN, 72));
         lblIcon.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         lblName = new JLabel("Seleccione un archivo");
@@ -59,25 +59,34 @@ public class FileInspectorPanel extends JPanel {
         lblTypeVal = new JLabel("-");
         lblSizeVal = new JLabel("-");
         lblOwnerVal = new JLabel("-");
-        lblHashVal = new JLabel("-");
+        lblModVal = new JLabel("-");
+        lblPermsVal = new JLabel("-");
+        lblPathVal = new JLabel("-");
 
+        // Fila cruzada con la info real del sistema operativo
         pnlProps.add(createPropRow("📂 Tipo", lblTypeVal));
         pnlProps.add(createPropRow("⚖️ Tamaño", lblSizeVal));
         pnlProps.add(createPropRow("👤 Dueño", lblOwnerVal));
-        pnlProps.add(createPropRow("🔑 SHA-1", lblHashVal));
+        pnlProps.add(createPropRow("🔒 Permisos", lblPermsVal));
+        pnlProps.add(createPropRow("📅 Modificado", lblModVal));
+        pnlProps.add(createPropRow("📍 Ubicación", lblPathVal));
 
         add(pnlProps);
-        add(Box.createVerticalStrut(20));
-
-        // --- ACCIONES SECUNDARIAS ---
-        JButton btnCopyHash = new JButton("📋 Copiar Hash");
-        btnCopyHash.setAlignmentX(Component.CENTER_ALIGNMENT);
-        add(btnCopyHash);
-
-        add(Box.createVerticalStrut(10));
+        add(Box.createVerticalStrut(15));
         add(Box.createVerticalGlue());
 
-        // --- BOTÓN PRINCIPAL DE ACCIÓN (MUTABLE) ---
+        // --- ACCIONES CORE ---
+        btnTerminal = new JButton("💻 Abrir en Terminal Remota");
+        stylePrimaryButton(btnTerminal, TERMINAL_BG, Color.CYAN);
+        btnTerminal.setFont(new Font("Monospaced", Font.BOLD, 12));
+        btnTerminal.setEnabled(false);
+        btnTerminal.addActionListener(e -> {
+            if (currentNodo != null) abrirTerminalRemota(currentNodo.getRutaString());
+        });
+        add(btnTerminal);
+
+        add(Box.createVerticalStrut(8));
+
         btnPullAction = new JButton("📥 INICIAR DOWNLOAD PULL");
         stylePrimaryButton(btnPullAction, NICOTINE_ORANGE, Color.BLACK);
         add(btnPullAction);
@@ -85,24 +94,10 @@ public class FileInspectorPanel extends JPanel {
         add(Box.createVerticalStrut(10));
     }
 
-    private void setupActions() {
-        btnTerminal = new JButton("💻 Abrir en Terminal Remota");
-        stylePrimaryButton(btnTerminal, TERMINAL_BG, Color.CYAN);
-        btnTerminal.setFont(new Font("Monospaced", Font.BOLD, 12));
-        btnTerminal.setToolTipText("Abrir consola SSH en esta ubicación");
-
-        btnTerminal.addActionListener(e -> {
-            if (currentNodo != null) {
-                abrirTerminalRemota(currentNodo.getRutaString());
-            }
-        });
-        add(btnTerminal);
-    }
-
     public void configurarModoBoton(boolean esLocal) {
         if (esLocal) {
             btnPullAction.setText("📤 INICIAR RESPALDO PUSH");
-            btnPullAction.setBackground(new Color(40, 167, 69)); // Verde Éxito
+            btnPullAction.setBackground(new Color(40, 167, 69));
             btnPullAction.setForeground(Color.WHITE);
         } else {
             btnPullAction.setText("📥 INICIAR DOWNLOAD PULL");
@@ -114,15 +109,30 @@ public class FileInspectorPanel extends JPanel {
     public void updateInfo(NodoDirectorio nodo) {
         this.currentNodo = nodo;
         if (nodo == null) return;
+        Logger.logInfo(nodo.toString());
 
-        lblName.setText(nodo.getNombre());
+        // Limitar longitud del nombre para que no rompa el Layout lateral
+        String truncName = nodo.getNombre();
+        if (truncName.length() > 28) truncName = truncName.substring(0, 25) + "...";
+        lblName.setText(truncName);
+        lblName.setToolTipText(nodo.getNombre());
+
         lblIcon.setText(nodo.esDirectorio() ? "📁" : "📄");
         lblSizeVal.setText(nodo.getTamañoFormateado());
         lblTypeVal.setText(nodo.esDirectorio() ? "Directorio" : (nodo.getExtension().isEmpty() ? "Archivo" : nodo.getExtension()));
-        lblOwnerVal.setText("Remote Node");
-        lblHashVal.setText("N/A");
-        btnTerminal.setEnabled(true);
 
+        // Inyección de variables dinámicas reales desde el objeto serializado
+        lblOwnerVal.setText(nodo.getPropietarioString());
+        lblPermsVal.setText(nodo.getPermisosPosix());
+        lblModVal.setText(nodo.getFechaModificacion());
+
+        // Manejo elegante de strings de ruta largos
+        String shortPath = nodo.getRutaString();
+        if (shortPath.length() > 30) shortPath = "..." + shortPath.substring(shortPath.length() - 27);
+        lblPathVal.setText(shortPath);
+        lblPathVal.setToolTipText(nodo.getRutaString());
+
+        btnTerminal.setEnabled(true);
         refreshUI();
     }
 
@@ -139,25 +149,32 @@ public class FileInspectorPanel extends JPanel {
         this.currentNodo = seleccion.get(0);
         lblIcon.setText("📚");
         lblName.setText(seleccion.size() + " elementos seleccionados");
-        lblTypeVal.setText("Mix");
+        lblTypeVal.setText("Mix / Selección");
         lblSizeVal.setText("Variado");
+        lblOwnerVal.setText("-");
+        lblPermsVal.setText("-");
+        lblModVal.setText("-");
+        lblPathVal.setText("Múltiples rutas de red");
+
         btnPullAction.setEnabled(true);
-        btnPullAction.setText("📦 DOWNLOAD SELECCIÓN (" + seleccion.size() + ")");
+        btnTerminal.setEnabled(false);
 
         refreshUI();
     }
 
-    public void clear() {
-        resetInfo();
-    }
+    public void clear() { resetInfo(); }
 
     private void resetInfo() {
         lblName.setText("Seleccione un archivo");
+        lblName.setToolTipText(null);
         lblIcon.setText("🗄️");
         lblSizeVal.setText("-");
         lblTypeVal.setText("-");
         lblOwnerVal.setText("-");
-        lblHashVal.setText("-");
+        lblPermsVal.setText("-");
+        lblModVal.setText("-");
+        lblPathVal.setText("-");
+        lblPathVal.setToolTipText(null);
         btnTerminal.setEnabled(false);
         refreshUI();
     }
@@ -170,8 +187,8 @@ public class FileInspectorPanel extends JPanel {
     private void abrirTerminalRemota(String ruta) {
         Logger.logInfo("Solicitando apertura de terminal en: " + ruta);
         JOptionPane.showMessageDialog(this,
-                "Iniciando sesión de consola en:\n" + ruta,
-                "BitBridge Terminal",
+                "Iniciando sesión de consola interactiva en:\n" + ruta,
+                "BitBridge SSH Core Terminal",
                 JOptionPane.INFORMATION_MESSAGE);
     }
 
@@ -190,11 +207,11 @@ public class FileInspectorPanel extends JPanel {
         JPanel p = new JPanel(new BorderLayout());
         p.setOpaque(false);
         JLabel t = new JLabel(text);
-        t.setFont(new Font("SansSerif", Font.BOLD, 10));
-        t.setForeground(Color.DARK_GRAY);
+        t.setFont(new Font("SansSerif", Font.BOLD, 11));
+        t.setForeground(new Color(114, 118, 125)); // Gris suave FlatLaf
         p.add(t, BorderLayout.NORTH);
         p.add(new JSeparator(), BorderLayout.CENTER);
-        p.setBorder(new EmptyBorder(0, 0, 10, 0));
+        p.setBorder(new EmptyBorder(0, 0, 15, 0));
         p.setAlignmentX(Component.LEFT_ALIGNMENT);
         return p;
     }
@@ -202,15 +219,15 @@ public class FileInspectorPanel extends JPanel {
     private JPanel createPropRow(String key, JLabel valueLabel) {
         JPanel row = new JPanel(new BorderLayout());
         row.setOpaque(false);
-        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
+        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 28));
         JLabel kl = new JLabel(key);
         kl.setFont(new Font("SansSerif", Font.PLAIN, 12));
-        kl.setForeground(new Color(150, 150, 150));
+        kl.setForeground(new Color(160, 160, 160));
         valueLabel.setFont(new Font("Monospaced", Font.BOLD, 12));
         valueLabel.setForeground(Color.WHITE);
         row.add(kl, BorderLayout.WEST);
         row.add(valueLabel, BorderLayout.EAST);
-        row.setBorder(new EmptyBorder(0, 0, 5, 0));
+        row.setBorder(new EmptyBorder(0, 0, 6, 0));
         return row;
     }
 

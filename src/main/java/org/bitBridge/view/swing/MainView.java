@@ -59,7 +59,8 @@ public class MainView extends JFrame implements IMainView {
 
         transferPanel = new TransferPanel();
         clientsPanel=new NetworkClientsPanel(client);
-        this.client.getTransferenciaController().setTransferencesObserver(transferPanel);
+        this.client.getTransferenciaController().addTransferencesObserver(transferPanel);
+        //this.client.getTransferenciaController().setTransferencesObserver(transferPanel);
 
         //transferPanel.setTransferCountListener(this);
         chatPanel = new ChatPanel(client);
