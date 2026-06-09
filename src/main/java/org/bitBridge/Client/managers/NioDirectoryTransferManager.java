@@ -35,7 +35,8 @@ public class NioDirectoryTransferManager implements TransferManager {
     private final String downloadDir;
     private long totalBytesProcessed = 0;
     private long totalSize = 0;
-
+    private volatile boolean paused = false;
+    private final Object pauseLock = new Object();
     // Variables dinámicas para el cálculo del ahorro físico real en red
     private long totalWireBytesTransmitted = 0;
 
@@ -44,6 +45,20 @@ public class NioDirectoryTransferManager implements TransferManager {
     public NioDirectoryTransferManager(TransferenciaController controller) {
         this.transferenciaController = controller;
         this.downloadDir = ConfiguracionApp.getInstancia().obtener(ConfigKey.DOWNLOAD_DIR);
+    }
+
+    /**
+     * Verifica si la transferencia ha sido pausada y duerme el hilo de red si es necesario.
+     */
+    private void checkPause() throws InterruptedException {
+        if (paused) {
+            synchronized (pauseLock) {
+                while (paused && running) {
+                    Logger.logInfo("[NIO-FLOW] Transferencia pausada. Hilo de red entrando en espera...");
+                    pauseLock.wait();
+                }
+            }
+        }
     }
 
     // --- LÓGICA DE ENVÍO (SENDER) ---
@@ -127,6 +142,9 @@ public class NioDirectoryTransferManager implements TransferManager {
         if (files == null) return;
 
         for (File target : files) {
+            if (!running) return;
+            checkPause();
+
             String relativePath = target.getAbsolutePath().substring(target.getAbsolutePath().indexOf(rootName));
             boolean isDir = target.isDirectory();
             long lastModified = target.lastModified();
@@ -158,6 +176,7 @@ public class NioDirectoryTransferManager implements TransferManager {
             } else if (ack.getAction() == FileHandshakeAction.PROCESS_DELTAS) {
                 //Logger.logWarn(String.format(" │ ⚡ [MODO RSYNC] Mutación detectada en: %s. Descargando firmas...", relativePath));
 
+                checkPause();
                 RsyncSignatures signatures = (RsyncSignatures) ProtocolService.readNIO(socket);
                 //Logger.logInfo(String.format(" │  ├── Recibidas %d firmas remotas. Ejecutando rolling hash O(1)...", signatures.getSignatures().size()));
 
@@ -166,6 +185,7 @@ public class NioDirectoryTransferManager implements TransferManager {
                 //Logger.logInfo(" │  └── Esperando confirmación de escritura física en disco del receptor...");
                 ProtocolService.readNIO(socket);
             } else {
+                checkPause();
                 //Logger.logInfo(String.format(" │ 📥 [MODO TRADICIONAL] Archivo nuevo. Entrando en Zero-Copy: %s", relativePath));
                 enviarArchivoCompletoNIO(socket, target, idTransfe);
 
@@ -178,7 +198,8 @@ public class NioDirectoryTransferManager implements TransferManager {
     private void enviarArchivoCompletoNIO(SocketChannel socket, File file, String idTransfe) throws Exception {
         try (FileChannel fc = FileChannel.open(file.toPath(), StandardOpenOption.READ)) {
             long pos = 0, size = file.length(), chunk = 4 * 1024 * 1024;
-            while (pos < size) {
+            while (pos < size && running) {
+                checkPause();
                 long transferred = fc.transferTo(pos, Math.min(size - pos, chunk), socket);
                 if (transferred <= 0) { Thread.sleep(10); continue; }
                 pos += transferred;
@@ -212,7 +233,8 @@ public class NioDirectoryTransferManager implements TransferManager {
             byte[] blockWindow = new byte[BLOCK_SIZE];
             java.nio.ByteBuffer byteBuffer = java.nio.ByteBuffer.wrap(blockWindow);
 
-            while (i < fileSize) {
+            while (i < fileSize && running) {
+                checkPause();
                 long remainingBytes = fileSize - i;
                 int currentBlockSize = (int) Math.min(BLOCK_SIZE, remainingBytes);
 
@@ -328,6 +350,7 @@ public class NioDirectoryTransferManager implements TransferManager {
                         long startTime = System.currentTimeMillis();
 
                         while (running) {
+                            checkPause();
                             Communication meta = ProtocolService.readNIO(channel);
 
                             if (meta instanceof FileDirectoryCommunication fileMeta) {
@@ -359,6 +382,7 @@ public class NioDirectoryTransferManager implements TransferManager {
                                         //Logger.logInfo(String.format(" │  ├── Enviando %d bloques de firmas al emisor...", signatures.getSignatures().size()));
                                         ProtocolService.writeNIO(channel, signatures);
 
+                                        checkPause();
                                         //Logger.logInfo(" │  ├── Leyendo paquete de deltas encapsulado desde el canal...");
                                         RsyncDeltaPackage deltaPkg = (RsyncDeltaPackage) ProtocolService.readNIO(channel);
 
@@ -494,7 +518,8 @@ public class NioDirectoryTransferManager implements TransferManager {
     private void recibirArchivoCompletoNIO(SocketChannel channel, Path dest, long size, String id, long total) throws Exception {
         try (FileChannel fileChannel = FileChannel.open(dest, StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
             long readTotal = 0, limit = 4 * 1024 * 1024;
-            while (readTotal < size) {
+            while (readTotal < size && running) {
+                checkPause();
                 long read = fileChannel.transferFrom(channel, readTotal, Math.min(size - readTotal, limit));
                 if (read <= 0) { Thread.sleep(1); if (read == -1) throw new IOException("Desconexión"); continue; }
                 readTotal += read;
@@ -549,20 +574,42 @@ public class NioDirectoryTransferManager implements TransferManager {
         Logger.logInfo(String.format("│  └── Tasa Real de Inyección:  %-20s                │", String.format("%.2f Mbps", throughputMbps)));
         Logger.logInfo("└──────────────────────────────────────────────────────────────────┘");
     }
-    public  int calcularTamanoBloqueOptimo(long tamanoArchivo) {
-        if (tamanoArchivo < 1024 * 1024) return 2048; // 2KB para archivos < 1MB
 
-        // Cálculo basado en la raíz cuadrada
+    public int calcularTamanoBloqueOptimo(long tamanoArchivo) {
+        if (tamanoArchivo < 1024 * 1024) return 2048;
         int calculado = (int) Math.sqrt(tamanoArchivo);
-
-        // Alinear a potencias de 2 para mejorar el rendimiento de lectura en disco (Buffer de NIO)
         int bloque = Integer.highestOneBit(calculado);
-
-        // Acotar entre 4KB y 64KB (o 128KB según tu infraestructura física)
         return Math.max(4096, Math.min(bloque, 64 * 1024));
     }
-    @Override public void stop() { running = false; }
-    @Override public void cancel() { stop(); }
-    @Override public void pause() {}
-    @Override public void resume() {}
+
+    @Override
+    public void pause() {
+        this.paused = true;
+        Logger.logInfo("[MANAGER] Solicitud de PAUSA registrada.");
+    }
+
+    @Override
+    public void resume() {
+        synchronized (pauseLock) {
+            this.paused = false;
+            pauseLock.notifyAll(); // Despierta los hilos suspendidos en el pipeline de red
+        }
+        Logger.logInfo("[MANAGER] Solicitud de REANUDACIÓN procesada con éxito.");
+    }
+
+    @Override
+    public void stop() {
+        this.running = false;
+        // Si el hilo estaba pausado cuando el usuario decidió cancelar, lo despertamos para que muera limpio
+        synchronized (pauseLock) {
+            pauseLock.notifyAll();
+        }
+    }
+
+    @Override
+    public void cancel() {
+        stop();
+        Logger.logWarn("[MANAGER] Transferencia forzada a estado CANCELADO.");
+    }
+
 }
