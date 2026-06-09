@@ -368,6 +368,8 @@ public class FileTransferManager implements TransferManager {
             long size = file.length();
             while (position < size && running) {
                 checkPaused();
+                if (!running) throw new IOException("Transferencia abortada por el usuario.");
+
                 long transferred = fileChannel.transferTo(position, Math.min(TRANSFER_CHUNK_SIZE, size - position), socketChannel);
                 if (transferred <= 0) {
                     Thread.sleep(10);
@@ -589,6 +591,10 @@ public class FileTransferManager implements TransferManager {
              FileChannel destChannel = FileChannel.open(tempFile, StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
 
             for (RsyncDeltaInstruction inst : packageDeltas.getInstructions()) {
+
+                checkPaused(); // <--- Pausa la reconstrucción en disco si el usuario lo requiere
+                if (!running) throw new IOException("Reconstrucción delta cancelada de forma atómica.");
+
                 if (inst.isLiteral()) {
                     // 1. Escribir datos literales (nuevos)
                     byte[] literalData = inst.getLiteralData();
@@ -646,6 +652,9 @@ public class FileTransferManager implements TransferManager {
         try (FileChannel fileChannel = FileChannel.open(dest, StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
             long readTotal = 0;
             while (readTotal < size) {
+                checkPaused(); // <--- Pausa la recepción de bytes desde el socket
+                if (!running) throw new IOException("Descarga abortada por el usuario.");
+
                 long read = fileChannel.transferFrom(channel, readTotal, Math.min(size - readTotal, TRANSFER_CHUNK_SIZE));
                 if (read <= 0) {
                     Thread.sleep(1);
@@ -675,8 +684,13 @@ public class FileTransferManager implements TransferManager {
     }
 
     private void checkPaused() throws InterruptedException {
-        synchronized (pauseLock) {
-            while (paused) pauseLock.wait();
+        if (paused) {
+            synchronized (pauseLock) {
+                while (paused && running) {
+                    Logger.logInfo("💤 [NIO-THREAD] Hilo de transferencia durmiendo (Pausado)...");
+                    pauseLock.wait();
+                }
+            }
         }
     }
 
@@ -730,8 +744,31 @@ public class FileTransferManager implements TransferManager {
         return Math.max(4096, Math.min(bloque, 64 * 1024));
     }
 
-    public void stop() { running = false; resume(); }
-    public void pause() { paused = true; }
-    public void resume() { synchronized (pauseLock) { paused = false; pauseLock.notifyAll(); } }
-    @Override public void cancel() { stop(); }
+
+
+    public void stop() {
+        this.paused = true;
+        Logger.logWarn("⏸️ [TRANSFER-CONTROL] Solicitud de PAUSA activada.");
+    }
+    public void pause() {
+        paused = true;
+    }
+    public void resume()
+    {
+        synchronized (pauseLock) {
+            this.paused = false;
+            pauseLock.notifyAll(); // Despierta al hilo de red inmediatamente
+        }
+        Logger.logInfo("▶️ [TRANSFER-CONTROL] Solicitud de REANUDACIÓN activada.");
+    }
+
+    @Override public void cancel()
+    {
+        this.running = false;
+        this.paused = false;
+        synchronized (pauseLock) {
+            pauseLock.notifyAll(); // Destraba si estaba pausado para que muera limpiamente
+        }
+        Logger.logError("❌ [TRANSFER-CONTROL] Solicitud de CANCELACIÓN activada.");
+    }
 }
