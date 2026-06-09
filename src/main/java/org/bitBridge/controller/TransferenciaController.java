@@ -61,6 +61,7 @@ public class TransferenciaController {
         transferMap.put(id, transferencia);
 
         startTimes.put(id, System.currentTimeMillis());
+        Logger.logInfo(transferencia.toString());
 
         // Notificar a todos los observadores registrados
         for (TransferencesObserver observer : observers) {

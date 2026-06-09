@@ -31,7 +31,9 @@ public class TransferService {
         var com = new FileDirectoryCommunication(hash,file.getName(), file.length(), recipient.getNick(),sender);
         context.executor().submit(() -> {
             try {
-                fileManager.sendFile(com, file, context.serverAddress(), context.serverPort());
+                var localFileManger= new FileTransferManager(context.transferController());
+                localFileManger.sendFile(com, file, context.serverAddress(), context.serverPort());
+                //fileManager.sendFile(com, file, context.serverAddress(), context.serverPort());
             } catch (Exception e) {
                 Logger.logError("[TRANSFER] Error enviando archivo: " + e.getMessage());
             }
@@ -41,10 +43,12 @@ public class TransferService {
     public void enqueueDirectorySend(ClientInfo recipient, File directory) {
         context.executor().submit(() -> {
             try {
-                dirManager.sendDirectory(directory, context.serverAddress(), context.serverPort(), recipient.getNick());
+                NioDirectoryTransferManager localDirManager = new NioDirectoryTransferManager(context.transferController());
+                localDirManager.sendDirectory(directory, context.serverAddress(), context.serverPort(), recipient.getNick());
             } catch (Exception e) {
                 Logger.logError("[TRANSFER] Error enviando directorio: " + e.getMessage());
             }
         });
     }
+
 }

@@ -47,7 +47,7 @@ public class NioDirectoryTransferManager implements TransferManager {
     }
 
     // --- LÓGICA DE ENVÍO (SENDER) ---
-    public void sendDirectory(File rootDir, String host, int port, String recipient) {
+    public  void sendDirectory(File rootDir, String host, int port, String recipient) {
         String sessionId = PREFIX_REQUEST + new Random().nextInt(10000);
         AtomicInteger fileCount = new AtomicInteger(0);
         AtomicLong sizeCount = new AtomicLong(0);
@@ -140,36 +140,36 @@ public class NioDirectoryTransferManager implements TransferManager {
             meta.setLastModified(lastModified);
             meta.setRecipient(recipient);
 
-            Logger.logInfo(String.format("[SENDER-WALK] Evaluando nodo estructural: %s (%s)", relativePath, isDir ? "DIR" : "FILE"));
+            //Logger.logInfo(String.format("[SENDER-WALK] Evaluando nodo estructural: %s (%s)", relativePath, isDir ? "DIR" : "FILE"));
             ProtocolService.writeNIO(socket, meta);
 
             FileHandshakeCommunication ack = waitForHandshakeNIO(socket);
             BLOCK_SIZE=calcularTamanoBloqueOptimo(target.length());
             if (ack.getAction() == FileHandshakeAction.SKIP_FILE) {
-                Logger.logInfo(String.format(" │ ⏩ [OMITIDO] Nodo remoto reporta archivo idéntico: %s", relativePath));
+                //Logger.logInfo(String.format(" │ ⏩ [OMITIDO] Nodo remoto reporta archivo idéntico: %s", relativePath));
                 totalBytesProcessed += target.length();
                 transferenciaController.updateProgressMetrics(FileTransferState.SENDING, idTransfe, totalBytesProcessed, totalSize);
                 continue;
             }
 
             if (isDir) {
-                Logger.logInfo(String.format(" │ 📂 [DIRECTORIO] Descendiendo de nivel recursivo en: %s", relativePath));
+                //Logger.logInfo(String.format(" │ 📂 [DIRECTORIO] Descendiendo de nivel recursivo en: %s", relativePath));
                 enviarRecursivoNIO(socket, target, rootName, idTransfe, recipient);
             } else if (ack.getAction() == FileHandshakeAction.PROCESS_DELTAS) {
-                Logger.logWarn(String.format(" │ ⚡ [MODO RSYNC] Mutación detectada en: %s. Descargando firmas...", relativePath));
+                //Logger.logWarn(String.format(" │ ⚡ [MODO RSYNC] Mutación detectada en: %s. Descargando firmas...", relativePath));
 
                 RsyncSignatures signatures = (RsyncSignatures) ProtocolService.readNIO(socket);
-                Logger.logInfo(String.format(" │  ├── Recibidas %d firmas remotas. Ejecutando rolling hash O(1)...", signatures.getSignatures().size()));
+                //Logger.logInfo(String.format(" │  ├── Recibidas %d firmas remotas. Ejecutando rolling hash O(1)...", signatures.getSignatures().size()));
 
                 procesarYEnviarDeltas(socket, target, signatures, idTransfe);
 
-                Logger.logInfo(" │  └── Esperando confirmación de escritura física en disco del receptor...");
+                //Logger.logInfo(" │  └── Esperando confirmación de escritura física en disco del receptor...");
                 ProtocolService.readNIO(socket);
             } else {
-                Logger.logInfo(String.format(" │ 📥 [MODO TRADICIONAL] Archivo nuevo. Entrando en Zero-Copy: %s", relativePath));
+                //Logger.logInfo(String.format(" │ 📥 [MODO TRADICIONAL] Archivo nuevo. Entrando en Zero-Copy: %s", relativePath));
                 enviarArchivoCompletoNIO(socket, target, idTransfe);
 
-                Logger.logInfo(" │  └── Esperando confirmación de vaciado de buffer remoto...");
+                //Logger.logInfo(" │  └── Esperando confirmación de vaciado de buffer remoto...");
                 ProtocolService.readNIO(socket);
             }
         }
@@ -310,17 +310,17 @@ public class NioDirectoryTransferManager implements TransferManager {
             channel.configureBlocking(true);
 
             if (transferenciaController.notifyTranference(handshake)) {
-                Logger.logInfo(String.format("[RECEPTOR-TCP] Estableciendo conexión inversa hacia %s:%d...", host, port));
+                //Logger.logInfo(String.format("[RECEPTOR-TCP] Estableciendo conexión inversa hacia %s:%d...", host, port));
                 channel.connect(new InetSocketAddress(host, port));
 
                 if (channel.isConnected()) {
-                    Logger.logInfo("[RECEPTOR-NIO] Canal de datos abierto. Transmitiendo Tokens de Handshake...");
+                    //Logger.logInfo("[RECEPTOR-NIO] Canal de datos abierto. Transmitiendo Tokens de Handshake...");
                     //ProtocolService.writeNIO(channel, new Mensaje(sessionId));
                     ProtocolService.writeNIO(channel, new HandshakeMessage(sessionId,SocketPurpose.FILE_TRANSFER,""));
                     ProtocolService.writeNIO(channel, new FileHandshakeCommunication(FileHandshakeAction.ACCEPT_REQUEST, sessionId));
 
                     if (confirmarInicioNIO(channel, sessionId)) {
-                        Logger.logInfo("[RECEPTOR-HANDSHAKE] Handshake mutuo verificado. Escuchando instrucciones de la máquina de estados...");
+                        //Logger.logInfo("[RECEPTOR-HANDSHAKE] Handshake mutuo verificado. Escuchando instrucciones de la máquina de estados...");
                         String idTransfe = transferenciaController.addTransference(
                                 FileTransferState.RECEIVING.name(), info.getRecipient(), info.getRecipient(), info.getName(), this, info.getSize()
                         );
@@ -332,11 +332,11 @@ public class NioDirectoryTransferManager implements TransferManager {
 
                             if (meta instanceof FileDirectoryCommunication fileMeta) {
                                 Path destPath = Paths.get(downloadDir, fileMeta.getRelativePath());
-                                Logger.logInfo(String.format("[RECEPTOR-STREAM] Procesando instrucción para: %s", fileMeta.getRelativePath()));
+                                //Logger.logInfo(String.format("[RECEPTOR-STREAM] Procesando instrucción para: %s", fileMeta.getRelativePath()));
 
                                 if (Files.exists(destPath)) {
                                     if (fileMeta.isDirectory()) {
-                                        Logger.logInfo(" │ 📂 [OMITIDO] El directorio local ya está instanciado.");
+                                        //Logger.logInfo(" │ 📂 [OMITIDO] El directorio local ya está instanciado.");
                                         ProtocolService.writeNIO(channel, new FileHandshakeCommunication(FileHandshakeAction.START_TRANSFER, sessionId));
                                         continue;
                                     } else {
@@ -344,22 +344,22 @@ public class NioDirectoryTransferManager implements TransferManager {
                                         long localLastModified = Files.getLastModifiedTime(destPath).toMillis();
 
                                         if (localSize == fileMeta.getSize() && localLastModified >= fileMeta.getLastModified()) {
-                                            Logger.logInfo(" │ ⏩ [OMITIDO] Atributos binarios y timestamp idénticos.");
+                                            //Logger.logInfo(" │ ⏩ [OMITIDO] Atributos binarios y timestamp idénticos.");
                                             totalBytesProcessed += fileMeta.getSize();
                                             ProtocolService.writeNIO(channel, new FileHandshakeCommunication(FileHandshakeAction.SKIP_FILE, sessionId));
                                             continue;
                                         }
                                         BLOCK_SIZE=calcularTamanoBloqueOptimo(info.getSize());
-                                        Logger.logWarn(" │ ⚡ [DIFERENCIA DETECTADA] Activando motor de sincronización Rsync...");
+                                        //Logger.logWarn(" │ ⚡ [DIFERENCIA DETECTADA] Activando motor de sincronización Rsync...");
                                         ProtocolService.writeNIO(channel, new FileHandshakeCommunication(FileHandshakeAction.PROCESS_DELTAS, sessionId));
 
-                                        Logger.logInfo(" │  ├── Generando mapa local de firmas Adler32/MD5...");
+                                        //Logger.logInfo(" │  ├── Generando mapa local de firmas Adler32/MD5...");
                                         RsyncSignatures signatures = generarFirmasLocales(destPath);
 
-                                        Logger.logInfo(String.format(" │  ├── Enviando %d bloques de firmas al emisor...", signatures.getSignatures().size()));
+                                        //Logger.logInfo(String.format(" │  ├── Enviando %d bloques de firmas al emisor...", signatures.getSignatures().size()));
                                         ProtocolService.writeNIO(channel, signatures);
 
-                                        Logger.logInfo(" │  ├── Leyendo paquete de deltas encapsulado desde el canal...");
+                                        //Logger.logInfo(" │  ├── Leyendo paquete de deltas encapsulado desde el canal...");
                                         RsyncDeltaPackage deltaPkg = (RsyncDeltaPackage) ProtocolService.readNIO(channel);
 
                                         // Medir el peso del delta en el receptor
@@ -372,26 +372,26 @@ public class NioDirectoryTransferManager implements TransferManager {
                                          */
 
 
-                                        Logger.logInfo(" │  ├── Reconstruyendo archivo binario aplicando instrucciones...");
+                                        //Logger.logInfo(" │  ├── Reconstruyendo archivo binario aplicando instrucciones...");
                                         reconstruirArchivoRsync(destPath, deltaPkg);
 
                                         totalBytesProcessed += fileMeta.getSize();
                                         transferenciaController.updateProgressMetrics(FileTransferState.RECEIVING, idTransfe, totalBytesProcessed, info.getSize());
 
-                                        Logger.logInfo(" │  └── Sincronización exitosa del nodo de datos. Confirmando ACK de liberación...");
+                                        //Logger.logInfo(" │  └── Sincronización exitosa del nodo de datos. Confirmando ACK de liberación...");
                                         ProtocolService.writeNIO(channel, new FileHandshakeCommunication(FileHandshakeAction.START_TRANSFER, sessionId));
                                         continue;
                                     }
                                 }
 
                                 if (fileMeta.isDirectory()) {
-                                    Logger.logInfo(String.format(" │ 📁 [VIRTUAL-DIR] Instanciando árbol local: %s", destPath.toAbsolutePath()));
+                                    //Logger.logInfo(String.format(" │ 📁 [VIRTUAL-DIR] Instanciando árbol local: %s", destPath.toAbsolutePath()));
                                     Files.createDirectories(destPath);
                                     ProtocolService.writeNIO(channel, new FileHandshakeCommunication(FileHandshakeAction.START_TRANSFER, sessionId));
                                     continue;
                                 }
 
-                                Logger.logInfo(String.format(" │ 📥 [NUEVO] Creando asignación limpia de disco para: %s", destPath.getFileName()));
+                                //Logger.logInfo(String.format(" │ 📥 [NUEVO] Creando asignación limpia de disco para: %s", destPath.getFileName()));
                                 if (destPath.getParent() != null) {
                                     Files.createDirectories(destPath.getParent());
                                 }

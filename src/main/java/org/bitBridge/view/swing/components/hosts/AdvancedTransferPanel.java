@@ -358,7 +358,7 @@ public class AdvancedTransferPanel extends JPanel {
 
                 if ("ARCHIVO".equals(naturaleza)) {
                     File archivoAEnviar = new File(rutaLocal);
-                    Logger.logInfo("-> Enviando Archivo: " + archivoAEnviar.getName());
+                    Logger.logInfo("-> Enviando Archivo: " + archivoAEnviar.getAbsolutePath());
 
                     try {
                         if (client != null) {
@@ -390,7 +390,7 @@ public class AdvancedTransferPanel extends JPanel {
 
                 if ("DIRECTORIO".equals(naturaleza) || "CARPETA".equals(naturaleza)) {
                     File carpetaAEnviar = new File(rutaLocal);
-                    Logger.logInfo("-> Procesando Carpeta Raíz: " + carpetaAEnviar.getAbsolutePath());
+                    Logger.logInfo("-> Enviado Carpeta: " + carpetaAEnviar.getAbsolutePath());
 
                     if (client != null) {
                         client.sendDirectoryToHost(clientInfo, carpetaAEnviar);

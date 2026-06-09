@@ -321,8 +321,8 @@ public class FileTransferService {
                     fileCounter++;
                     String tipoNodo = meta.isDirectory() ? "DIR" : "FILE";
 
-                    Logger.logInfo(logId + String.format(" [NODE-%03d] [%s] Evaluando metadato entrante: %s (%s)",
-                            fileCounter, tipoNodo, meta.getRelativePath(), formatSize(meta.getSize())));
+                    /*Logger.logInfo(logId + String.format(" [NODE-%03d] [%s] Evaluando metadato entrante: %s (%s)",
+                            fileCounter, tipoNodo, meta.getRelativePath(), formatSize(meta.getSize())));*/
 
                     // Reenviar metadato al receptor para su análisis
                     dataReceiver.sendComunicacion(meta);
@@ -335,53 +335,53 @@ public class FileTransferService {
                         FileHandshakeAction accionReceptor = resp.getAction();
 
                         if (accionReceptor == FileHandshakeAction.SKIP_FILE) {
-                            Logger.logInfo(logId + String.format("  ├── ⏩ [SKIP] Receptor indica archivo idéntico. Notificando al emisor para saltar."));
+                            //Logger.logInfo(logId + String.format("  ├── ⏩ [SKIP] Receptor indica archivo idéntico. Notificando al emisor para saltar."));
                             sender.sendComunicacion(new FileHandshakeCommunication(FileHandshakeAction.SKIP_FILE, sessionId));
                             continue;
                         }
 
                         // --- PUENTE DE CONTROL EXCLUSIVO RSYNC ---
                         if (accionReceptor == FileHandshakeAction.PROCESS_DELTAS) {
-                            Logger.logWarn(logId + String.format("  ├── ⚡ [RSYNC-TUNNEL] Abriendo bypass diferencial para: %s", meta.getRelativePath()));
+                            //Logger.logWarn(logId + String.format("  ├── ⚡ [RSYNC-TUNNEL] Abriendo bypass diferencial para: %s", meta.getRelativePath()));
                             sender.sendComunicacion(new FileHandshakeCommunication(FileHandshakeAction.PROCESS_DELTAS, sessionId));
 
                             // 1. Mover Firmas: Receptor -> Servidor -> Emisor
-                            Logger.logInfo(logId + "  │   ├── [FASE 1] Extrayendo firmas Adler32/MD5 desde el receptor...");
+                            //Logger.logInfo(logId + "  │   ├── [FASE 1] Extrayendo firmas Adler32/MD5 desde el receptor...");
                             byte[] signaturesRaw = ProtocolService.readHandshakePacket(dataReceiver);
-                            Logger.logInfo(logId + "  │   │   └── Inyectando firmas (" + signaturesRaw.length + " bytes) al buffer del emisor.");
+                            //Logger.logInfo(logId + "  │   │   └── Inyectando firmas (" + signaturesRaw.length + " bytes) al buffer del emisor.");
                             //sender.getWritableChannel().write(ByteBuffer.wrap(signaturesRaw));
                             sender.sendComunicacion(ProtocolService.fromBytes(signaturesRaw));
 
                             // 2. Mover Paquete de Deltas: Emisor -> Servidor -> Receptor
-                            Logger.logInfo(logId + "  │   ├── [FASE 2] Capturando stream de deltas serializados del emisor...");
+                            //Logger.logInfo(logId + "  │   ├── [FASE 2] Capturando stream de deltas serializados del emisor...");
                             byte[] deltasRaw = ProtocolService.readHandshakePacket(sender);
-                            Logger.logInfo(logId + "  │   │   └── Bombeando paquete delta (" + deltasRaw.length + " bytes) hacia el receptor.");
+                            //Logger.logInfo(logId + "  │   │   └── Bombeando paquete delta (" + deltasRaw.length + " bytes) hacia el receptor.");
                             //dataReceiver.getWritableChannel().write(ByteBuffer.wrap(deltasRaw));
                             dataReceiver.sendComunicacion(ProtocolService.fromBytes(deltasRaw));
 
                             // 3. Esperar confirmación del receptor sobre el ensamble final
-                            Logger.logInfo(logId + "  │   └── [FASE 3] Esperando verificación de Disk Flush del receptor...");
+                            //Logger.logInfo(logId + "  │   └── [FASE 3] Esperando verificación de Disk Flush del receptor...");
                             byte[] finalAck = ProtocolService.readHandshakePacket(dataReceiver);
                             //sender.getWritableChannel().write(ByteBuffer.wrap(finalAck));
                             sender.sendComunicacion(ProtocolService.fromBytes(finalAck));
 
-                            Logger.logInfo(logId + "  │       └── Sincronización diferencial completada exitosamente.");
+                            //Logger.logInfo(logId + "  │       └── Sincronización diferencial completada exitosamente.");
                             continue;
                         }
 
                         if (accionReceptor == FileHandshakeAction.START_TRANSFER) {
-                            Logger.logInfo(logId + "  ├── 📥 [TRANSFER-STREAM] Modo tradicional activado. Solicitando payload crudo.");
+                            //Logger.logInfo(logId + "  ├── 📥 [TRANSFER-STREAM] Modo tradicional activado. Solicitando payload crudo.");
                             sender.sendComunicacion(new FileHandshakeCommunication(FileHandshakeAction.START_TRANSFER, sessionId));
 
                             if (!meta.isDirectory()) {
-                                Logger.logInfo(logId + "  │   ├── [KERNEL] Enlazando descriptores de socket (bridgeSocketChannels)...");
+                                //Logger.logInfo(logId + "  │   ├── [KERNEL] Enlazando descriptores de socket (bridgeSocketChannels)...");
                                 bridgeSocketChannelsNoShutdown(sender, dataReceiver, meta.getSize());
 
-                                Logger.logInfo(logId + "  │   └── Descarga completa. Esperando ACK físico del receptor...");
+                                //Logger.logInfo(logId + "  │   └── Descarga completa. Esperando ACK físico del receptor...");
                                 byte[] finalAckFromReceptor = ProtocolService.readHandshakePacket(dataReceiver);
                                 sender.getWritableChannel().write(ByteBuffer.wrap(finalAckFromReceptor));
                             } else {
-                                Logger.logInfo(logId + "  │   └── Árbol de directorios creado en destino.");
+                                //Logger.logInfo(logId + "  │   └── Árbol de directorios creado en destino.");
                             }
                             continue;
                         }

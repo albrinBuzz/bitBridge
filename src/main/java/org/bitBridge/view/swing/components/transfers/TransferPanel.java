@@ -2,6 +2,7 @@ package org.bitBridge.view.swing.components.transfers;
 
 import com.formdev.flatlaf.FlatClientProperties;
 import com.formdev.flatlaf.icons.FlatSearchIcon;
+
 import org.bitBridge.Client.managers.TransferManager;
 import org.bitBridge.Observers.GenericCountListener;
 import org.bitBridge.Observers.TransferencesObserver;
@@ -11,29 +12,22 @@ import org.bitBridge.shared.*;
 import org.bitBridge.shared.core.comunication.FileHandshakeAction;
 import org.bitBridge.shared.core.comunication.model.basic.FileHandshakeCommunication;
 
+
+import javax.sound.sampled.AudioFormat;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.LineUnavailableException;
+import javax.sound.sampled.SourceDataLine;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
-import javax.swing.border.MatteBorder;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableCellEditor;
 import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableRowSorter;
 import java.awt.*;
-import java.io.File;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Centro de Control de Transferencias Asíncronas bitBridge Pro.
- * Incorpora Throttling optimizado para sockets de alta velocidad, filtrado por RowFilter,
- * barras de progreso adaptativas y gestión atómica de hilos de control (Pausar/Cancelar).
- * * Copyright 2026 Cristobal Roman Zamora
- */
 public class TransferPanel extends JPanel implements TransferencesObserver {
 
     private GenericCountListener<TransferPanel> countListener;
@@ -41,65 +35,61 @@ public class TransferPanel extends JPanel implements TransferencesObserver {
     private JTable table;
     private DefaultTableModel model;
     private TableRowSorter<DefaultTableModel> sorter;
+    private final Map<String, Integer> rowMap = new HashMap<>();
+    private final Map<String, TransferManager> managerMap = new HashMap<>();
+    private final Map<String, Long> lastUpdateMap = new HashMap<>();
+    private static final int REFRESH_RATE_MS = 150; // El ojo humano no percibe cambios más rápidos
 
-    // ConcurrentHashMap previene la colisión de hilos si Netty actualiza el mapa mientras Swing itera
-    private final Map<String, Integer> rowMap = new ConcurrentHashMap<>();
-    private final Map<String, TransferManager> managerMap = new ConcurrentHashMap<>();
-    private final Map<String, Long> lastUpdateMap = new ConcurrentHashMap<>();
-
-    private static final int REFRESH_RATE_MS = 150; // Umbral crítico para protección del Event Dispatch Thread (EDT)
-
+    private final Color COLOR_TARJETA = new Color(45, 52, 54);
     private static final Color SUCCESS_GREEN = new Color(46, 204, 113);
     private static final Color NICOTINE_ORANGE = new Color(255, 165, 0);
-    private static final Color PANEL_BG = new Color(30, 31, 34);
-    private static final Color CARD_BG = new Color(43, 45, 48);
-
+    private final Color COLOR_SUCCESS = new Color(46, 204, 113);
+    private static final Color BG_DARKER = new Color(25, 25, 25);
     public TransferPanel() {
         setLayout(new BorderLayout());
-        setBackground(PANEL_BG);
+        setBackground(UIManager.getColor("Panel.background"));
         setBorder(new EmptyBorder(20, 25, 20, 25));
         initComponents();
     }
 
     private void initComponents() {
-        // Estructura del modelo con inyección de acciones
+        add(createEnhancedHeader(), BorderLayout.NORTH);
+
+        // Añadimos la columna "ACCIONES" (Índice 7)
         String[] cols = {"ID", "ARCHIVO", "TIPO", "ESTADO", "VELOCIDAD", "PROGRESO", "TAMAÑO", "ACCIONES"};
         model = new DefaultTableModel(cols, 0) {
-            @Override public boolean isCellEditable(int r, int c) { return c == 7; }
+            @Override public boolean isCellEditable(int r, int c) {
+                return c == 7; // Solo la columna de botones es editable
+            }
             @Override public Class<?> getColumnClass(int c) {
                 if (c == 5) return Integer.class;
                 return Object.class;
             }
         };
+        //sorter = new TableRowSorter<>(model);
 
-        // Activamos el Sorter para el motor de filtrado instantáneo
-        sorter = new TableRowSorter<>(model);
-        sorter.setSortsOnUpdates(false); // CRÍTICO: Evita saltos bruscos y reordenamiento masivo en descargas masivas
-
+        //sorter.setSortsOnUpdates(false); // <--- ESTO evita que la tabla salte y consuma CPU al actualizar
         table = new JTable(model);
-        table.setRowSorter(sorter);
-        table.setRowHeight(55);
+        //table.setRowSorter(sorter);
+        table.setRowHeight(55); // Aumentado para los botones
         table.setShowHorizontalLines(true);
         table.setShowVerticalLines(false);
         table.setIntercellSpacing(new Dimension(0, 0));
-        table.setBackground(PANEL_BG);
+
 
         table.putClientProperty(FlatClientProperties.STYLE,
-                "selectionBackground: #2d3a4d; selectionForeground: #ffffff; showHorizontalLines: true;");
-
+                "selectionBackground: #2d3a4d; selectionForeground: #ffffff");
         setupRenderersAndEditors();
 
         JScrollPane scroll = new JScrollPane(table);
+        //scroll.setBorder(BorderFactory.createEmptyBorder());
         scroll.setBorder(new com.formdev.flatlaf.ui.FlatLineBorder(
                 new Insets(0, 0, 0, 0),
-                new Color(60, 63, 65),
-                1,
-                16
+                UIManager.getColor("Component.borderColor"), // Color del borde del tema
+                1, // Grosor
+                20 // ESTE ES EL ARC (Redondeo)
         ));
-        scroll.getViewport().setBackground(PANEL_BG);
 
-        // El Header se crea al final para poder pasarle el Sorter al buscador nativo
-        add(createEnhancedHeader(), BorderLayout.NORTH);
         add(scroll, BorderLayout.CENTER);
     }
 
@@ -109,79 +99,96 @@ public class TransferPanel extends JPanel implements TransferencesObserver {
 
     private void updateCount() {
         if (countListener != null) {
+            // Contamos cuántas no están finalizadas, o simplemente el total
             int activeCount = 0;
             for (int i = 0; i < model.getRowCount(); i++) {
-                String estado = (String) model.getValueAt(i, 3);
-                if (!"FINALIZADO".equals(estado) && !"CANCELADO".equals(estado)) {
+                if (!"FINALIZADO".equals(model.getValueAt(i, 3))) {
                     activeCount++;
                 }
             }
+            //countListener.onCountChanged(activeCount);
             countListener.onCountChanged(this, activeCount);
+        }else {
+            Logger.logInfo("CountListener Vacio");
         }
     }
 
     private void setupRenderersAndEditors() {
-        // Ocultar ID criptográfico por estética visual
+        // Ocultar ID
         table.getColumnModel().getColumn(0).setMinWidth(0);
         table.getColumnModel().getColumn(0).setMaxWidth(0);
 
-        // Renderer de estados con tipografía Bold y sincronización de hilos
+        // Renderers de texto
+        // Dentro de setupRenderersAndEditors
         DefaultTableCellRenderer textRenderer = new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable t, Object v, boolean isS, boolean hasF, int r, int c) {
                 JLabel l = (JLabel) super.getTableCellRendererComponent(t, v, isS, hasF, r, c);
-                l.setBorder(new EmptyBorder(0, 20, 0, 20));
+                l.setBorder(new EmptyBorder(0, 20, 0, 20)); // Más padding lateral
 
-                if (c == 3) { // Estado Lógico
+                if (c == 3) { // Columna ESTADO
                     String status = String.valueOf(v);
-                    l.setFont(l.getFont().deriveFont(Font.BOLD, 12f));
-                    switch (status) {
-                        case "FINALIZADO" -> l.setForeground(SUCCESS_GREEN);
-                        case "PAUSADO" -> l.setForeground(new Color(241, 196, 15));
-                        case "CANCELADO" -> l.setForeground(new Color(231, 76, 60));
-                        case "EN CURSO" -> l.setForeground(new Color(52, 152, 219));
-                        default -> l.setForeground(new Color(149, 165, 166));
-                    }
+                    l.setFont(l.getFont().deriveFont(Font.BOLD)); // Resaltar estado
+                    if (status.equals("FINALIZADO")) l.setForeground(new Color(46, 204, 113));
+                    else if (status.contains("PAUSADO")) l.setForeground(new Color(241, 196, 15));
+                    else l.setForeground(new Color(52, 152, 219));
                 }
                 return l;
             }
         };
 
-        // Renderizador premium para el Badge de Dirección de Tráfico
+
         table.getColumnModel().getColumn(2).setCellRenderer(new DefaultTableCellRenderer() {
-            private final Color COLOR_SEND = new Color(0, 191, 255);
-            private final Color COLOR_RECEIVE = new Color(187, 134, 252);
+            // Definimos los colores como constantes para mejor rendimiento
+            private final Color COLOR_SEND = new Color(0, 191, 255);      // Deep Sky Blue (Más brillante)
+            private final Color COLOR_RECEIVE = new Color(187, 134, 252); // Soft Purple (Estilo Material Design)
+            private final Color COLOR_TEXT_BASE = new Color(220, 220, 220);
 
             @Override
             public Component getTableCellRendererComponent(JTable t, Object v, boolean isS, boolean hasF, int r, int c) {
                 JLabel l = (JLabel) super.getTableCellRendererComponent(t, v, isS, hasF, r, c);
                 l.setBorder(new EmptyBorder(0, 15, 0, 15));
-                l.setFont(l.getFont().deriveFont(Font.BOLD, 11f));
+                l.setFont(l.getFont().deriveFont(Font.BOLD, 12f));
 
                 String val = String.valueOf(v).toUpperCase();
-                l.setForeground(val.contains("ENVIANDO") ? COLOR_SEND : COLOR_RECEIVE);
-                if (isS) l.setForeground(Color.WHITE);
+
+                if (val.contains("ENVIANDO")) {
+                    l.setForeground(COLOR_SEND);
+                } else if (val.contains("RECIBIENDO")) {
+                    l.setForeground(COLOR_RECEIVE);
+                } else {
+                    l.setForeground(COLOR_TEXT_BASE);
+                }
+
+                // Si la fila está seleccionada, mantenemos un contraste legible
+                if (isS) {
+                    l.setForeground(Color.WHITE);
+                }
+
                 return l;
             }
         });
 
-        // Inyección masiva de paddings y fuentes legibles
+
+
+        // Elimina el índice 2 del bucle para no sobrescribir tu TypeRenderer personalizado
         for (int i = 1; i < 5; i++) {
-            if (i == 2) continue;
+            if (i == 2) continue; // ¡IMPORTANTE! Saltamos la columna TIPO
             table.getColumnModel().getColumn(i).setCellRenderer(textRenderer);
         }
+
         table.getColumnModel().getColumn(6).setCellRenderer(textRenderer);
 
-        // Barra de progreso y cálculo dinámico de velocidad + ETA
+        // Progreso
         table.getColumnModel().getColumn(5).setCellRenderer(new ProgressRenderer());
 
         table.getColumnModel().getColumn(4).setCellRenderer(new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable t, Object v, boolean isS, boolean hasF, int r, int c) {
                 super.getTableCellRendererComponent(t, v, isS, hasF, r, c);
-                textRenderer.setBorder(new EmptyBorder(0, 15, 0, 15));
 
                 if (v instanceof Double speed) {
+                    // Obtenemos el ID de la fila para buscar su ETA
                     int modelRow = t.convertRowIndexToModel(r);
                     String id = (String) t.getModel().getValueAt(modelRow, 0);
                     String eta = (String) t.getClientProperty("eta." + id);
@@ -189,20 +196,22 @@ public class TransferPanel extends JPanel implements TransferencesObserver {
                     if (speed <= 0) {
                         setText("---");
                     } else {
-                        setText(String.format("%.2f MB/s (%s)", speed, (eta != null ? eta : "--:--")));
+                        // Formato: "1.50 MB/s (00:15)"
+                        setText(String.format("%.2f MB/s (%s)", speed, eta));
                     }
                 }
                 return this;
             }
         });
 
-        // Inyección de Celda Controladora de Acciones Concurrente
+        // --- COLUMNA DE ACCIONES (Botones) ---
         ActionCellHandler actionHandler = new ActionCellHandler();
         table.getColumnModel().getColumn(7).setCellRenderer(actionHandler);
         table.getColumnModel().getColumn(7).setCellEditor(actionHandler);
-        table.getColumnModel().getColumn(7).setPreferredWidth(140);
+        table.getColumnModel().getColumn(7).setPreferredWidth(120);
     }
 
+    // --- LÓGICA DEL OBSERVER (Igual a la clase anterior) ---
     private int getRowById(String id) {
         for (int i = 0; i < model.getRowCount(); i++) {
             if (model.getValueAt(i, 0).equals(id)) return i;
@@ -213,55 +222,71 @@ public class TransferPanel extends JPanel implements TransferencesObserver {
     @Override
     public void addTransference(String mode, Transferencia t, TransferManager manager) {
         SwingUtilities.invokeLater(() -> {
+            // Usamos constantes o variables para que el código sea más legible
             boolean isSending = mode.toUpperCase().contains("SEND");
-            String tipoTexto = isSending ? "📤 ENVIANDO" : "📥 RECIBIENDO";
-
+            //String tipoTexto = isSending ? "📤 ENVIANDO" : "📥 RECIBIENDO";
+            String tipoTexto = isSending ? "ENVIANDO" : "RECIBIENDO";
+            // El ID debe registrarse antes de añadir la fila para evitar inconsistencias
             rowMap.put(t.getId(), model.getRowCount());
-            if (manager != null) managerMap.put(t.getId(), manager);
+            managerMap.put(t.getId(), manager);
 
             model.addRow(new Object[]{
-                    t.getId(),
-                    t.getFileName().toUpperCase(),
-                    tipoTexto,
-                    "CONECTANDO...",
-                    0.0,
-                    0,
-                    formatSize(t.getTamano()),
-                    t.getId()
+                    t.getId(),                               // 0: ID (Oculto)
+                    t.getFileName().toUpperCase(),           // 1: ARCHIVO
+                    tipoTexto,                               // 2: TIPO (Con Icono)
+                    "CONECTANDO...",                         // 3: ESTADO (Más descriptivo que Pendiente)
+                    "---",                                   // 4: VELOCIDAD
+                    0,                                       // 5: PROGRESO (Integer)
+                    formatSize(t.getTamano()),               // 6: TAMAÑO
+                    t.getId()                                // 7: ACCIONES (Editor/Renderer)
             });
 
             updateCount();
         });
     }
 
+    // Asegúrate de que estas colecciones en tu clase sean concurrentes:
+// private final Map<String, Integer> rowMap = new ConcurrentHashMap<>();
+// private final Map<String, Long> lastUpdateMap = new ConcurrentHashMap<>();
+
     @Override
     public void updateTransferenceFull(TransferProgress p) {
-        Integer modelRowIndex = rowMap.get(p.id());
-        if (modelRowIndex == null) return;
+        if (p == null || p.id() == null) return;
 
         long now = System.currentTimeMillis();
         long lastUpdate = lastUpdateMap.getOrDefault(p.id(), 0L);
 
-        // Throttling estricto para mitigar lag y flickering en saturación de buffers de red
+        // OPTIMIZACIÓN 1: Throttling estricto (Dejar pasar siempre el 100% para evitar congelamientos)
         if (p.percentage() < 100 && (now - lastUpdate < REFRESH_RATE_MS)) {
             return;
         }
         lastUpdateMap.put(p.id(), now);
 
+        // OPTIMIZACIÓN 2: Usar invokeLater de forma segura
         SwingUtilities.invokeLater(() -> {
-            if (modelRowIndex >= model.getRowCount()) return; // Protección contra limpiezas en caliente
 
-            model.setValueAt(p.speedMBs(), modelRowIndex, 4);
+            // CORRECCIÓN CRÍTICA: Obtenemos el índice de la fila DENTRO del hilo de la UI
+            // Justo en el momento exacto en que se va a pintar, evitando desfases por ordenamiento o filtros.
+            Integer currentModelRowIndex = rowMap.get(p.id());
+            if (currentModelRowIndex == null) return;
+
+            // OPTIMIZACIÓN 3: Modificar solo las celdas necesarias
+            model.setValueAt(p.speedMBs(), currentModelRowIndex, 4);
+
             table.putClientProperty("eta." + p.id(), p.eta());
-            model.setValueAt(p.percentage(), modelRowIndex, 5);
 
+            model.setValueAt(p.percentage(), currentModelRowIndex, 5);
+
+            // Control de Estado Seguro
             if (p.percentage() >= 100) {
-                model.setValueAt("FINALIZADO", modelRowIndex, 3);
-                model.setValueAt(0.0, modelRowIndex, 4);
+                model.setValueAt("FINALIZADO", currentModelRowIndex, 3);
                 lastUpdateMap.remove(p.id());
-                updateCount();
-            } else if (!"EN CURSO".equals(model.getValueAt(modelRowIndex, 3)) && !"PAUSADO".equals(model.getValueAt(modelRowIndex, 3))) {
-                model.setValueAt("EN CURSO", modelRowIndex, 3);
+            } else {
+                // Validar de forma segura el valor actual antes de sobreescribir string
+                Object estadoActual = model.getValueAt(currentModelRowIndex, 3);
+                if (!"EN CURSO".equals(estadoActual)) {
+                    model.setValueAt("EN CURSO", currentModelRowIndex, 3);
+                }
             }
         });
     }
@@ -269,16 +294,17 @@ public class TransferPanel extends JPanel implements TransferencesObserver {
     @Override
     public void endTransference(String m, String id) {
         SwingUtilities.invokeLater(() -> {
-            int modelRow = getRowById(id);
-            if (modelRow != -1) {
-                model.setValueAt(100, modelRow, 5);
-                model.setValueAt("FINALIZADO", modelRow, 3);
-                model.setValueAt(0.0, modelRow, 4);
-                lastUpdateMap.remove(id);
-                updateCount();
+            Integer row = rowMap.get(id);
+            if (row != null) {
+                int mRow = table.convertRowIndexToModel(row);
+                model.setValueAt(100, mRow, 5);
+                model.setValueAt("FINALIZADO", mRow, 3);
+                model.setValueAt("---", mRow, 4);
             }
         });
     }
+
+    // --- NOTIFICACIONES (Copiadas de tu clase anterior) ---
 
     @Override
     public boolean notifyTranference(FileHandshakeCommunication h) {
@@ -286,6 +312,15 @@ public class TransferPanel extends JPanel implements TransferencesObserver {
         final int timeoutSeconds = 30;
         var info = h.getFileInfo();
         String sender = info.getSenderNick() != null ? info.getSenderNick() : "Nodo Remoto";
+
+        // --- EFECTO DE SONIDO ---
+        //playNotificationSound();
+        /*try {
+            generateTone(880, 100, 0.1);
+        } catch (LineUnavailableException e) {
+            Logger.logInfo(e.getMessage());
+            //throw new RuntimeException(e);
+        }*/
 
         try {
             SwingUtilities.invokeAndWait(() -> {
@@ -297,15 +332,15 @@ public class TransferPanel extends JPanel implements TransferencesObserver {
                 panel.add(iconLabel, BorderLayout.WEST);
 
                 JLabel lblTimer = new JLabel("Expiración en: " + timeoutSeconds + "s", SwingConstants.RIGHT);
-                lblTimer.setFont(new Font("SansSerif", Font.BOLD, 11));
+                lblTimer.setFont(new Font("SansSerif", Font.BOLD, 10));
                 lblTimer.setForeground(new Color(231, 76, 60));
 
                 String htmlContent = String.format(
-                        "<html><body style='font-family:sans-serif; color:#ecf0f1;'>" +
-                                "<b style='font-size:13px; color:#ff8c00;'>SOLICITUD DE TRANSFERENCIA</b><br>" +
-                                "<p style='margin-top:8px;'><b>Procedencia:</b> %s</p>" +
-                                "<p><b>Descriptor:</b> <span style='color:#f1c40f;'>%s</span></p>" +
-                                "<p><b>Carga Útil:</b> %s</p></body></html>",
+                        "<html><div style='font-family:SansSerif; color:#ecf0f1;'>" +
+                                "<b style='font-size:13px; color:#3498db;'>SOLICITUD DE ENTRADA</b><br>" +
+                                "<p style='margin-top:5px;'><b>Origen:</b> %s</p>" +
+                                "<p><b>Archivo:</b> <span style='color:#f1c40f;'>%s</span></p>" +
+                                "<p><b>Tamaño:</b> %s</p></div></html>",
                         sender, info.getName(), formatSize(info.getSize())
                 );
 
@@ -317,9 +352,11 @@ public class TransferPanel extends JPanel implements TransferencesObserver {
                 panel.add(centerPanel, BorderLayout.CENTER);
 
                 Object[] options = {"Aceptar Descarga", "Rechazar"};
-                final JOptionPane optionPane = new JOptionPane(panel, JOptionPane.PLAIN_MESSAGE, JOptionPane.YES_NO_OPTION, null, options, options[0]);
-                final JDialog dialog = optionPane.createDialog(this, "bitBridge Engine - Autenticación de Canal");
 
+                final JOptionPane optionPane = new JOptionPane(panel, JOptionPane.PLAIN_MESSAGE, JOptionPane.YES_NO_OPTION, null, options, options[0]);
+                final JDialog dialog = optionPane.createDialog(this, "BitBridge - Alerta de Transferencia");
+
+                // Timer para cerrar el diálogo
                 final int[] timeLeft = {timeoutSeconds};
                 Timer timer = new Timer(1000, e -> {
                     timeLeft[0]--;
@@ -343,24 +380,75 @@ public class TransferPanel extends JPanel implements TransferencesObserver {
         return accepted[0];
     }
 
+    /**
+     * Lógica para reproducir el sonido de notificación
+     */
+    private void playNotificationSound() {
+        try {
+            // Opción 1: Beep básico del sistema (Rápido y sin archivos externos)
+            Toolkit.getDefaultToolkit().beep();
+
+        /* // Opción 2: Cargar un archivo .wav personalizado (Suave/Moderno)
+        // Necesitas un archivo en src/main/resources/sounds/notification.wav
+        InputStream is = getClass().getResourceAsStream("/sounds/notification.wav");
+        AudioInputStream audioStream = AudioSystem.getAudioInputStream(new BufferedInputStream(is));
+        Clip clip = AudioSystem.getClip();
+        clip.open(audioStream);
+        clip.start();
+        */
+        } catch (Exception e) {
+            System.err.println("No se pudo reproducir el sonido: " + e.getMessage());
+        }
+    }
+
+    public  void generateTone(int hz, int msecs, double vol) throws LineUnavailableException {
+        float sampleRate = 8000f;
+        byte[] buf = new byte[1];
+        // Definir el formato de audio (8-bit, Mono, Signed)
+        AudioFormat af = new AudioFormat(sampleRate, 8, 1, true, false);
+        SourceDataLine sdl = AudioSystem.getSourceDataLine(af);
+
+        sdl.open(af);
+        sdl.start();
+
+        for (int i = 0; i < msecs * (sampleRate / 1000); i++) {
+            double angle = i / (sampleRate / hz) * 2.0 * Math.PI;
+            buf[0] = (byte) (Math.sin(angle) * 127.0 * vol);
+            sdl.write(buf, 0, 1);
+        }
+
+        sdl.drain(); // Espera a que termine de sonar
+        sdl.stop();
+        sdl.close();
+    }
+
     @Override
     public void notifyTranference(FileHandshakeAction a) {
+        Logger.logInfo("NOtifiando"+a.name());
         SwingUtilities.invokeLater(() -> {
             switch (a) {
-                case DECLINE_REQUEST -> showToast("Transferencia rechazada por el receptor", new Color(231, 76, 60));
-                case ERROR_TIMEOUT -> showToast("La solicitud ha expirado por inactividad", new Color(241, 196, 15));
-                case SERVER_BUSY -> showToast("Conexión interrumpida con el nodo remoto", new Color(149, 165, 166));
-                case ACCEPT_REQUEST -> showToast("¡Solicitud aceptada! Sincronizando sockets...", SUCCESS_GREEN);
+                case DECLINE_REQUEST:
+                    showToast("Transferencia rechazada por el receptor", new Color(231, 76, 60)); // Rojo
+                    break;
+                case ERROR_TIMEOUT:
+                    showToast("La solicitud ha expirado por inactividad", new Color(241, 196, 15)); // Amarillo
+                    break;
+                case SERVER_BUSY:
+                    showToast("Conexión perdida con el nodo remoto", new Color(149, 165, 166)); // Gris
+                    break;
+                case ACCEPT_REQUEST:
+                    showToast("¡Solicitud aceptada! Iniciando descarga...", new Color(46, 204, 113)); // Verde
+                    break;
             }
         });
     }
-
     private void showToast(String message, Color accentColor) {
+        // Creamos un panel flotante estilo "Snackbar"
         JPanel toast = new JPanel(new BorderLayout(10, 0));
-        toast.setBackground(new Color(40, 42, 44));
+        toast.setBackground(new Color(40, 42, 44)); // Fondo oscuro
         toast.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(accentColor, 1),
-                new EmptyBorder(8, 15, 8, 15)
+                new javax.swing.border.EmptyBorder(8, 15, 8, 15)
         ));
 
         JLabel lblMsg = new JLabel(message);
@@ -374,9 +462,11 @@ public class TransferPanel extends JPanel implements TransferencesObserver {
         toast.add(lblIcon, BorderLayout.WEST);
         toast.add(lblMsg, BorderLayout.CENTER);
 
+        // Lógica para posicionar el toast en el cristal (GlassPane) de la ventana
         JLayeredPane layeredPane = getRootPane().getLayeredPane();
         toast.setSize(toast.getPreferredSize());
 
+        // Posición: Centro-Abajo
         int x = (getWidth() - toast.getWidth()) / 2;
         int y = getHeight() - toast.getHeight() - 50;
         toast.setLocation(x, y);
@@ -384,6 +474,7 @@ public class TransferPanel extends JPanel implements TransferencesObserver {
         layeredPane.add(toast, JLayeredPane.POPUP_LAYER);
         layeredPane.repaint();
 
+        // Timer para desvanecer y eliminar
         Timer timer = new Timer(3000, e -> {
             layeredPane.remove(toast);
             layeredPane.repaint();
@@ -394,7 +485,7 @@ public class TransferPanel extends JPanel implements TransferencesObserver {
 
     @Override
     public void notifyException(String m) {
-        SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(this, m, "Excepción crítica en Canal", JOptionPane.ERROR_MESSAGE));
+        SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(this, m, "Error", JOptionPane.ERROR_MESSAGE));
     }
 
     @Override public void updateTransference(FileTransferState s, String id, int p) {}
@@ -405,38 +496,29 @@ public class TransferPanel extends JPanel implements TransferencesObserver {
         return String.format("%.1f %sB", (double)v / (1L << (z * 10)), " KMGTPE".charAt(z));
     }
 
+    // --- COMPONENTES INTERNOS ---
+
+
     private JPanel createEnhancedHeader() {
         JPanel header = new JPanel(new BorderLayout(15, 0));
         header.setOpaque(false);
         header.setBorder(new EmptyBorder(0, 0, 15, 0));
 
-        JLabel lblMain = new JLabel("Canales de Transferencia");
-        lblMain.setFont(new Font("Inter", Font.BOLD, 22));
-        lblMain.setForeground(Color.WHITE);
+        // --- LADO IZQUIERDO: Título y Contador ---
+        JLabel lblMain = new JLabel("Transferencias");
+        lblMain.setFont(new Font("SansSerif", Font.BOLD, 20));
         header.add(lblMain, BorderLayout.WEST);
 
-        JPanel toolbar = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
+        // --- LADO DERECHO: Herramientas ---
+        JPanel toolbar = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         toolbar.setOpaque(false);
 
-        // 1. Buscador nativo acoplado al RowSorter mediante Regex
+        // 1. Buscador (Muy útil para listas largas)
         JTextField searchField = new JTextField(15);
-        searchField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Filtrar por archivo...");
-        searchField.putClientProperty(FlatClientProperties.TEXT_FIELD_LEADING_ICON, new FlatSearchIcon());
-        searchField.getDocument().addDocumentListener(new DocumentListener() {
-            private void filter() {
-                String text = searchField.getText();
-                if (text.trim().isEmpty()) {
-                    sorter.setRowFilter(null);
-                } else {
-                    sorter.setRowFilter(RowFilter.regexFilter("(?i)" + text, 1)); // Filtra sobre columna ARCHIVO (1)
-                }
-            }
-            @Override public void insertUpdate(DocumentEvent e) { filter(); }
-            @Override public void removeUpdate(DocumentEvent e) { filter(); }
-            @Override public void changedUpdate(DocumentEvent e) { filter(); }
-        });
+        searchField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Filtrar archivos...");
+        searchField.putClientProperty(FlatClientProperties.TEXT_FIELD_LEADING_ICON, new FlatSearchIcon()); // Si tienes iconos
 
-        // 2. Control de Limite de Tráfico Global
+        // 2. Spinner de Límite Global (Más compacto)
         JPanel limitPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
         limitPanel.setOpaque(false);
         JSpinner limitSpinner = new JSpinner(new SpinnerNumberModel(100, 0, 10000, 10));
@@ -445,50 +527,14 @@ public class TransferPanel extends JPanel implements TransferencesObserver {
         limitPanel.add(limitSpinner);
         limitPanel.add(new JLabel("MB/s"));
 
-        // Accionador de limitación reactiva sobre los Managers de bitBridge
-        limitSpinner.addChangeListener(e -> {
-            int limitMBs = (int) limitSpinner.getValue();
-            for (TransferManager m : managerMap.values()) {
-                // Si tu TransferManager soporta limitación por Throttling:
-                // m.setSpeedLimit(limitMBs * 1024 * 1024);
-            }
-        });
-
-        // 3. Botones de Control de Lotes Atómicos
-        JButton btnPauseAll = new JButton("Pausar Todo");
-        styleSecondaryBtn(btnPauseAll);
-        btnPauseAll.addActionListener(e -> {
-            for (TransferManager m : managerMap.values()) {
-                m.pause();
-            }
-            for (int i = 0; i < model.getRowCount(); i++) {
-                if ("EN CURSO".equals(model.getValueAt(i, 3))) model.setValueAt("PAUSADO", i, 3);
-            }
-        });
-
-        // LÓGICA COMPLETA DE LIMPIEZA MUTABLE DE FILAS TERMINADAS
+        // 3. Botones de Acción Global
         JButton btnClear = new JButton("Limpiar Terminados");
         styleSecondaryBtn(btnClear);
-        btnClear.addActionListener(e -> {
-            // Iteramos de abajo hacia arriba para evitar colapsos de índices lógicos
-            for (int i = model.getRowCount() - 1; i >= 0; i--) {
-                String estado = (String) model.getValueAt(i, 3);
-                if ("FINALIZADO".equals(estado) || "CANCELADO".equals(estado)) {
-                    String id = (String) model.getValueAt(i, 0);
-                    rowMap.remove(id);
-                    managerMap.remove(id);
-                    lastUpdateMap.remove(id);
-                    model.removeRow(i);
-                }
-            }
-            // Re-mapear el rowMap para reflejar los nuevos índices reales de la tabla limpia
-            rowMap.clear();
-            for (int i = 0; i < model.getRowCount(); i++) {
-                rowMap.put((String) model.getValueAt(i, 0), i);
-            }
-            updateCount();
-        });
 
+        JButton btnPauseAll = new JButton("Pausar Todo");
+        styleSecondaryBtn(btnPauseAll);
+
+        // Agregar componentes al toolbar
         toolbar.add(searchField);
         toolbar.add(new JSeparator(JSeparator.VERTICAL));
         toolbar.add(limitPanel);
@@ -499,47 +545,46 @@ public class TransferPanel extends JPanel implements TransferencesObserver {
         return header;
     }
 
+    // Método auxiliar para que los botones de la barra no compitan con la tabla
     private void styleSecondaryBtn(JButton btn) {
         btn.putClientProperty(FlatClientProperties.STYLE,
-                "arc: 8; background: #3d4446; foreground: #ffffff; focusWidth: 0; margin: 2,10,2,10");
+                "arc: 8; " +
+                        "background: #3d4446; " +
+                        "focusWidth: 0; " +
+                        "margin: 2,10,2,10");
     }
 
-    // --- MANEJO DE CELDAS DINÁMICAS (RENDERERS Y EDITORES DE BOTONES) ---
+    // --- HANDLER PARA BOTONES EN LA TABLA ---
     private class ActionCellHandler extends AbstractCellEditor implements TableCellRenderer, TableCellEditor {
-        private String editingId;
+
+        private  JLabel lblCompleted = new JLabel("✔");
+
+        private String editingId; // ID de la transferencia actual
+
+        public ActionCellHandler() {
+
+            lblCompleted.setForeground(new Color(46, 204, 113));
+            lblCompleted.setFont(new Font("Segoe UI", Font.BOLD, 14));
+
+        }
 
         private void handleAction(String action, String id) {
+            // 1. Bloqueamos el ID actual para evitar que cambie durante el proceso
             TransferManager m = managerMap.get(id);
-            int modelRow = getRowById(id);
-
-            if (action.equals("CANCEL")) {
-                if (m != null) m.cancel();
-                if (modelRow != -1) {
-                    model.setValueAt("CANCELADO", modelRow, 3);
-                    model.setValueAt(0.0, modelRow, 4);
-                }
-                managerMap.remove(id);
-                lastUpdateMap.remove(id);
-                fireEditingStopped();
-                updateCount();
-                return;
-            }
-
             if (m == null) {
-                fireEditingStopped();
+                fireEditingStopped(); // Si no hay manager, cerramos edición y salimos
                 return;
             }
 
-            if (action.equals("PAUSE")) {
-                m.pause();
-                if (modelRow != -1) model.setValueAt("PAUSADO", modelRow, 3);
-            } else if (action.equals("RESUME")) {
-                m.resume();
-                if (modelRow != -1) model.setValueAt("EN CURSO", modelRow, 3);
-            }
+            // 2. Ejecutar acción de red
+            executeTransferAction(m, action);
 
+            // 3. Actualizar UI de forma atómica
             SwingUtilities.invokeLater(() -> {
+                //Integer modelRow = rowMap.get(currentId);
+                int modelRow = getRowById(id);
                 if (modelRow != -1) {
+                    updateModelStatus(modelRow, action);
                     fireEditingStopped();
                     model.fireTableCellUpdated(modelRow, 3);
                     model.fireTableCellUpdated(modelRow, 7);
@@ -547,28 +592,41 @@ public class TransferPanel extends JPanel implements TransferencesObserver {
             });
         }
 
+        private void executeTransferAction(TransferManager m, String action) {
+            switch (action) {
+                case "PAUSE" -> m.pause();
+                case "RESUME" -> m.resume();
+
+            }
+        }
+
+        private void updateModelStatus(int modelRow, String action) {
+            String nuevoEstado = switch (action) {
+                case "PAUSE" -> "PAUSADO";
+                case "RESUME" -> "EN CURSO";
+                case "CANCEL" -> "CANCELADO";
+                default -> (String) model.getValueAt(modelRow, 3);
+            };
+            model.setValueAt(nuevoEstado, modelRow, 3);
+        }
+
         private Component updatePanel(JTable table, int row, boolean isSelected, String id) {
-            JPanel renderPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 6, 4));
+            // Creamos un panel nuevo para esta celda específica en este momento
+            JPanel renderPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 5, 2));
             renderPanel.setOpaque(isSelected);
             if (isSelected) renderPanel.setBackground(table.getSelectionBackground());
 
             int modelRow = table.convertRowIndexToModel(row);
-            if (modelRow >= model.getRowCount()) return renderPanel;
-
             String estado = model.getValueAt(modelRow, 3).toString();
             int progreso = (int) model.getValueAt(modelRow, 5);
 
             if (progreso >= 100 || "FINALIZADO".equals(estado)) {
-                JLabel lbl = new JLabel("✔ COMPLETO");
-                lbl.setForeground(SUCCESS_GREEN);
-                lbl.setFont(new Font("Inter", Font.BOLD, 11));
-                renderPanel.add(lbl);
-            } else if ("CANCELADO".equals(estado)) {
-                JLabel lbl = new JLabel("✕ CANCELADO");
-                lbl.setForeground(new Color(231, 76, 60));
-                lbl.setFont(new Font("Inter", Font.BOLD, 11));
+                JLabel lbl = new JLabel("✔");
+                lbl.setForeground(new Color(46, 204, 113));
+                lbl.setFont(new Font("Segoe UI", Font.BOLD, 14));
                 renderPanel.add(lbl);
             } else {
+                // Creamos los botones necesarios para ESTA celda
                 if ("PAUSADO".equals(estado)) {
                     JButton resume = createBtn("▶", "#16a34a", "Reanudar");
                     resume.addActionListener(e -> handleAction("RESUME", id));
@@ -603,20 +661,26 @@ public class TransferPanel extends JPanel implements TransferencesObserver {
         private JButton createBtn(String icon, String color, String tip) {
             JButton b = new JButton(icon);
             b.setToolTipText(tip);
-            b.putClientProperty(FlatClientProperties.STYLE,
-                    "arc: 10; background: " + color + "; foreground: #ffffff; borderPainted: false; focusWidth: 0");
-            b.setPreferredSize(new Dimension(32, 26));
-            b.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            setupBtn(b, color);
             return b;
+        }
+
+        private void setupBtn(JButton b, String colorHex) {
+            b.putClientProperty(FlatClientProperties.STYLE,
+                    "arc: 10; background: " + colorHex + "; foreground: #ffffff; borderPainted: false; focusWidth: 0");
+            b.setPreferredSize(new Dimension(30, 26));
+            b.setCursor(new Cursor(Cursor.HAND_CURSOR));
         }
     }
 
-    // --- BARRAS DE PROGRESO DE ALTO CONTRASTE (FLATLAF ARCS) ---
     private static class ProgressRenderer extends JProgressBar implements TableCellRenderer {
         public ProgressRenderer() {
             super(0, 100);
             this.setStringPainted(true);
+            // Hacemos que la barra sea más sutil y moderna
             this.putClientProperty(FlatClientProperties.PROGRESS_BAR_SQUARE, false);
+            this.putClientProperty("JComponent.outline", null);
+            // Altura mayor para que se vea como en la imagen de referencia
             this.putClientProperty("JProgressBar.largeHeight", true);
             this.setBorder(new EmptyBorder(8, 10, 8, 10));
         }
@@ -626,14 +690,22 @@ public class TransferPanel extends JPanel implements TransferencesObserver {
             int val = (v instanceof Integer) ? (Integer) v : 0;
             setValue(val);
 
+
+            // Sincronización de colores con tu MainView
             if (val == 100) {
+                //setForeground(new Color(46, 204, 113)); // Verde Success
                 setForeground(SUCCESS_GREEN.darker());
-                setString("100 %");
+                setString("Completado");
             } else {
-                setForeground(NICOTINE_ORANGE);
+                //setForeground(new Color(52, 152, 219)); // Azul Primary
+                setForeground(NICOTINE_ORANGE.darker());
                 setString(val + " %");
             }
-            setBackground(CARD_BG);
+
+            // Importante: Si la fila está seleccionada, FlatLaf maneja el fondo
+            // pero queremos que la barra mantenga su color base
+            setBackground(new Color(45, 52, 54)); // Color fondo tarjeta
+
             return this;
         }
     }

@@ -1,0 +1,3 @@
+find /ruta/de/tu/carpeta -type f -exec sha256sum {} + | sort | sha256sum
+
+sha256sum /ruta/al/archivo

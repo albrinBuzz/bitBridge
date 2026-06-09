@@ -121,6 +121,7 @@ public class Transferencia {
                 ", srcAddr='" + srcAddr + '\'' +
                 ", dstAddr='" + dstAddr + '\'' +
                 ", progress=" + progress +
+                ", tamano=" + tamano +
                 ", state=" + state +
                 ", transferManager=" + transferManager +
                 '}';

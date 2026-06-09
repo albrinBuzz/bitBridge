@@ -9,4 +9,15 @@ public record TransferProgress(
         double speedMBs,
         String eta,
         FileTransferState state
-) {}
+) {
+    @Override
+    public String toString() {
+        return "TransferProgress{" +
+                "id='" + id + '\'' +
+                ", percentage=" + percentage +
+                ", speedMBs=" + speedMBs +
+                ", eta='" + eta + '\'' +
+                ", state=" + state +
+                '}';
+    }
+}

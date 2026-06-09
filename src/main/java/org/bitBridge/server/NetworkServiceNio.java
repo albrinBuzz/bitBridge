@@ -3,6 +3,7 @@ package org.bitBridge.server;
 
 import org.bitBridge.shared.Logger;
 
+import javax.net.ssl.SSLSocket;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;

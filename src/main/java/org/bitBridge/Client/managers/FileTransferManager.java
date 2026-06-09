@@ -124,7 +124,7 @@ public class FileTransferManager implements TransferManager {
                         Logger.logInfo("┌──────────────────────────────────────────────────────────────────┐");
                         Logger.logInfo(String.format("│  ⏩ [OMITIDO] Archivo idéntico en destino: %-21s │", relativePath));
                         Logger.logInfo("└──────────────────────────────────────────────────────────────────┘");
-                        totalBytesProcessed += totalSize;
+                        totalBytesProcessed += (int) totalSize;
                         transferenciaController.updateProgressMetrics(FileTransferState.SENDING, idTransfe, totalBytesProcessed, totalSize);
                         bytesEnviadosRed = 0;
                     }

@@ -3,10 +3,9 @@ gcloud compute firewall-rules create bitbridge-io-rule \
     --priority=1000 \
     --network=default \
     --action=ALLOW \
-    --rules=tcp:8080 \
+    --rules=tcp:8080,tcp:8081 \
     --source-ranges=0.0.0.0/0 \
     --target-tags=bitbridge-server
-
 
 # 1. Interrogar directamente a las subredes de la red default para ver cuál está activa
 export ALLOWED_REGION=$(gcloud compute networks subnets list --network=default --format="value(region)" --limit=1)
@@ -38,6 +37,8 @@ sudo dnf install git java-21-openjdk-devel -y
 
  ./mvnw clean package
 
- cd target/
+ #cd target/
 
- java -jar target/BitBridge-CLI.jar --headless
+ #java -jar target/BitBridge-CLI.jar --headless
+
+ java -jar target/BitBridge-CLI.jar --headless --auto-accept --port 8080 --web-server 8081
