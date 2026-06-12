@@ -2,6 +2,7 @@ package org.bitBridge.server.core.auth;
 
 
 
+import org.bitBridge.server.core.client.BitBridgeClient;
 import org.bitBridge.shared.core.comunication.SocketPurpose;
 import org.bitBridge.shared.Logger;
 import org.bitBridge.shared.core.comunication.model.basic.Mensaje;
@@ -11,6 +12,8 @@ public class AuthStrategyFactory {
     public static AuthStrategy getStrategy(SocketPurpose purpose) {
         return switch (purpose) {
             case CHAT_COMMAND -> (handler, handshake, context) -> {
+                Logger.logInfo("Iniciando el registro para: " + handshake.getIdentity());
+
                 handler.nick = context.getServer().getUniqueNick(handshake.getIdentity());
                 context.getServer().registerClient(handler, 8080);
                 handler.sendComunicacion(new Mensaje("Conectado como: " + handler.nick));

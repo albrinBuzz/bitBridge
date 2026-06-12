@@ -58,9 +58,6 @@ public class Client {
 
 
     public synchronized void setConexion(String serverAddress, int serverPort) throws IOException {
-        // 1. Verificación Crítica: Si ya estamos conectados o conectando, abortar.
-
-        try {
         if (networkEngine != null && networkEngine.isActive()) {
             Logger.logInfo("Conexión abortada: Ya existe una sesión activa.");
             return;
@@ -71,36 +68,39 @@ public class Client {
 
         context = new ClientContext(SERVER_ADDRESS, SERVER_PORT, transferenciaController, executorService, this);
 
-            if (hostName==null){
-                hostName = InetAddress.getLocalHost().getHostName();
-            }
-
-
-            this.dispatcher = new MessageDispatcher(this, context);
-            this.transferService = new TransferService(context);
-
-            // 2. Inicializar el motor NIO SOLO si no existe
-            if (this.networkEngine == null) {
-                this.networkEngine = new NioClientEngine(dispatcher);
-            }
-
-            networkEngine.connect(serverAddress, serverPort);
-            if (networkEngine.isActive()){
-                Logger.logInfo("Activo");
-            }else {
-                Logger.logInfo("No Activo");
-            }
-
-            // 4. Enviar identificación inicial
-            HandshakeMessage autenticacion=new HandshakeMessage(hostName,SocketPurpose.CHAT_COMMAND,"");
-
-            enviarComunicacion(autenticacion);
-            //onConnectionSuccess();
-        } catch (IOException e) {
-            Logger.logError("Fallo al conectar: " + e.getMessage());
-            e.printStackTrace();
-            throw e; // Relanzar para que el llamador sepa que falló
+        if (hostName == null){
+            hostName = InetAddress.getLocalHost().getHostName();
         }
+
+        this.dispatcher = new MessageDispatcher(this, context);
+        this.transferService = new TransferService(context);
+
+        if (this.networkEngine == null) {
+            // Le pasamos la referencia de 'this' (Client) para que el motor pueda avisarnos
+            this.networkEngine = new NioClientEngine(dispatcher, this,serverAddress,serverPort);
+            //this.setConexion(hostName,serverPort);
+        }
+
+
+        networkEngine.connect(serverAddress, serverPort);
+
+    }
+
+    public void onConnectionReady() {
+        executorService.execute(() -> {
+            try {
+                Logger.logInfo("🚀 Canal verificado y seguro. Despachando identificación inicial...");
+
+                // 1. Se crea el mensaje de autenticación legítimo de BitBridge
+                HandshakeMessage autenticacion = new HandshakeMessage(hostName, SocketPurpose.CHAT_COMMAND, "");
+
+                // 2. Se invoca el método de envío
+                enviarComunicacion(autenticacion);
+            } catch (Exception e) {
+                e.printStackTrace();
+                Logger.logError("Error al enviar saludo de autenticación: " + e.getMessage());
+            }
+        });
     }
 
 

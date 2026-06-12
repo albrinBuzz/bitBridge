@@ -9,7 +9,7 @@ import java.time.format.DateTimeFormatter;
 
 public class Logger {
     private static final String LOG_FILE = "bitBridge.log";
-    private static final long MAX_FILE_SIZE = 5 * 1024 * 1024;
+    private static final long MAX_FILE_SIZE = 500 * 1024 * 1024;
     private static boolean enableColors = true;
 
     // --- COLORES ANSI INTENSOS Y NEGRITAS ---

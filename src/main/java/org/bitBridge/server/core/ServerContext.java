@@ -8,6 +8,8 @@ import org.bitBridge.server.stats.ServerStats;
 import org.bitBridge.server.transfer.TransferSessionManager;
 import org.bitBridge.shared.network.ServerNetworkEngine;
 
+import javax.net.ssl.SSLContext;
+
 /**
  * Provee acceso seguro a los servicios del servidor sin exponer el ciclo de vida del Server.
  */
@@ -20,6 +22,8 @@ public class ServerContext {
     private final CommunicationDispatcher dispatcher;
     private ServerNetworkEngine networkEngine; // <--- Cambiamos a Engine y permitimos setter
 
+    private SSLContext sslContext;
+
     public ServerContext(ClientRegistry registry, NicknameService nicknameService,
                          TransferSessionManager transferManager, ServerStats stats,
                          Server server, CommunicationDispatcher dispatcher) {
@@ -31,37 +35,24 @@ public class ServerContext {
         this.dispatcher = dispatcher;
     }
 
-    // Getters...
+
+    public SSLContext getSslContext() {
+        return sslContext;
+    }
+
+    public void setSslContext(SSLContext sslContext) {
+        this.sslContext = sslContext;
+    }
+
+    // Getters existentes...
     public ServerNetworkEngine getNetworkEngine() { return networkEngine; }
     public void setNetworkEngine(ServerNetworkEngine engine) { this.networkEngine = engine; }
-
-    // Mantén los otros getters del record original
     public ClientRegistry registry() { return registry; }
     public TransferSessionManager transferManager() { return transferManager; }
-
-
-
-    public ClientRegistry getRegistry() {
-        return registry;
-    }
-
-    public NicknameService getNicknameService() {
-        return nicknameService;
-    }
-
-    public TransferSessionManager getTransferManager() {
-        return transferManager;
-    }
-
-    public ServerStats getStats() {
-        return stats;
-    }
-
-    public Server getServer() {
-        return server;
-    }
-
-    public CommunicationDispatcher getDispatcher() {
-        return dispatcher;
-    }
+    public ClientRegistry getRegistry() { return registry; }
+    public NicknameService getNicknameService() { return nicknameService; }
+    public TransferSessionManager getTransferManager() { return transferManager; }
+    public ServerStats getStats() { return stats; }
+    public Server getServer() { return server; }
+    public CommunicationDispatcher getDispatcher() { return dispatcher; }
 }

@@ -1,0 +1,56 @@
+keytool -genkeypair \
+  -alias localBridge \
+  -keyalg RSA \
+  -keysize 2048 \
+  -validity 365 \
+  -deststoretype PKCS12 \
+  -keystore keystore_local.p12 \
+  -ext SAN=dns:localhost,ip:127.0.0.1 \
+  -dname "CN=localhost,O=BitBridgeDev,C=CL" \
+  -storepass miPasswordLocal123
+
+
+  keytool -exportcert \
+    -alias localBridge \
+    -keystore keystore_local.p12 \
+    -file certificado_local.crt \
+    -storepass miPasswordLocal123
+
+
+keytool -genkeypair -alias localBridge -keyalg RSA -keysize 2048 -validity 365 -deststoretype PKCS12 -keystore keystore_local.p12 -ext SAN=dns:localhost,ip:127.0.0.1 -dname "CN=localhost,O=BitBridgeDev,C=CL" -storepass miPasswordLocal123 -noprompt
+
+
+keytool -exportcert -alias localBridge -keystore keystore_local.p12 -file certificado_local.crt -storepass miPasswordLocal123 -noprompt
+
+
+keytool -genkeypair \
+  -alias betaBridge \
+  -keyalg RSA \
+  -keysize 2048 \
+  -validity 365 \
+  -deststoretype PKCS12 \
+  -keystore keystore_beta.p12 \
+  -ext SAN=dns:localhost,ip:127.0.0.1 \
+  -dname "CN=localhost,O=BitBridgeBeta,C=CL" \
+  -storepass betaPassword999 \
+  -noprompt
+
+
+keytool -genkeypair \
+  -alias betaBridge \
+  -keyalg RSA \
+  -keysize 2048 \
+  -validity 365 \
+  -deststoretype PKCS12 \
+  -keystore keystore_beta.p12 \
+  -ext SAN=dns:localhost,ip:127.0.0.1,ip:192.168.100.187 \
+  -dname "CN=192.168.100.187,O=BitBridgeBeta,C=CL" \
+  -storepass betaPassword999 \
+  -noprompt
+
+keytool -exportcert \
+  -alias betaBridge \
+  -keystore keystore_beta.p12 \
+  -file certificado_beta.crt \
+  -storepass betaPassword999 \
+  -noprompt

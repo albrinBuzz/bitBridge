@@ -25,6 +25,7 @@ import org.bitBridge.shared.config.ConfiguracionApp;
 import org.bitBridge.shared.core.comunication.Communication;
 import org.bitBridge.shared.Logger;
 import org.bitBridge.shared.network.ServerNetworkEngine;
+import org.bitBridge.shared.network.tls.NioTlsHandler;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -39,7 +40,6 @@ public class NioServerEngine implements ServerNetworkEngine {
     private final ServerContext context;
     private final AtomicInteger TOTALCONECTIONS = new AtomicInteger(0);
 
-    // 🚨 CORREGIDO: Única fuente de verdad para el conteo de hilos worker
     private int workerCount;
     private SubReactor[] workers;
     private final AtomicInteger roundRobin = new AtomicInteger(0);
@@ -54,7 +54,6 @@ public class NioServerEngine implements ServerNetworkEngine {
     public String start(int port) throws IOException {
         notify("Inicializando Sub-Reactors...", LogLevel.INFO);
 
-        // 🚨 CORREGIDO: Asignación directa a la variable de instancia de la clase
         this.workerCount = config.obtenerInt(ConfigKey.NET_WORKER_THREADS,
                 Runtime.getRuntime().availableProcessors() * 4);
 
@@ -80,14 +79,12 @@ public class NioServerEngine implements ServerNetworkEngine {
     }
 
     private void acceptLoop() {
+        int maxConnections = config.obtenerInt(ConfigKey.NET_MAX_CONN, 100000);
+        boolean useNoDelay = config.obtenerBoolean(ConfigKey.NET_NODELAY, true);
         while (serverChannel.isOpen()) {
             try {
-                int maxConnections = config.obtenerInt(ConfigKey.NET_MAX_CONN, 100000);
-                boolean useNoDelay = config.obtenerBoolean(ConfigKey.NET_NODELAY, true);
-
                 SocketChannel clientChannel = serverChannel.accept();
                 if (clientChannel != null) {
-                    // 🚨 CORREGIDO: Validación atómica sin alterar el estado antes de tiempo
                     if (TOTALCONECTIONS.get() >= maxConnections) {
                         Logger.logWarn("Límite de conexiones alcanzado (" + maxConnections + "). Conexión rechazada.");
                         notify("Límite de conexiones alcanzado (" + maxConnections + ")", LogLevel.WARNING);
@@ -97,13 +94,10 @@ public class NioServerEngine implements ServerNetworkEngine {
 
                     clientChannel.configureBlocking(false);
                     clientChannel.setOption(StandardSocketOptions.TCP_NODELAY, useNoDelay);
-
-                    // 🔒 ENTORNO NUBE: Forzar KeepAlive de TCP para limpiar conexiones muertas por Firewalls
                     clientChannel.setOption(StandardSocketOptions.SO_KEEPALIVE, true);
 
                     TOTALCONECTIONS.incrementAndGet();
 
-                    // 🚨 CORREGIDO: Math.abs evita romper el índice si roundRobin llega a desbordar el Integer.MAX_VALUE
                     int index = Math.abs(roundRobin.getAndIncrement() % workerCount);
                     workers[index].registerChannel(clientChannel);
                 }
@@ -115,7 +109,7 @@ public class NioServerEngine implements ServerNetworkEngine {
         }
     }
 
-    // Clase interna para el aislamiento de tareas I/O
+    // Clase interna para el aislamiento de tareas I/O (Sub-Reactor pattern)
     private class SubReactor implements Runnable {
         private final Selector workerSelector;
         private final int id;
@@ -132,16 +126,28 @@ public class NioServerEngine implements ServerNetworkEngine {
                     NioClientHandler handler = new NioClientHandler(channel, context);
                     SelectionKey key = channel.register(workerSelector, SelectionKey.OP_READ, handler);
                     handler.setSelectionKey(key);
+
+                    // 🎯 CORREGIDO: Evaluamos dinámicamente si hay SSLContext.
+                    // Si no lo hay, useEncryption se propaga como 'false' evitando NullPointerExceptions
+                    boolean cifradoActivo = (context.getSslContext() != null);
+                    NioTlsHandler tlsHandler = new NioTlsHandler(channel, context.getSslContext(), key, false, cifradoActivo);
+
+                    // Seteamos el handler de forma segura. El disparo inicial ocurrirá de forma lineal
+                    // justo antes de que el selector entre en modo de escucha pasiva.
+                    handler.setTlsHandler(tlsHandler);
+
                 } catch (ClosedChannelException e) {
                     Logger.logError("Error registrando canal en Worker-" + id);
-                    // 🚨 CORREGIDO: Sanar el contador si el canal se murió antes de entrar al selector
                     TOTALCONECTIONS.decrementAndGet();
+                } catch (IOException e) {
+                    Logger.logError("❌ Error crítico configurando capa TLS del cliente en Worker-" + id + ": " + e.getMessage());
+                    TOTALCONECTIONS.decrementAndGet();
+                    try { channel.close(); } catch (IOException ignored) {}
                 }
             });
             workerSelector.wakeup();
         }
 
-        // 🚨 NUEVO: Permite inyectar cambios de estado de llaves de forma segura en el hilo correcto
         public void queueTask(Runnable task) {
             pendingTasks.add(task);
             workerSelector.wakeup();
@@ -182,13 +188,11 @@ public class NioServerEngine implements ServerNetworkEngine {
 
     public void unregisterChannel(SocketChannel channel) {
         if (channel == null) return;
-        boolean found = false;
         for (SubReactor worker : workers) {
             SelectionKey key = channel.keyFor(worker.workerSelector);
             if (key != null) {
                 key.cancel();
                 worker.workerSelector.wakeup();
-                found = true;
                 break;
             }
         }
@@ -201,7 +205,6 @@ public class NioServerEngine implements ServerNetworkEngine {
         for (SubReactor worker : workers) {
             SelectionKey key = channel.keyFor(worker.workerSelector);
             if (key != null) {
-                // 🚨 CORREGIDO: La mutación se delega al hilo del worker para evitar data races en el selector
                 worker.queueTask(() -> {
                     if (key.isValid()) {
                         key.interestOps(0);
@@ -218,7 +221,6 @@ public class NioServerEngine implements ServerNetworkEngine {
         for (SubReactor worker : workers) {
             SelectionKey key = channel.keyFor(worker.workerSelector);
             if (key != null) {
-
                 worker.queueTask(() -> {
                     if (key.isValid()) {
                         int ops = enabled ? SelectionKey.OP_READ : 0;

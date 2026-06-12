@@ -24,10 +24,9 @@ import org.bitBridge.server.core.auth.AuthStrategyFactory;
 import org.bitBridge.shared.core.comunication.Communication;
 import org.bitBridge.shared.Logger;
 import org.bitBridge.shared.core.comunication.model.basic.HandshakeMessage;
-import org.bitBridge.shared.core.comunication.model.basic.Mensaje;
-import org.bitBridge.shared.core.comunication.model.basic.MessageAck;
 import org.bitBridge.shared.memory.DirectBufferPool;
 import org.bitBridge.shared.network.ProtocolService;
+import org.bitBridge.shared.network.tls.NioTlsHandler;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -56,128 +55,145 @@ public class NioClientHandler implements BitBridgeClient {
     public String nick;
     private volatile boolean authenticated = false;
 
+    // La cola ahora almacena bytes puros de aplicación (Texto plano).
+    // El cifrado ocurre secuencialmente al momento de inyectar al socket channel.
     private final ConcurrentLinkedQueue<ByteBuffer> writeQueue = new ConcurrentLinkedQueue<>();
     private final AtomicBoolean isWriting = new AtomicBoolean(false);
+    private NioTlsHandler tlsHandler;
 
     public NioClientHandler(SocketChannel channel, ServerContext context) {
         this.channel = channel;
         this.context = context;
+        if (context.getSslContext() != null) {
+            Logger.logInfo("[INIT] Detectado SSLContext en servidor. Esperando asignación de NioTlsHandler...");
+        } else {
+            Logger.logWarn("[INIT] Sin contexto SSL configurado. Operando en modo texto plano (Fallback).");
+        }
     }
 
     public void setSelectionKey(SelectionKey key) {
         this.selectionKey = key;
     }
 
-    public void processRead() {
-        if (isShuttingDown) return;
-
+    public void setTlsHandler(NioTlsHandler tlsHandler) {
+        this.tlsHandler = tlsHandler;
+        // Al inyectar el handler desde el motor del servidor, ejecutamos un disparo inicial reactivo
+        // para consumir de inmediato el ClientHello si ya está disponible en el buffer del kernel.
         try {
-            int bytesRead;
-            while ((bytesRead = channel.read(readingHeader ? headerBuffer : payloadBuffer)) > 0) {
-
-                if (readingHeader) {
-                    if (headerBuffer.hasRemaining()) {
-                        return; // Faltan bytes del header, esperamos al siguiente evento de selección
-                    }
-
-                    headerBuffer.flip();
-                    int jsonSize = headerBuffer.getInt();
-                    int typeSize = headerBuffer.getInt();
-                    int fullPacketSize = 8 + typeSize + jsonSize;
-
-                    // Sanity Check contra paquetes corruptos o ataques maliciosos
-                    if (jsonSize < 0 || typeSize < 0 || typeSize > 128 || fullPacketSize > 50 * 1024 * 1024) {
-                        throw new IOException("Protocol Desync: Estructura de paquete inválida. Tamaño: " + fullPacketSize);
-                    }
-
-                    DirectBufferPool.BufferType poolSugerido = null;
-                    if (fullPacketSize <= DirectBufferPool.getCapacityForType(DirectBufferPool.BufferType.MESSAGE)) {
-                        poolSugerido = DirectBufferPool.BufferType.MESSAGE;
-                    } else if (fullPacketSize <= DirectBufferPool.getCapacityForType(DirectBufferPool.BufferType.DIRECTORY)) {
-                        poolSugerido = DirectBufferPool.BufferType.DIRECTORY;
-                    } else if (fullPacketSize <= DirectBufferPool.getCapacityForType(DirectBufferPool.BufferType.TRANSFER)) {
-                        poolSugerido = DirectBufferPool.BufferType.TRANSFER;
-                    }
-
-                    if (poolSugerido != null) {
-                        payloadBuffer = DirectBufferPool.acquire(poolSugerido, 50);
-                    }
-
-                    if (payloadBuffer == null) {
-                        payloadBuffer = ByteBuffer.allocateDirect(fullPacketSize);
-                    }
-
-                    payloadBuffer.limit(fullPacketSize);
-                    headerBuffer.rewind();
-                    payloadBuffer.put(headerBuffer); // Conservamos los bytes de control
-                    readingHeader = false;
-
-                    continue; // Continuamos para aprovechar el resto del stream
-                }
-
-                if (payloadBuffer.hasRemaining()) {
-                    return; // Cuerpo incompleto, esperar más datos de red
-                }
-
-                // --- PROCESAMIENTO DE PAQUETE COMPLETO ---
-                payloadBuffer.flip();
-                byte[] data = new byte[payloadBuffer.remaining()];
-                payloadBuffer.get(data);
-
-                if (payloadBuffer.isDirect()) {
-                    DirectBufferPool.release(payloadBuffer);
-                }
-
-                // Reset estructural antes de la bifurcación lógica
-                payloadBuffer = null;
-                headerBuffer.clear();
-                readingHeader = true;
-
-                // 🚨 MITIGACIÓN DE RACE CONDITION: Decisión atómica de hilos según autenticación
-                boolean abortarCicloInmediato = evaluarYProcesarPayload(data);
-
-                if (abortarCicloInmediato) {
-                    return; // Forzamos la salida del bucle de red para asentar el Handshake.
-                }
-            }
-
-            if (bytesRead == -1) {
-                throw new IOException("End of Stream (EOF) alcanzado.");
-            }
-
+            processRead();
         } catch (IOException e) {
+            Logger.logError("❌ Error en disparo TLS inicial del cliente: " + e.getMessage());
             shutDown();
         }
     }
 
-    /**
-     * Evalúa el estado del canal. Si no está autenticado, procesa sincrónicamente en el hilo de red
-     * y solicita congelar el buffer TCP para evitar absorber tramas posteriores prematuramente.
-     *
-     * @return true si se debe abortar el bucle inmediato de lectura, false para seguir iterando de forma asíncrona.
-     */
+    public void processRead() throws IOException {
+        if (isShuttingDown) return;
+
+        String idCliente = (getNick() != null) ? getNick() : "Canal-" + channel.hashCode();
+        Logger.logInfo("[NIO-READ] Trazando evento de lectura en selector para: " + idCliente);
+
+        ByteBuffer datosDescifrados = this.tlsHandler.handleReadEvent();
+
+        // Si handleReadEvent() procesó tramas de control de handshake o buffers parciales devolverá null
+        if (datosDescifrados != null && datosDescifrados.hasRemaining()) {
+            procesarBytesTextoPlano(datosDescifrados);
+        }
+    }
+
+    private void procesarBytesTextoPlano(ByteBuffer appIn) throws IOException {
+        Logger.logInfo("[PARSE-PLANO] Analizando flujo descifrado. Bytes disponibles: " + appIn.remaining());
+
+        while (appIn.hasRemaining()) {
+            if (readingHeader) {
+                while (headerBuffer.hasRemaining() && appIn.hasRemaining()) {
+                    headerBuffer.put(appIn.get());
+                }
+
+                if (headerBuffer.hasRemaining()) {
+                    return;
+                }
+
+                headerBuffer.flip();
+                int jsonSize = headerBuffer.getInt();
+                int typeSize = headerBuffer.getInt();
+                int fullPacketSize = 8 + typeSize + jsonSize;
+
+                if (jsonSize < 0 || typeSize < 0 || typeSize > 128 || fullPacketSize > 50 * 1024 * 1024) {
+                    headerBuffer.clear();
+                    throw new IOException("Protocol Desync en TLS plano: Estructura inválida.");
+                }
+
+                DirectBufferPool.BufferType poolSugerido = null;
+                if (fullPacketSize <= DirectBufferPool.getCapacityForType(DirectBufferPool.BufferType.MESSAGE)) {
+                    poolSugerido = DirectBufferPool.BufferType.MESSAGE;
+                } else if (fullPacketSize <= DirectBufferPool.getCapacityForType(DirectBufferPool.BufferType.DIRECTORY)) {
+                    poolSugerido = DirectBufferPool.BufferType.DIRECTORY;
+                } else if (fullPacketSize <= DirectBufferPool.getCapacityForType(DirectBufferPool.BufferType.TRANSFER)) {
+                    poolSugerido = DirectBufferPool.BufferType.TRANSFER;
+                }
+
+                if (poolSugerido != null) {
+                    payloadBuffer = DirectBufferPool.acquire(poolSugerido, 50);
+                }
+
+                if (payloadBuffer == null) {
+                    payloadBuffer = ByteBuffer.allocateDirect(fullPacketSize);
+                } else {
+                    payloadBuffer.clear().limit(fullPacketSize);
+                }
+
+                headerBuffer.rewind();
+                payloadBuffer.put(headerBuffer);
+                readingHeader = false;
+            }
+
+            while (payloadBuffer.hasRemaining() && appIn.hasRemaining()) {
+                payloadBuffer.put(appIn.get());
+            }
+
+            if (payloadBuffer.hasRemaining()) {
+                return;
+            }
+
+            payloadBuffer.flip();
+            byte[] data = new byte[payloadBuffer.remaining()];
+            payloadBuffer.get(data);
+
+            if (payloadBuffer.isDirect()) {
+                DirectBufferPool.release(payloadBuffer);
+            }
+
+            payloadBuffer = null;
+            headerBuffer.clear();
+            readingHeader = true;
+
+            evaluarYProcesarPayload(data);
+        }
+    }
+
     private boolean evaluarYProcesarPayload(byte[] data) {
         if (!authenticated) {
-            // Ejecución síncrona: El hilo del sub-reactor procesa el HandshakeMessage mutando el estado inmediatamente
             onMessageComplete(data);
-            return true; // Abortar el bucle `while`. Los bytes residuales se procesarán en el siguiente ciclo del Selector.
+            return true;
         } else {
-            // Flujo normal optimizado: Despacho asíncrono y ultra-rápido usando Hilos Virtuales
             Thread.ofVirtual().start(() -> onMessageComplete(data));
-            return false; // Continuar leyendo del canal en este mismo tick de red
+            return false;
         }
     }
 
     private void onMessageComplete(byte[] data) {
         try {
             Communication comm = ProtocolService.fromBytes(data);
+            Logger.logInfo("[BUSINESS-LOGIC] Tipo de comunicación mapeada: " + comm.getClass().getSimpleName());
+
             if (!authenticated) {
                 handleAuthentication(comm);
             } else {
                 context.getDispatcher().dispatch(this, comm, context);
             }
         } catch (Exception e) {
-            Logger.logError("Error procesando mensaje de " + getNick() + ": " + e.getMessage());
+            Logger.logError("❌ Error crítico procesando payload serializado: " + e.getMessage());
         }
     }
 
@@ -188,8 +204,8 @@ public class NioClientHandler implements BitBridgeClient {
 
         AuthStrategy strategy = AuthStrategyFactory.getStrategy(handshake.getPurpose());
         strategy.authenticate(this, handshake, this.context);
-
         this.authenticated = true;
+        Logger.logInfo("[AUTH] Autenticación completada con éxito. Nick asignado: " + getNick());
     }
 
     public void sendSharedBuffer(ByteBuffer buffer, AtomicInteger refCount) {
@@ -199,52 +215,58 @@ public class NioClientHandler implements BitBridgeClient {
     public void sendComunicacion(Communication comm) {
         if (isShuttingDown) return;
 
-        ByteBuffer buffer = null;
+        Logger.logInfo("[WRITE-PIPELINE] Solicitado envío de paquete: " + comm.getClass().getSimpleName() + " hacia " + getNick());
         try {
-            buffer = ProtocolService.toNioBuffer(comm, 50);
-            if (buffer == null) {
-                if (!(comm instanceof MessageAck)) return;
-                buffer = ProtocolService.toNioBuffer(comm, 500);
-                if (buffer == null) return;
+            ByteBuffer appOut = ProtocolService.toNioBuffer(comm, 50);
+            if (appOut == null) {
+                Logger.logError("[WRITE-PIPELINE] ProtocolService devolvió un buffer nulo.");
+                return;
             }
 
-            writeQueue.offer(buffer);
+            // 🎯 CORREGIDO: Encolamos la trama de aplicación limpia. El cifrado se delegará
+            // de forma atómica y lineal dentro del hilo único de drainWriteQueue().
+            writeQueue.offer(appOut);
             drainWriteQueue();
         } catch (IOException e) {
-            Logger.logError("Error serializando paquete saliente: " + e.getMessage());
+            Logger.logError("❌ Error crítico encolando paquete saliente: " + e.getMessage());
         }
     }
 
     private void drainWriteQueue() {
         if (isWriting.compareAndSet(false, true)) {
+            Logger.logInfo("[DRAIN-QUEUE] Levantando ejecutor de vaciado asíncrono (Hilo Virtual)...");
             Thread.ofVirtual().start(() -> {
                 try {
-                    ByteBuffer buf;
-                    while ((buf = writeQueue.poll()) != null) {
-                        try {
-                            while (buf.hasRemaining()) {
-                                int written = channel.write(buf);
+                    ByteBuffer appBuf;
+                    int packCount = 0;
+                    while ((appBuf = writeQueue.poll()) != null) {
+                        packCount++;
 
-                                // 🟢 REGISTRO AQUÍ: written devuelve los bytes reales
-                                // escritos en el búfer de socket del sistema operativo en este ciclo.
-                                if (written > 0) {
-                                    context.getServer().getStats().recordBytes(written);
-                                }
+                        ByteBuffer bufAEnviar;
+                        // 🎯 CORREGIDO: Evaluamos dinámicamente el estado real del túnel TLS del handler.
+                        if (context.getSslContext() != null && tlsHandler != null && tlsHandler.isHandshakeComplete()) {
+                            Logger.logInfo(String.format("[DRAIN-QUEUE] [Paquete %d] Cifrando payload plano con SSLEngine...", packCount));
+                            bufAEnviar = tlsHandler.cifrar(appBuf);
+                        } else {
+                            bufAEnviar = appBuf;
+                        }
 
-                                if (written == 0) {
-                                    Thread.yield();
-                                }
+                        int bytesAEnviar = bufAEnviar.remaining();
+                        Logger.logInfo(String.format("[DRAIN-QUEUE] [Paquete %d] Escribiendo %d bytes en el canal físico...", packCount, bytesAEnviar));
+
+                        while (bufAEnviar.hasRemaining()) {
+                            int written = channel.write(bufAEnviar);
+                            if (written > 0) {
+                                context.getServer().getStats().recordBytes(written);
                             }
-                        } catch (IOException e) {
-                            // Capturar error de escritura en este canal específico si es necesario
-                            throw e;
-                        } finally {
-                            if (buf.isDirect()) {
-                                DirectBufferPool.release(buf);
+                            if (written == 0) {
+                                Thread.yield();
                             }
                         }
+                        Logger.logInfo(String.format("[DRAIN-QUEUE] [Paquete %d] Transferencia física exitosa.", packCount));
                     }
                 } catch (IOException e) {
+                    Logger.logError("❌ Error de escritura de red en canal físico. Forzando desmantelamiento: " + e.getMessage());
                     shutDown();
                 } finally {
                     isWriting.set(false);
@@ -264,8 +286,10 @@ public class NioClientHandler implements BitBridgeClient {
             isShuttingDown = true;
         }
 
+        String currentNick = (nick != null) ? nick : "Sesión-Desconocida";
+        Logger.logWarn("⚠️ [SHUTDOWN] Iniciando desmantelamiento atómico de recursos de red para: " + currentNick);
+
         try {
-            String currentNick = (nick != null) ? nick : "Unknown";
             boolean esSesionDeDatos = isSessionId(currentNick);
 
             context.registry().removeClient(this);
@@ -279,8 +303,10 @@ public class NioClientHandler implements BitBridgeClient {
                 payloadBuffer = null;
             }
 
+            int purgados = 0;
             ByteBuffer pendingWriteBuf;
             while ((pendingWriteBuf = writeQueue.poll()) != null) {
+                purgados++;
                 if (pendingWriteBuf.isDirect()) {
                     DirectBufferPool.release(pendingWriteBuf);
                 }
@@ -301,7 +327,7 @@ public class NioClientHandler implements BitBridgeClient {
             context.getServer().updateClient();
 
         } catch (IOException e) {
-            Logger.logError("Fallo durante el desmantelamiento de recursos de " + nick + ": " + e.getMessage());
+            Logger.logError("❌ Fallo crítico durante el desmantelamiento final de recursos: " + e.getMessage());
         }
     }
 

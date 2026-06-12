@@ -1,7 +1,5 @@
 package org.bitBridge.server.config;
 
-
-
 public enum ConfigKey {
     // RED
     SERVER_NAME("servidor.nombre"),
@@ -11,6 +9,17 @@ public enum ConfigKey {
     NET_KEEPALIVE("net.keepalive"),
     NET_NODELAY("net.nodelay"),
     NET_ENCRYPTION("net.encryption"),
+
+    // 🔒 SEGURIDAD TLS (NUEVO)
+
+    NET_TLS_ENABLED("net.tls.enabled"),
+    NET_TLS_GLOBAL_CA("net.tls.use_global_ca"),
+    NET_TLS_VALIDATION_MODE("net.tls.validation_mode"), //STATIC TOFU GLOBAL
+    NET_TLS_STATIC_CERT_PATH("net.tls.static_cert_path"),
+    NET_TLS_KEYSTORE("net.tls.keystore_path"), // Identidad del Servidor (Cert + Private Key)
+    NET_TLS_PASSWORD("net.tls.password"),
+    NET_TLS_TRUSTSTORE("net.tls.truststore_path"), // 👈 NUEVO: Base de datos TOFU del Cliente (.properties o JKS)
+    NET_TLS_CERT_AUTO_GEN("net.tls.auto_generate"),
 
     NET_SELECTOR_THREADS("net.threads.selector"),
     /** Cantidad de hilos para procesamiento de lógica y tareas pesadas (Workers) */
@@ -45,7 +54,6 @@ public enum ConfigKey {
     // SECURITY
     AUTH_REQUIRED("auth.required"),
     AUTH_KEY("auth.key");
-
 
     private final String key;
 

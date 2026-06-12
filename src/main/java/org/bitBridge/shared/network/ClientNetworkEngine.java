@@ -11,4 +11,5 @@ public interface ClientNetworkEngine extends NetworkEngine {
     String getHostName();
     void disconnect() throws IOException;
     boolean isActive();
+    void setHost(String host, int port);
 }

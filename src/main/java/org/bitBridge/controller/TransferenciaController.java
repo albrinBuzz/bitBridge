@@ -4,6 +4,7 @@ import org.bitBridge.Client.managers.TransferManager;
 import org.bitBridge.Observers.TransferencesObserver;
 import org.bitBridge.models.TransferProgress;
 import org.bitBridge.models.Transferencia;
+import org.bitBridge.server.config.ConfigKey;
 import org.bitBridge.shared.FileTransferState;
 import org.bitBridge.shared.Logger;
 import org.bitBridge.shared.config.ConfiguracionApp;
@@ -127,7 +128,8 @@ public class TransferenciaController {
 
     public boolean notifyTranference(FileHandshakeCommunication handshakeCommunication) {
         boolean autoAccept = ConfiguracionApp.getInstancia()
-                .obtenerBoolean(org.bitBridge.server.config.ConfigKey.TRANSFER_AUTO_ACCEPT, false);
+                .obtenerBoolean(ConfigKey.TRANSFER_AUTO_ACCEPT, true);
+        autoAccept=true;
 
         if (autoAccept) {
             Logger.logInfo("🤖 [CONTROLADOR] Auto-Accept activo. Autorizando transferencia entrante de forma automática.");

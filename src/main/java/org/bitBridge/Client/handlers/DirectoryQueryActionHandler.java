@@ -29,6 +29,7 @@ public class DirectoryQueryActionHandler implements ClientActionHandler<Director
         // Delegamos al executor inmediatamente para no bloquear el hilo del Selector de NIO
         context.executor().submit(() -> {
             try {
+                Logger.logInfo(query.getToken());
                 String target = query.getTargetPath();
 
                 // 1. Resolución de ruta segura
@@ -51,6 +52,7 @@ public class DirectoryQueryActionHandler implements ClientActionHandler<Director
                 // 4. Carga de contenido (Escaneo bajo demanda)
                 NodoDirectorio nodoRaiz = new NodoDirectorio(pathParaEscanear);
                 nodoRaiz.cargarContenido();
+
 
                 // 5. Respuesta asíncrona
                 DirectoryQueryResponse response = new DirectoryQueryResponse(
