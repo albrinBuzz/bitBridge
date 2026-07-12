@@ -131,9 +131,7 @@ public class RemoteExplorer extends JFrame implements RemoteDirectoryListener {
         // =========================================================================
         dualExplorerPanel = new DualExplorerPanel();
         //dualExplorerPanel.setOnPullExecution(this::ejecutarPull);
-        dualExplorerPanel.setOnPullExecution(nodoDirectorios -> {
-            ejecutarPull(nodoDirectorios.getFirst());
-        });
+        dualExplorerPanel.setOnPullExecution(this::ejecutarPull);
 
         dualExplorerPanel.setOnPushExecution(nodoDirectorios -> {
             ejecutarPush(nodoDirectorios.getFirst());
@@ -210,7 +208,7 @@ public class RemoteExplorer extends JFrame implements RemoteDirectoryListener {
                 if (!seleccionados.isEmpty()) {
                     Logger.logInfo("Disparando pipeline de descarga PULL para " + seleccionados.size() + " elementos.");
                     // Tu lógica existente para procesar solicitudes de FilePullRequest
-                    ejecutarPull(seleccionados.getFirst());
+                    ejecutarPull(seleccionados);
                 }
             }
         });
@@ -232,7 +230,7 @@ public class RemoteExplorer extends JFrame implements RemoteDirectoryListener {
     /**
      * Intercepta las colecciones de datos físicos e inyecta la matriz cruzada a ambas tablas.
      */
-    private void refrescarEspejoRsync(List<NodoDirectorio> remotosNuevos) {
+    private void refrescarEspejoRsync(List<NodoDirectorio> remotosNuevos,NodoDirectorio nodoPadre) {
         List<NodoDirectorio> locales = new ArrayList<>();
         File dirLocal = new File(this.rutaLocalActual);
 
@@ -250,7 +248,8 @@ public class RemoteExplorer extends JFrame implements RemoteDirectoryListener {
                 ? remotosNuevos
                 : dualExplorerPanel.getRemoteTablePanel().getSelectedNodes(); // O preservas estado previo
 
-        dualExplorerPanel.coordinarEstructuras(locales, remotosAUsar, this.rutaLocalActual, this.rutaRemotaActual);
+        //dualExplorerPanel.coordinarEstructuras(locales, remotosAUsar,nodoPadre, this.rutaLocalActual, this.rutaRemotaActual);
+        dualExplorerPanel.coordinarEstructuras(null, locales, nodoPadre, remotosAUsar, this.rutaLocalActual, this.rutaRemotaActual);
     }
 
     private void solicitarDirectorioRemoto(String rutaDestino) {
@@ -262,31 +261,51 @@ public class RemoteExplorer extends JFrame implements RemoteDirectoryListener {
         }
     }
 
-    private void ejecutarPull(NodoDirectorio nodo) {
+    private void ejecutarPull(List<NodoDirectorio> nodos) {
+        if (nodos == null || nodos.isEmpty()) return;
+
+        // Levantamos un hilo secundario para no bloquear el EDT de Swing al inicializar el pool
         new Thread(() -> {
-            try {
-                Logger.logInfo("Petición de PULL enviada: " + nodo.getNombre());
+            // Configuramos un pool fijo de 2 descargas concurrentes en paralelo.
+            // Las demás se encolan automáticamente de forma ordenada (FIFO).
+            java.util.concurrent.ExecutorService poolDescargas = java.util.concurrent.Executors.newFixedThreadPool(2);
 
-                FilePullRequest request = new FilePullRequest(
-                        nodo.getRutaString(),
-                        nodo.getNombre(),
-                        targetIp,
-                        client.getHostName(),
-                        nodo.esDirectorio()
-                );
+            Logger.logInfo("📦 [PULL-BATCH] Inicializando cola de descarga masiva para " + nodos.size() + " elementos.");
 
-                client.enviarComunicacion(request);
+            for (NodoDirectorio nodo : nodos) {
+                poolDescargas.submit(() -> {
+                    try {
+                        Logger.logInfo("Petición de PULL enviada: " + nodo.getNombre());
 
-                SwingUtilities.invokeLater(() -> {
-                    Logger.logInfo("Transferencia iniciada para: " + nodo.getNombre());
-                });
+                        FilePullRequest request = new FilePullRequest(
+                                nodo.getRutaString(),
+                                nodo.getNombre(),
+                                targetIp,
+                                client.getHostName(),
+                                nodo.esDirectorio()
+                        );
 
-            } catch (Exception ex) {
-                Logger.logError("Fallo en descarga: " + ex.getMessage());
-                SwingUtilities.invokeLater(() -> {
-                    JOptionPane.showMessageDialog(this, "Error de red: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                        // Envía el comando al pipeline NIO (pasa por TLS si está activo)
+                        client.enviarComunicacion(request);
+
+                        SwingUtilities.invokeLater(() -> {
+                            Logger.logInfo("Transferencia iniciada para: " + nodo.getNombre());
+                        });
+
+                        // Pequeño delay de amortiguación antes de procesar el siguiente de la cola
+                        Thread.sleep(100);
+
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    } catch (Exception ex) {
+                        Logger.logError("❌ [PULL-ERROR] Fallo en descarga individual: " + ex.getMessage());
+                    }
                 });
             }
+
+            // El pool no aceptará más tareas y se cerrará limpiamente cuando termine el último elemento
+            poolDescargas.shutdown();
+
         }).start();
     }
 
@@ -343,7 +362,7 @@ public class RemoteExplorer extends JFrame implements RemoteDirectoryListener {
 
         SwingUtilities.invokeLater(() -> {
             // Sincronizar y actualizar las dos tablas en paralelo
-            refrescarEspejoRsync(nodoRemotoActual.getHijos());
+            refrescarEspejoRsync(nodoRemotoActual.getHijos(),nodo);
 
             // Actualizar elementos dinámicos de cabecera
             breadcrumbBar.updatePath(raizDatos, nodoRemotoActual);
@@ -423,55 +442,6 @@ public class RemoteExplorer extends JFrame implements RemoteDirectoryListener {
         }
     }
 
-    // =========================================================================
-    // 🛠️ MÉTODOS DE CONSTRUCCIÓN VISUAL DE SOPORTE
-    // =========================================================================
-    private JPanel createGlobalToolBar() {
-        JPanel bar = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        bar.setBackground(BG_DARKER);
-        bar.setBorder(new MatteBorder(0, 0, 1, 0, Color.DARK_GRAY));
-
-        bar.add(new JButton("🔌 Conectar a Nodo"));
-        bar.add(new JButton("📁 Compartir Local"));
-        bar.add(new JSeparator(SwingConstants.VERTICAL));
-
-        JLabel sysStats = new JLabel(" CPU: 12% | RAM: 1.2GB/64GB | Latencia: 15ms ");
-        sysStats.setForeground(Color.GRAY);
-        bar.add(sysStats);
-
-        return bar;
-    }
-
-    private JPanel createSidePanel() {
-        JPanel side = new JPanel(new BorderLayout());
-        side.setBackground(BG_DARKER);
-
-        DefaultListModel<String> favModel = new DefaultListModel<>();
-        favModel.addElement("⭐ Servidor Principal i7");
-        favModel.addElement("⭐ Backup Gigabyte B760");
-        favModel.addElement("📁 /home/user/logs");
-        favModel.addElement("📁 /var/www/assets");
-
-        JList<String> favList = new JList<>(favModel);
-        favList.setBackground(BG_DARKER);
-        favList.setFixedCellHeight(35);
-        favList.setBorder(new TitledBorder(new LineBorder(Color.DARK_GRAY), "Favoritos"));
-
-        DefaultMutableTreeNode root = new DefaultMutableTreeNode("Infraestructura");
-        DefaultMutableTreeNode node1 = new DefaultMutableTreeNode("NODO-REMOTO-01");
-        node1.add(new DefaultMutableTreeNode("BitBridge-Shared"));
-        node1.add(new DefaultMutableTreeNode("System-Backups"));
-        root.add(node1);
-
-        JTree tree = new JTree(root);
-        tree.setBackground(BG_DARKER);
-
-        JSplitPane split = new JSplitPane(JSplitPane.VERTICAL_SPLIT, new JScrollPane(favList), new JScrollPane(tree));
-        split.setDividerLocation(200);
-
-        side.add(split, BorderLayout.CENTER);
-        return side;
-    }
 
     private JPanel createNavigationControls() {
         JPanel navButtons = new JPanel(new FlowLayout(FlowLayout.LEFT, 2, 0));
@@ -520,7 +490,7 @@ public class RemoteExplorer extends JFrame implements RemoteDirectoryListener {
 
         // 2. Re-escanear el entorno local y actualizar la interfaz de inmediato
         SwingUtilities.invokeLater(() -> {
-            refrescarEspejoRsync(this.nodoRemotoActual != null ? this.nodoRemotoActual.getHijos() : null);
+            refrescarEspejoRsync(this.nodoRemotoActual != null ? this.nodoRemotoActual.getHijos() : null,nodoRemotoActual);
         });
     }
 
@@ -876,11 +846,7 @@ public class RemoteExplorer extends JFrame implements RemoteDirectoryListener {
     }
 
 
-    private JButton createNavButton(String text, String tt) {
-        JButton b = new JButton(text);
-        b.setToolTipText(tt);
-        return b;
-    }
+
 
     private JPanel createStatusBar() {
         JPanel status = new JPanel(new BorderLayout());

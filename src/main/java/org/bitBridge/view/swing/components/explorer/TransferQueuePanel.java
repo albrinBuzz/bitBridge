@@ -7,6 +7,7 @@ import org.bitBridge.Observers.TransferencesObserver;
 import org.bitBridge.models.TransferProgress;
 import org.bitBridge.models.Transferencia;
 import org.bitBridge.shared.FileTransferState;
+import org.bitBridge.shared.Logger;
 import org.bitBridge.shared.core.comunication.FileHandshakeAction;
 import org.bitBridge.shared.core.comunication.model.basic.FileHandshakeCommunication;
 import org.bitBridge.view.swing.components.transfers.TransferPanel;
@@ -125,31 +126,77 @@ public class TransferQueuePanel extends JPanel implements TransferencesObserver 
 
     @Override
     public void updateTransferenceFull(TransferProgress progress) {
+        if (progress == null) {
+            Logger.logWarn("[UI-TRANSFER] updateTransferenceFull ignorado: el objeto TransferProgress es NULL.");
+            return;
+        }
+        if (progress.id() == null) {
+            Logger.logWarn("[UI-TRANSFER] updateTransferenceFull ignorado: el ID de la transferencia es NULL.");
+            return;
+        }
+
         String id = progress.id();
-        Integer rowIndex = rowMap.get(id);
-
-        if (rowIndex == null) return;
-
         long now = System.currentTimeMillis();
         long lastUpdate = lastUpdateMap.getOrDefault(id, 0L);
+        long tiempoTranscurrido = now - lastUpdate;
 
+
+        // Control de ráfaga (Throttling) para proteger el rendimiento de la UI
         if (now - lastUpdate < REFRESH_RATE_MS && progress.percentage() < 100) {
+
             return;
         }
         lastUpdateMap.put(id, now);
 
+        // Pasamos al hilo de la interfaz gráfica de forma segura
         SwingUtilities.invokeLater(() -> {
-            if (rowIndex < model.getRowCount()) {
-                model.setValueAt(progress.percentage(), rowIndex, 4);
+            // 🔥 CRÍTICO: Consultar el mapa DENTRO del EDT para evitar condiciones de carrera
+            Integer modelRowIndex = rowMap.get(id);
 
-                if (progress.percentage() >= 100) {
-                    model.setValueAt("FINALIZADO", rowIndex, 2);
-                    model.setValueAt("---", rowIndex, 3);
-                    model.setValueAt("00:00", rowIndex, 5);
-                } else {
-                    model.setValueAt(String.format("%.1f MB/s", progress.speedMBs()), rowIndex, 3);
-                    model.setValueAt(progress.eta(), rowIndex, 5);
+            if (modelRowIndex == null) {
+                Logger.logError(String.format("[UI-TRANSFER] ❌ ERROR: El ID '%s' NO se encuentra registrado en el rowMap. Las llaves actuales son: %s",
+                        id, rowMap.keySet().toString()));
+                return;
+            }
+
+            if (modelRowIndex >= model.getRowCount()) {
+                Logger.logError(String.format("[UI-TRANSFER] ❌ ERROR: El índice de fila mapeado (%d) excede el tamaño actual del modelo (%d filas) para ID: %s",
+                        modelRowIndex, model.getRowCount(), id));
+                return;
+            }
+
+            // Conversión a índice de vista por si la JTable tiene un RowSorter activo (filtros/ordenamiento)
+            int viewRowIndex = -1;
+            try {
+                viewRowIndex = table.convertRowIndexToView(modelRowIndex);
+                if (viewRowIndex == -1) {
+                    Logger.logWarn(String.format("[UI-TRANSFER] 🔍 Fila del modelo %d está oculta por un RowFilter activo para ID: %s", modelRowIndex, id));
                 }
+            } catch (Exception e) {
+                Logger.logWarn(String.format("[UI-TRANSFER] 🔍 Excepción al convertir índice. Fila del modelo %d no visible en vista para ID: %s. Detalle: %s",
+                        modelRowIndex, id, e.getMessage()));
+                viewRowIndex = -1;
+            }
+
+
+
+            // Modificación segura de las celdas directamente en el Modelo
+            model.setValueAt(progress.percentage(), modelRowIndex, 4);
+
+            if (progress.percentage() >= 100) {
+                model.setValueAt("FINALIZADO", modelRowIndex, 2);
+                model.setValueAt("---", modelRowIndex, 3);
+                model.setValueAt("00:00", modelRowIndex, 5);
+                lastUpdateMap.remove(id); // Limpieza de caché de refresco
+                Logger.logInfo(String.format("[UI-TRANSFER] ✅ Fila %d con ID %s marcada como FINALIZADA.", modelRowIndex, id));
+            } else {
+                model.setValueAt(String.format("%.1f MB/s", progress.speedMBs()), modelRowIndex, 3);
+                model.setValueAt(progress.eta(), modelRowIndex, 5);
+            }
+
+            // Forzar repintado inmediato del rectángulo de la fila visual modificada si está en pantalla
+            if (viewRowIndex != -1) {
+                table.repaint(table.getCellRect(viewRowIndex, 0, true));
             }
         });
     }

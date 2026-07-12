@@ -12,10 +12,6 @@ import org.bitBridge.shared.*;
 import org.bitBridge.shared.core.comunication.FileHandshakeAction;
 import org.bitBridge.shared.core.comunication.model.basic.FileHandshakeCommunication;
 
-import javax.sound.sampled.AudioFormat;
-import javax.sound.sampled.AudioSystem;
-import javax.sound.sampled.LineUnavailableException;
-import javax.sound.sampled.SourceDataLine;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableCellRenderer;
@@ -24,7 +20,6 @@ import javax.swing.table.TableCellEditor;
 import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableRowSorter;
 import java.awt.*;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -36,17 +31,13 @@ public class TransferPanel extends JPanel implements TransferencesObserver {
     private DefaultTableModel model;
     private TableRowSorter<DefaultTableModel> sorter;
 
-    // CORRECCIÓN CONCURRENTE: Evitamos excepciones ConcurrentModificationException con los hilos de red
     private final Map<String, Integer> rowMap = new ConcurrentHashMap<>();
     private final Map<String, TransferManager> managerMap = new ConcurrentHashMap<>();
     private final Map<String, Long> lastUpdateMap = new ConcurrentHashMap<>();
     private static final int REFRESH_RATE_MS = 150;
 
-    private final Color COLOR_TARJETA = new Color(45, 52, 54);
     private static final Color SUCCESS_GREEN = new Color(46, 204, 113);
     private static final Color NICOTINE_ORANGE = new Color(255, 165, 0);
-    private final Color COLOR_SUCCESS = new Color(46, 204, 113);
-    private static final Color BG_DARKER = new Color(25, 25, 25);
 
     public TransferPanel() {
         setLayout(new BorderLayout());
@@ -58,6 +49,7 @@ public class TransferPanel extends JPanel implements TransferencesObserver {
     private void initComponents() {
         add(createEnhancedHeader(), BorderLayout.NORTH);
 
+        // Índices: 0:ID, 1:ARCHIVO, 2:TIPO, 3:ESTADO, 4:VELOCIDAD, 5:PROGRESO, 6:TAMAÑO, 7:ACCIONES
         String[] cols = {"ID", "ARCHIVO", "TIPO", "ESTADO", "VELOCIDAD", "PROGRESO", "TAMAÑO", "ACCIONES"};
         model = new DefaultTableModel(cols, 0) {
             @Override public boolean isCellEditable(int r, int c) {
@@ -159,26 +151,26 @@ public class TransferPanel extends JPanel implements TransferencesObserver {
         table.getColumnModel().getColumn(6).setCellRenderer(textRenderer);
         table.getColumnModel().getColumn(5).setCellRenderer(new ProgressRenderer());
 
+        // El renderizador de la velocidad ahora concatena el ETA de forma interna desde las propiedades del cliente si existe
         table.getColumnModel().getColumn(4).setCellRenderer(new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable t, Object v, boolean isS, boolean hasF, int r, int c) {
                 super.getTableCellRendererComponent(t, v, isS, hasF, r, c);
-                if (v instanceof Double speed) {
-                    int modelRow = t.convertRowIndexToModel(r);
-                    String id = (String) t.getModel().getValueAt(modelRow, 0);
-                    String eta = (String) t.getClientProperty("eta." + id);
+                setBorder(new EmptyBorder(0, 20, 0, 20));
+                int modelRow = t.convertRowIndexToModel(r);
+                String id = (String) t.getModel().getValueAt(modelRow, 0);
+                String eta = (String) t.getClientProperty("eta." + id);
 
-                    if (speed <= 0) {
-                        setText("---");
-                    } else {
-                        setText(String.format("%.2f MB/s (%s)", speed, eta));
-                    }
+                String speedStr = (v != null) ? String.valueOf(v) : "---";
+                if (eta != null && !eta.isEmpty() && !"---".equals(speedStr)) {
+                    setText(speedStr + " (" + eta + ")");
+                } else {
+                    setText(speedStr);
                 }
                 return this;
             }
         });
 
-        // --- ENLAZAR HANDLER CORREGIDO ---
         ActionCellHandler actionHandler = new ActionCellHandler();
         table.getColumnModel().getColumn(7).setCellRenderer(actionHandler);
         table.getColumnModel().getColumn(7).setCellEditor(actionHandler);
@@ -207,7 +199,7 @@ public class TransferPanel extends JPanel implements TransferencesObserver {
                     tipoTexto,
                     "CONECTANDO...",
                     "---",
-                    0,
+                    0, // Progreso entero inicial
                     formatSize(t.getTamano()),
                     t.getId()
             });
@@ -217,35 +209,46 @@ public class TransferPanel extends JPanel implements TransferencesObserver {
     }
 
     @Override
-    public void updateTransferenceFull(TransferProgress p) {
-        if (p == null || p.id() == null) return;
+    public void updateTransferenceFull(TransferProgress progress) {
+        if (progress == null || progress.id() == null) return;
 
+        String id = progress.id();
         long now = System.currentTimeMillis();
-        long lastUpdate = lastUpdateMap.getOrDefault(p.id(), 0L);
+        long lastUpdate = lastUpdateMap.getOrDefault(id, 0L);
+        long tiempoTranscurrido = now - lastUpdate;
 
-        if (p.percentage() < 100 && (now - lastUpdate < REFRESH_RATE_MS)) {
+        if (progress.percentage() < 100 && (tiempoTranscurrido < REFRESH_RATE_MS)) {
             return;
         }
-        lastUpdateMap.put(p.id(), now);
+        lastUpdateMap.put(id, now);
 
         SwingUtilities.invokeLater(() -> {
-            Integer currentModelRowIndex = rowMap.get(p.id());
-            if (currentModelRowIndex == null) return;
+            Integer modelRowIndex = rowMap.get(id);
+            if (modelRowIndex == null || modelRowIndex >= model.getRowCount()) return;
 
-            model.setValueAt(p.speedMBs(), currentModelRowIndex, 4);
-            table.putClientProperty("eta." + p.id(), p.eta());
-            model.setValueAt(p.percentage(), currentModelRowIndex, 5);
+            // Guardamos el ETA dinámicamente en la tabla para que la col 4 lo renderice sin corromper los tipos del modelo
+            table.putClientProperty("eta." + id, progress.percentage() >= 100 ? "00:00" : progress.eta());
 
-            if (p.percentage() >= 100) {
-                model.setValueAt("FINALIZADO", currentModelRowIndex, 3);
-                lastUpdateMap.remove(p.id());
+            // CORRECCIÓN MAPEO COLUMNAS:
+            // 3: ESTADO, 4: VELOCIDAD, 5: PROGRESO (Integer)
+            model.setValueAt(progress.percentage(), modelRowIndex, 5);
+
+            if (progress.percentage() >= 100) {
+                model.setValueAt("FINALIZADO", modelRowIndex, 3);
+                model.setValueAt("---", modelRowIndex, 4);
+                lastUpdateMap.remove(id);
             } else {
-                Object estadoActual = model.getValueAt(currentModelRowIndex, 3);
-                // Si la red está activa y la UI dice PAUSADO, no sobreescribir hasta que reanude en el backend
-                if (!"EN CURSO".equals(estadoActual) && !"PAUSADO".equals(estadoActual)) {
-                    model.setValueAt("EN CURSO", currentModelRowIndex, 3);
-                }
+                model.setValueAt("EN CURSO", modelRowIndex, 3);
+                model.setValueAt(String.format("%.1f MB/s", progress.speedMBs()), modelRowIndex, 4);
             }
+
+            int viewRowIndex = -1;
+            try {
+                viewRowIndex = table.convertRowIndexToView(modelRowIndex);
+                if (viewRowIndex != -1) {
+                    table.repaint(table.getCellRect(viewRowIndex, 0, true));
+                }
+            } catch (Exception ignored) {}
         });
     }
 
@@ -258,6 +261,7 @@ public class TransferPanel extends JPanel implements TransferencesObserver {
                 model.setValueAt(100, mRow, 5);
                 model.setValueAt("FINALIZADO", mRow, 3);
                 model.setValueAt("---", mRow, 4);
+                table.putClientProperty("eta." + id, "00:00");
             }
         });
     }
@@ -434,7 +438,7 @@ public class TransferPanel extends JPanel implements TransferencesObserver {
     }
 
     // =========================================================================
-    // --- CLASE INTERNA DE CONTROLADORES DE ACCIÓN (RENDERING/EDITING FIX) ---
+    // --- CLASE INTERNA DE CONTROLADORES DE ACCIÓN PROTEGIDA EN TIPOS ---
     // =========================================================================
     private class ActionCellHandler extends AbstractCellEditor implements TableCellRenderer, TableCellEditor {
 
@@ -449,18 +453,14 @@ public class TransferPanel extends JPanel implements TransferencesObserver {
                 return;
             }
 
-            // 1. Ejecutar inmediatamente la acción de control en el Backend
             executeTransferAction(m, action);
 
-            // CORRECCIÓN ATÓMICA: Cerramos la edición ANTES de actualizar la UI
-            // Esto destruye el editor interactivo viejo y evita el bug del doble clic
             SwingUtilities.invokeLater(() -> {
                 cancelCellEditing();
 
                 int modelRow = getRowById(id);
                 if (modelRow != -1) {
                     updateModelStatus(modelRow, action);
-                    // Forzamos la notificación de mutación en la celda del estado (3) y de los botones (7)
                     model.fireTableCellUpdated(modelRow, 3);
                     model.fireTableCellUpdated(modelRow, 7);
                 }
@@ -468,7 +468,6 @@ public class TransferPanel extends JPanel implements TransferencesObserver {
         }
 
         private void executeTransferAction(TransferManager m, String action) {
-            // Sincronizado con los nombres de métodos reales de tu backend de red
             switch (action) {
                 case "PAUSE" -> m.pause();
                 case "RESUME" -> m.resume();
@@ -493,7 +492,17 @@ public class TransferPanel extends JPanel implements TransferencesObserver {
 
             int modelRow = table.convertRowIndexToModel(row);
             String estado = model.getValueAt(modelRow, 3).toString();
-            int progreso = (int) model.getValueAt(modelRow, 5);
+
+            // CORRECCIÓN BLINDAJE DE TIPOS: Evitamos ClassCastException analizando el tipo de dato real
+            Object progresoObj = model.getValueAt(modelRow, 5);
+            int progreso = 0;
+            if (progresoObj instanceof Number num) {
+                progreso = num.intValue();
+            } else if (progresoObj instanceof String str) {
+                try {
+                    progreso = Integer.parseInt(str.replace("%", "").trim());
+                } catch (NumberFormatException ignored) {}
+            }
 
             if (progreso >= 100 || "FINALIZADO".equals(estado) || "CANCELADO".equals(estado)) {
                 JLabel lbl = new JLabel("CANCELADO".equals(estado) ? "✕" : "✔");
@@ -560,15 +569,18 @@ public class TransferPanel extends JPanel implements TransferencesObserver {
 
         @Override
         public Component getTableCellRendererComponent(JTable t, Object v, boolean isS, boolean hasF, int r, int c) {
-            int val = (v instanceof Integer) ? (Integer) v : 0;
+            int val = 0;
+            if (v instanceof Number num) {
+                val = num.intValue();
+            }
             setValue(val);
 
             if (val == 100) {
                 setForeground(SUCCESS_GREEN.darker());
                 setString("Completado");
             } else {
-                setForeground(NICOTINE_ORANGE.darker());
                 setString(val + " %");
+                setForeground(NICOTINE_ORANGE.darker());
             }
             setBackground(new Color(45, 52, 54));
             return this;

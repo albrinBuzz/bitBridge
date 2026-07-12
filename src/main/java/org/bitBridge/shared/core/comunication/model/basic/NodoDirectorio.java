@@ -8,6 +8,7 @@ import java.nio.file.attribute.PosixFilePermissions;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Stream;
 
 /**
  * Modelo anatómico de archivo/directorio optimizado para sincronización rápida estilo Rsync.
@@ -42,7 +43,8 @@ public class NodoDirectorio implements Serializable {
         this.cargado = !esDirectorio;
 
         try {
-            this.tamaño = esDirectorio ? 0 : Files.size(ruta);
+            //this.tamaño = esDirectorio ? 0 : Files.size(ruta);
+            this.tamaño=obtenerTamañoHibridoNIO(ruta);
             this.fechaModificacionMillis = Files.getLastModifiedTime(ruta).toMillis();
 
             // Extracción nativa de Atributos POSIX (Seguro para Linux Fedora/Rocky)
@@ -61,7 +63,33 @@ public class NodoDirectorio implements Serializable {
         }
     }
 
-    // --- MÉTODOS DE RUTA COMPATIBLES (Mantenidos de tu versión) ---
+
+    public static long obtenerTamañoHibridoNIO(Path ruta) {
+        if (!Files.isDirectory(ruta)) {
+            try {
+                return Files.size(ruta);
+            } catch (IOException e) { return 0; }
+        }
+
+        // Transforma el árbol de archivos en un flujo plano y suma en paralelo
+        try (Stream<Path> stream = Files.walk(ruta)) {
+            return stream
+                    .parallel() // ⚡ Divide el trabajo entre los núcleos de tu CPU
+                    .filter(p -> !Files.isDirectory(p)) // Solo sumamos el peso de los archivos reales
+                    .mapToLong(p -> {
+                        try {
+                            return Files.size(p);
+                        } catch (IOException e) {
+                            return 0L;
+                        }
+                    })
+                    .sum();
+        } catch (IOException e) {
+            return 0L;
+        }
+    }
+
+
     public synchronized void cargarContenido() {
         if (cargado || !esDirectorio || rutaCompleta == null) return;
         if (SYS_EXCLUSIONS.contains(rutaString)) {
@@ -70,10 +98,26 @@ public class NodoDirectorio implements Serializable {
         }
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(rutaCompleta)) {
             hijos.clear();
+            long sumaTamaño = 0;
+            long ultimaModificacionHijos = this.fechaModificacionMillis;
+
             for (Path entrada : stream) {
                 if (!Files.isReadable(entrada)) continue;
-                hijos.add(new NodoDirectorio(entrada));
+
+                NodoDirectorio hijo = new NodoDirectorio(entrada);
+                sumaTamaño += hijo.getTamaño();
+
+                if (hijo.getFechaModificacionMillis() > ultimaModificacionHijos) {
+                    ultimaModificacionHijos = hijo.getFechaModificacionMillis();
+                }
+
+                hijos.add(hijo);
             }
+
+            // Asignación de metadatos calculados al directorio padre
+            this.tamaño = sumaTamaño;
+            this.fechaModificacionMillis = ultimaModificacionHijos;
+
             cargado = true;
         } catch (IOException e) {
             org.bitBridge.shared.Logger.logError("Error cargando nivel: " + rutaString);

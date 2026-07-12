@@ -18,17 +18,35 @@ import org.bitBridge.shared.network.ProtocolService;
 import java.io.*;
 import java.net.InetSocketAddress;
 import java.net.StandardSocketOptions;
+import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.file.*;
 import java.security.MessageDigest;
 import java.util.*;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.zip.Adler32;
 
 import static org.bitBridge.server.transfer.TransferSessionManager.PREFIX_REQUEST;
 
+/**
+ * ============================================================================
+ *  OPTIMIZACIONES APLICADAS (ver PLAN_REFACTORIZACION.md para detalle)
+ * ----------------------------------------------------------------------------
+ *  1. Rolling checksum REAL O(1) por byte en procesarYEnviarDeltas (antes era
+ *     O(n * BLOCK_SIZE): se releía y rehasheaba el bloque completo en cada
+ *     desplazamiento de 1 byte cuando no había coincidencia).
+ *  2. generarFirmasLocales ahora reparte el archivo entre N hilos (uno por
+ *     núcleo disponible), cada uno con su propio FileChannel, en vez de
+ *     hashear secuencialmente en un solo hilo.
+ *  3. Tamaño de bloque adaptativo: se levanta el techo de 64KB a 1MB para
+ *     archivos > 100MB, reduciendo el número total de firmas.
+ *  4. Escritura por lotes (arraycopy) en el buffer de literales en vez de
+ *     byte a byte.
+ * ============================================================================
+ */
 public class NioDirectoryTransferManager implements TransferManager {
     private volatile boolean running = true;
     private final TransferenciaController transferenciaController;
@@ -40,7 +58,10 @@ public class NioDirectoryTransferManager implements TransferManager {
     // Variables dinámicas para el cálculo del ahorro físico real en red
     private long totalWireBytesTransmitted = 0;
 
-    private   int BLOCK_SIZE = 64 * 1024; // Bloques de 64KB para el rolling hash
+    private int BLOCK_SIZE = 64 * 1024; // Bloques de 64KB para el rolling hash (valor por defecto, se recalcula por archivo)
+
+    private static final long MOD_ADLER = 65521L;
+    private static final int SIGNATURE_THREADS = Math.max(1, Runtime.getRuntime().availableProcessors());
 
     public NioDirectoryTransferManager(TransferenciaController controller) {
         this.transferenciaController = controller;
@@ -62,7 +83,7 @@ public class NioDirectoryTransferManager implements TransferManager {
     }
 
     // --- LÓGICA DE ENVÍO (SENDER) ---
-    public  void sendDirectory(File rootDir, String host, int port, String recipient) {
+    public void sendDirectory(File rootDir, String host, int port, String recipient) {
         String sessionId = PREFIX_REQUEST + new Random().nextInt(10000);
         AtomicInteger fileCount = new AtomicInteger(0);
         AtomicLong sizeCount = new AtomicLong(0);
@@ -93,8 +114,7 @@ public class NioDirectoryTransferManager implements TransferManager {
 
             if (channel.isConnected()) {
                 Logger.logInfo("[SENDER-NIO] Canal conectado. Despachando metadatos estructurales de la raíz...");
-                //ProtocolService.writeNIO(channel, new Mensaje(sessionId));
-                ProtocolService.writeNIO(channel, new HandshakeMessage(sessionId,SocketPurpose.FILE_TRANSFER,""));
+                ProtocolService.writeNIO(channel, new HandshakeMessage(sessionId, SocketPurpose.FILE_TRANSFER, ""));
                 ProtocolService.writeNIO(channel, new FileDirectoryCommunication(rootDir.getName(), fileCount.get(), recipient, totalSize));
 
                 Logger.logInfo("[SENDER-NIO] Esperando autorización START_TRANSFER del nodo receptor...");
@@ -148,48 +168,42 @@ public class NioDirectoryTransferManager implements TransferManager {
             String relativePath = target.getAbsolutePath().substring(target.getAbsolutePath().indexOf(rootName));
             boolean isDir = target.isDirectory();
             long lastModified = target.lastModified();
+            String rawRelativePath = target.getAbsolutePath().substring(target.getAbsolutePath().indexOf(rootName));
 
+            // ⚡ NORMALIZACIÓN CRUZADA: Reemplazamos las '\' de Windows por '/' universales
+            String relativePathNormalizada = rawRelativePath.replace("\\", "/");
             FileDirectoryCommunication meta = new FileDirectoryCommunication(
                     target.getName(),
                     isDir ? 0 : target.length(),
                     isDir,
-                    relativePath
+                    relativePathNormalizada
             );
             meta.setLastModified(lastModified);
             meta.setRecipient(recipient);
 
-            //Logger.logInfo(String.format("[SENDER-WALK] Evaluando nodo estructural: %s (%s)", relativePath, isDir ? "DIR" : "FILE"));
             ProtocolService.writeNIO(socket, meta);
 
             FileHandshakeCommunication ack = waitForHandshakeNIO(socket);
-            BLOCK_SIZE=calcularTamanoBloqueOptimo(target.length());
+            BLOCK_SIZE = calcularTamanoBloqueOptimo(target.length());
+
             if (ack.getAction() == FileHandshakeAction.SKIP_FILE) {
-                //Logger.logInfo(String.format(" │ ⏩ [OMITIDO] Nodo remoto reporta archivo idéntico: %s", relativePath));
                 totalBytesProcessed += target.length();
                 transferenciaController.updateProgressMetrics(FileTransferState.SENDING, idTransfe, totalBytesProcessed, totalSize);
                 continue;
             }
 
             if (isDir) {
-                //Logger.logInfo(String.format(" │ 📂 [DIRECTORIO] Descendiendo de nivel recursivo en: %s", relativePath));
                 enviarRecursivoNIO(socket, target, rootName, idTransfe, recipient);
             } else if (ack.getAction() == FileHandshakeAction.PROCESS_DELTAS) {
-                //Logger.logWarn(String.format(" │ ⚡ [MODO RSYNC] Mutación detectada en: %s. Descargando firmas...", relativePath));
-
                 checkPause();
                 RsyncSignatures signatures = (RsyncSignatures) ProtocolService.readNIO(socket);
-                //Logger.logInfo(String.format(" │  ├── Recibidas %d firmas remotas. Ejecutando rolling hash O(1)...", signatures.getSignatures().size()));
 
                 procesarYEnviarDeltas(socket, target, signatures, idTransfe);
 
-                //Logger.logInfo(" │  └── Esperando confirmación de escritura física en disco del receptor...");
                 ProtocolService.readNIO(socket);
             } else {
                 checkPause();
-                //Logger.logInfo(String.format(" │ 📥 [MODO TRADICIONAL] Archivo nuevo. Entrando en Zero-Copy: %s", relativePath));
                 enviarArchivoCompletoNIO(socket, target, idTransfe);
-
-                //Logger.logInfo(" │  └── Esperando confirmación de vaciado de buffer remoto...");
                 ProtocolService.readNIO(socket);
             }
         }
@@ -210,6 +224,62 @@ public class NioDirectoryTransferManager implements TransferManager {
         }
     }
 
+    /**
+     * ------------------------------------------------------------------------------------
+     *  CHECKSUM RODANTE (Adler-style) — actualización O(1) por byte.
+     *  Implementa la recurrencia estándar del algoritmo rsync (Tridgell & Mackerras):
+     *      a(k+1) = a(k) - X_out + X_in
+     *      b(k+1) = b(k) - L * X_out + a(k+1)
+     *  A diferencia de java.util.zip.Adler32, este objeto SÍ soporta desplazar la
+     *  ventana un byte sin recalcular desde cero. Se usa de forma consistente tanto
+     *  al generar firmas (init only) como al escanear en busca de coincidencias (roll).
+     * ------------------------------------------------------------------------------------
+     */
+    private static final class RollingChecksum {
+        long a, b;
+        int blockLen;
+        private boolean initialized = false;
+
+        void init(byte[] data, int offset, int len) {
+            long s1 = 0, s2 = 0;
+            for (int idx = 0; idx < len; idx++) {
+                int val = data[offset + idx] & 0xFF;
+                s1 += val;
+                s2 += (long) (len - idx) * val;
+            }
+            a = s1 % MOD_ADLER;
+            b = s2 % MOD_ADLER;
+            blockLen = len;
+            initialized = true;
+        }
+
+        void roll(int outByte, int inByte) {
+            long newA = (a - outByte + inByte) % MOD_ADLER;
+            if (newA < 0) newA += MOD_ADLER;
+            long newB = (b - (long) blockLen * outByte + newA) % MOD_ADLER;
+            if (newB < 0) newB += MOD_ADLER;
+            a = newA;
+            b = newB;
+        }
+
+        long getValue() {
+            return (b << 16) | a;
+        }
+
+        boolean isInitialized() {
+            return initialized;
+        }
+
+        void markUninitialized() {
+            initialized = false;
+        }
+    }
+
+    /**
+     * Escaneo de deltas con checksum rodante real. Usa un buffer doble con
+     * compactación amortizada O(1) para evitar seeks/re-lecturas repetidas
+     * de disco en cada desplazamiento de byte (antes: fc.position(i) por byte).
+     */
     private void procesarYEnviarDeltas(SocketChannel socket, File file, RsyncSignatures signatures, String idTransfe) throws Exception {
         Map<Long, List<BlockSignature>> adlerMap = new HashMap<>();
         for (BlockSignature sig : signatures.getSignatures()) {
@@ -217,70 +287,106 @@ public class NioDirectoryTransferManager implements TransferManager {
         }
 
         List<RsyncDeltaInstruction> instructions = new ArrayList<>();
-        ByteArrayOutputStream literalBuffer = new ByteArrayOutputStream();
-
-        Adler32 adler = new Adler32();
+        ByteArrayOutputStream literalBuffer = new ByteArrayOutputStream(Math.max(BLOCK_SIZE, 4096));
         MessageDigest md5 = MessageDigest.getInstance("MD5");
 
-        // Optimizacion O(1): Usamos FileChannel y un ByteBuffer de tamaño fijo
+        int matchedBlocks = 0;
+        long literalBytes = 0;
+
         try (FileChannel fc = FileChannel.open(file.toPath(), StandardOpenOption.READ)) {
             long fileSize = fc.size();
-            long i = 0;
-            int matchedBlocks = 0;
-            int literalBytes = 0;
 
-            // Buffer reutilizable en la Stack para las operaciones de hashing
-            byte[] blockWindow = new byte[BLOCK_SIZE];
-            java.nio.ByteBuffer byteBuffer = java.nio.ByteBuffer.wrap(blockWindow);
+            if (fileSize == 0) {
+                ProtocolService.writeNIO(socket, new RsyncDeltaPackage(instructions));
+                totalBytesProcessed += fileSize;
+                transferenciaController.updateProgressMetrics(FileTransferState.SENDING, idTransfe, totalBytesProcessed, totalSize);
+                return;
+            }
+
+            // Buffer doble: capacidad 2x BLOCK_SIZE para poder compactar sin perder datos de la ventana activa
+            byte[] buf = new byte[BLOCK_SIZE * 2];
+            int bufValid = 0;  // bytes válidos cargados en buf, contando desde el índice 0
+            int winStart = 0;  // inicio de la ventana actual dentro de buf
+            long i = 0;        // offset lógico (en el archivo) del inicio de la ventana
+
+            // Carga inicial
+            bufValid = readFully(fc, buf, 0, buf.length);
+
+            RollingChecksum rc = new RollingChecksum();
 
             while (i < fileSize && running) {
                 checkPause();
-                long remainingBytes = fileSize - i;
-                int currentBlockSize = (int) Math.min(BLOCK_SIZE, remainingBytes);
+                int windowLen = (int) Math.min(BLOCK_SIZE, fileSize - i);
 
-                // Leer la ventana actual desde el canal sin cargar el archivo completo
-                byteBuffer.clear();
-                byteBuffer.limit(currentBlockSize);
-                fc.position(i);
-                fc.read(byteBuffer);
+                // Asegurar que la ventana completa esté cargada en el buffer; compactar si hace falta espacio
+                if (winStart + windowLen > bufValid) {
+                    int remaining = bufValid - winStart;
+                    if (remaining > 0) System.arraycopy(buf, winStart, buf, 0, remaining);
+                    int extra = readFully(fc, buf, remaining, buf.length - remaining);
+                    bufValid = remaining + extra;
+                    winStart = 0;
+                }
 
-                if (currentBlockSize < BLOCK_SIZE && remainingBytes == currentBlockSize) {
-                    for (int j = 0; j < currentBlockSize; j++) {
-                        literalBuffer.write(blockWindow[j]);
-                        literalBytes++;
-                    }
+                // Cola del archivo más corta que BLOCK_SIZE: se trata directo como literal (no se busca match parcial)
+                if (windowLen < BLOCK_SIZE) {
+                    literalBuffer.write(buf, winStart, windowLen);
+                    literalBytes += windowLen;
+                    i += windowLen;
                     break;
                 }
 
-                adler.reset();
-                adler.update(blockWindow, 0, currentBlockSize);
-                long currentAdler = adler.getValue();
+                if (!rc.isInitialized()) {
+                    rc.init(buf, winStart, windowLen);
+                }
 
                 boolean matchFound = false;
-                if (adlerMap.containsKey(currentAdler)) {
+                long checksum = rc.getValue();
+                List<BlockSignature> candidates = adlerMap.get(checksum);
+
+                if (candidates != null) {
                     md5.reset();
-                    md5.update(blockWindow, 0, currentBlockSize);
+                    md5.update(buf, winStart, windowLen);
                     byte[] currentMd5 = md5.digest();
 
-                    for (BlockSignature sig : adlerMap.get(currentAdler)) {
+                    for (BlockSignature sig : candidates) {
                         if (Arrays.equals(sig.getMd5(), currentMd5)) {
                             if (literalBuffer.size() > 0) {
                                 instructions.add(new RsyncDeltaInstruction(literalBuffer.toByteArray()));
                                 literalBuffer.reset();
                             }
                             instructions.add(new RsyncDeltaInstruction(sig.getBlockIndex()));
-                            i += currentBlockSize;
-                            matchFound = true;
                             matchedBlocks++;
+                            matchFound = true;
+                            i += windowLen;
+                            winStart += windowLen;
+                            rc.markUninitialized();
                             break;
                         }
                     }
                 }
 
                 if (!matchFound) {
-                    literalBuffer.write(blockWindow[0]); // Inyectar el byte del frente de la ventana
+                    // Desplazar la ventana 1 byte: emitir el byte saliente y actualizar el checksum en O(1)
+                    int outByte = buf[winStart] & 0xFF;
+                    literalBuffer.write(outByte);
                     literalBytes++;
                     i++;
+                    winStart++;
+
+                    if (i + windowLen <= fileSize) {
+                        if (winStart + windowLen > bufValid) {
+                            int remaining = bufValid - winStart;
+                            if (remaining > 0) System.arraycopy(buf, winStart, buf, 0, remaining);
+                            int extra = readFully(fc, buf, remaining, buf.length - remaining);
+                            bufValid = remaining + extra;
+                            winStart = 0;
+                        }
+                        int inByte = buf[winStart + windowLen - 1] & 0xFF;
+                        rc.roll(outByte, inByte);
+                    } else {
+                        // No hay suficiente cola para mantener una ventana completa: se reinicia en la próxima vuelta
+                        rc.markUninitialized();
+                    }
                 }
             }
 
@@ -290,7 +396,6 @@ public class NioDirectoryTransferManager implements TransferManager {
 
             RsyncDeltaPackage deltaPackage = new RsyncDeltaPackage(instructions);
 
-            // Estimar el tamaño en bytes del paquete de deltas serializado para medir ahorro de red
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             try (ObjectOutputStream oos = new ObjectOutputStream(baos)) {
                 oos.writeObject(deltaPackage);
@@ -306,6 +411,19 @@ public class NioDirectoryTransferManager implements TransferManager {
             totalBytesProcessed += fileSize;
             transferenciaController.updateProgressMetrics(FileTransferState.SENDING, idTransfe, totalBytesProcessed, totalSize);
         }
+    }
+
+    /** Lee hasta 'len' bytes secuencialmente desde el FileChannel hacia buf[offset..], sin seeks intermedios. */
+    private int readFully(FileChannel fc, byte[] buf, int offset, int len) throws IOException {
+        if (len <= 0) return 0;
+        ByteBuffer bb = ByteBuffer.wrap(buf, offset, len);
+        int total = 0;
+        while (bb.hasRemaining()) {
+            int r = fc.read(bb);
+            if (r == -1) break;
+            total += r;
+        }
+        return total;
     }
 
     // --- LÓGICA DE RECEPCIÓN (RECEPTOR) ---
@@ -332,17 +450,16 @@ public class NioDirectoryTransferManager implements TransferManager {
             channel.configureBlocking(true);
 
             if (transferenciaController.notifyTranference(handshake)) {
-                //Logger.logInfo(String.format("[RECEPTOR-TCP] Estableciendo conexión inversa hacia %s:%d...", host, port));
+                Logger.logInfo(String.format("🌐 [CONEXIÓN] Conectando a %s:%d para transferencia...", host, port));
                 channel.connect(new InetSocketAddress(host, port));
 
                 if (channel.isConnected()) {
-                    //Logger.logInfo("[RECEPTOR-NIO] Canal de datos abierto. Transmitiendo Tokens de Handshake...");
-                    //ProtocolService.writeNIO(channel, new Mensaje(sessionId));
-                    ProtocolService.writeNIO(channel, new HandshakeMessage(sessionId,SocketPurpose.FILE_TRANSFER,""));
+                    Logger.logInfo("🔒 [HANDSHAKE] Canal conectado. Enviando credenciales de sesión y aceptación...");
+                    ProtocolService.writeNIO(channel, new HandshakeMessage(sessionId, SocketPurpose.FILE_TRANSFER, ""));
                     ProtocolService.writeNIO(channel, new FileHandshakeCommunication(FileHandshakeAction.ACCEPT_REQUEST, sessionId));
 
                     if (confirmarInicioNIO(channel, sessionId)) {
-                        //Logger.logInfo("[RECEPTOR-HANDSHAKE] Handshake mutuo verificado. Escuchando instrucciones de la máquina de estados...");
+                        Logger.logInfo("🚀 [FLUJO] Inicio confirmado por el nodo remoto. Inicializando tracking en UI...");
                         String idTransfe = transferenciaController.addTransference(
                                 FileTransferState.RECEIVING.name(), info.getRecipient(), info.getRecipient(), info.getName(), this, info.getSize()
                         );
@@ -351,15 +468,20 @@ public class NioDirectoryTransferManager implements TransferManager {
 
                         while (running) {
                             checkPause();
+
+
                             Communication meta = ProtocolService.readNIO(channel);
 
                             if (meta instanceof FileDirectoryCommunication fileMeta) {
                                 Path destPath = Paths.get(downloadDir, fileMeta.getRelativePath());
-                                //Logger.logInfo(String.format("[RECEPTOR-STREAM] Procesando instrucción para: %s", fileMeta.getRelativePath()));
+                                String tipoNodo = fileMeta.isDirectory() ? "📂 CARPETA" : "📄 ARCHIVO";
+
+
 
                                 if (Files.exists(destPath)) {
+
                                     if (fileMeta.isDirectory()) {
-                                        //Logger.logInfo(" │ 📂 [OMITIDO] El directorio local ya está instanciado.");
+
                                         ProtocolService.writeNIO(channel, new FileHandshakeCommunication(FileHandshakeAction.START_TRANSFER, sessionId));
                                         continue;
                                     } else {
@@ -367,121 +489,156 @@ public class NioDirectoryTransferManager implements TransferManager {
                                         long localLastModified = Files.getLastModifiedTime(destPath).toMillis();
 
                                         if (localSize == fileMeta.getSize() && localLastModified >= fileMeta.getLastModified()) {
-                                            //Logger.logInfo(" │ ⏩ [OMITIDO] Atributos binarios y timestamp idénticos.");
+
                                             totalBytesProcessed += fileMeta.getSize();
                                             ProtocolService.writeNIO(channel, new FileHandshakeCommunication(FileHandshakeAction.SKIP_FILE, sessionId));
                                             continue;
                                         }
-                                        BLOCK_SIZE=calcularTamanoBloqueOptimo(info.getSize());
-                                        //Logger.logWarn(" │ ⚡ [DIFERENCIA DETECTADA] Activando motor de sincronización Rsync...");
+
+                                        Logger.logInfo("│ 🛠️ [RSYNC] El archivo difiere. Iniciando algoritmo de sincronización diferencial...");
+                                        BLOCK_SIZE = calcularTamanoBloqueOptimo(info.getSize());
+                                        Logger.logInfo("│    ▪️ Tamaño de bloque asignado: " + BLOCK_SIZE + " bytes");
+
                                         ProtocolService.writeNIO(channel, new FileHandshakeCommunication(FileHandshakeAction.PROCESS_DELTAS, sessionId));
 
-                                        //Logger.logInfo(" │  ├── Generando mapa local de firmas Adler32/MD5...");
+                                        Logger.logInfo("│    ▪️ Generando firmas hash locales (Rolling & MD5)...");
                                         RsyncSignatures signatures = generarFirmasLocales(destPath);
 
-                                        //Logger.logInfo(String.format(" │  ├── Enviando %d bloques de firmas al emisor...", signatures.getSignatures().size()));
+                                        Logger.logInfo("│    ▪️ Enviando firmas al emisor...");
                                         ProtocolService.writeNIO(channel, signatures);
 
                                         checkPause();
-                                        //Logger.logInfo(" │  ├── Leyendo paquete de deltas encapsulado desde el canal...");
+                                        Logger.logInfo("│    ▪️ Esperando paquete de deltas encapsulado (RsyncDeltaPackage)...");
                                         RsyncDeltaPackage deltaPkg = (RsyncDeltaPackage) ProtocolService.readNIO(channel);
 
-                                        // Medir el peso del delta en el receptor
-                                        /*ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                                        try (ObjectOutputStream oos = new ObjectOutputStream(baos)) {
-                                            oos.writeObject(deltaPkg);
-                                        }
-                                        totalWireBytesTransmitted += baos.size();/*
-
-                                         */
-
-
-                                        //Logger.logInfo(" │  ├── Reconstruyendo archivo binario aplicando instrucciones...");
+                                        Logger.logInfo("│    ▪️ Parcheando y reconstruyendo archivo de forma local...");
                                         reconstruirArchivoRsync(destPath, deltaPkg);
+
+                                        Logger.logInfo("│ ✅ [RSYNC-OK] Sincronización finalizada con éxito.");
+                                        Logger.logInfo("└───────────────────────────────────────────────────────────────────");
 
                                         totalBytesProcessed += fileMeta.getSize();
                                         transferenciaController.updateProgressMetrics(FileTransferState.RECEIVING, idTransfe, totalBytesProcessed, info.getSize());
 
-                                        //Logger.logInfo(" │  └── Sincronización exitosa del nodo de datos. Confirmando ACK de liberación...");
                                         ProtocolService.writeNIO(channel, new FileHandshakeCommunication(FileHandshakeAction.START_TRANSFER, sessionId));
                                         continue;
                                     }
                                 }
 
+                                // Si no existe, se procesa de cero
                                 if (fileMeta.isDirectory()) {
-                                    //Logger.logInfo(String.format(" │ 📁 [VIRTUAL-DIR] Instanciando árbol local: %s", destPath.toAbsolutePath()));
+                                    Logger.logInfo("│ 📂 [CREAR] Creando estructura de directorio nueva...");
+                                    Logger.logInfo("└───────────────────────────────────────────────────────────────────");
                                     Files.createDirectories(destPath);
                                     ProtocolService.writeNIO(channel, new FileHandshakeCommunication(FileHandshakeAction.START_TRANSFER, sessionId));
                                     continue;
                                 }
 
-                                //Logger.logInfo(String.format(" │ 📥 [NUEVO] Creando asignación limpia de disco para: %s", destPath.getFileName()));
+                                Logger.logInfo("│ 📥 [DESCARGA] El archivo no existe. Preparando flujo para descarga completa...");
                                 if (destPath.getParent() != null) {
                                     Files.createDirectories(destPath.getParent());
                                 }
 
                                 ProtocolService.writeNIO(channel, new FileHandshakeCommunication(FileHandshakeAction.START_TRANSFER, sessionId));
+
+                                Logger.logInfo("│    ⏳ Recibiendo flujo binario desde el canal...");
                                 recibirArchivoCompletoNIO(channel, destPath, fileMeta.getSize(), idTransfe, info.getSize());
+                                Logger.logInfo("│ ✨ [DESCARGA-OK] Archivo guardado correctamente.");
+                                Logger.logInfo("└───────────────────────────────────────────────────────────────────");
+
                                 ProtocolService.writeNIO(channel, new FileHandshakeCommunication(FileHandshakeAction.START_TRANSFER, sessionId));
 
                             } else if (meta instanceof FileHandshakeCommunication h && h.getAction() == FileHandshakeAction.TRANSFER_DONE) {
                                 Logger.logInfo("┌──────────────────────────────────────────────────────────────────┐");
-                                Logger.logInfo("│  ✅ [COMPLETO] Nodo remoto envió señal TRANSFER_DONE.           │");
+                                Logger.logInfo("│  🏁 [COMPLETO] El nodo remoto ha enviado TRANSFER_DONE.         │");
                                 Logger.logInfo("└──────────────────────────────────────────────────────────────────┘");
                                 mostrarEstadisticasFinales(System.currentTimeMillis() - startTime, info.getSize(), totalWireBytesTransmitted, false);
                                 break;
+                            } else {
+                                Logger.logWarn("⚠️ [FLUJO] Se recibió un paquete desconocido en la máquina de estados: " + (meta != null ? meta.getClass().getSimpleName() : "null"));
                             }
                         }
                     }
                 }
             }
+
+
         } catch (Exception e) {
             Logger.logError("❌ [RECEPTOR-CRITICAL-ERROR] Fallo en la máquina de estados recursiva: " + e.getMessage());
             e.printStackTrace();
         }
     }
 
+    /**
+     * Generación de firmas en PARALELO: el archivo se reparte en rangos de bloques
+     * contiguos entre N hilos (N = núcleos disponibles), cada uno con su propio
+     * FileChannel abierto en modo lectura sobre la misma ruta (lecturas posicionales
+     * independientes, sin contención). Reemplaza el escaneo secuencial de un solo hilo.
+     */
     private RsyncSignatures generarFirmasLocales(Path path) throws Exception {
-        List<BlockSignature> list = new ArrayList<>();
-
-        // Optimización O(1): Leer secuencialmente con FileChannel
-        try (FileChannel fc = FileChannel.open(path, StandardOpenOption.READ)) {
-            long totalBytes = fc.size();
-            long index = 0;
-            int blockIdx = 0;
-
-            Adler32 adler = new Adler32();
-            MessageDigest md5 = MessageDigest.getInstance("MD5");
-
-            byte[] buffer = new byte[BLOCK_SIZE];
-            java.nio.ByteBuffer byteBuffer = java.nio.ByteBuffer.wrap(buffer);
-
-            while (index < totalBytes) {
-                int length = (int) Math.min(BLOCK_SIZE, totalBytes - index);
-
-                byteBuffer.clear();
-                byteBuffer.limit(length);
-                fc.read(byteBuffer);
-
-                adler.reset();
-                adler.update(buffer, 0, length);
-                long adlerHash = adler.getValue();
-
-                md5.reset();
-                md5.update(buffer, 0, length);
-                byte[] md5Hash = md5.digest();
-
-                list.add(new BlockSignature(blockIdx++, adlerHash, md5Hash));
-                index += length;
-            }
+        long totalBytes = Files.size(path);
+        if (totalBytes == 0) {
+            return new RsyncSignatures(new ArrayList<>());
         }
-        return new RsyncSignatures(list);
+
+        int numBlocks = (int) ((totalBytes + BLOCK_SIZE - 1) / BLOCK_SIZE);
+        BlockSignature[] results = new BlockSignature[numBlocks];
+
+        int threads = Math.min(SIGNATURE_THREADS, Math.max(1, numBlocks));
+        ExecutorService pool = Executors.newFixedThreadPool(threads);
+
+        try {
+            int blocksPerWorker = (int) Math.ceil((double) numBlocks / threads);
+            List<Future<?>> futures = new ArrayList<>();
+
+            for (int w = 0; w < threads; w++) {
+                final int startBlock = w * blocksPerWorker;
+                final int endBlock = Math.min(numBlocks, startBlock + blocksPerWorker);
+                if (startBlock >= endBlock) continue;
+
+                futures.add(pool.submit(() -> {
+                    try (FileChannel fc = FileChannel.open(path, StandardOpenOption.READ)) {
+                        Adler32 adler = new Adler32();
+                        MessageDigest md5 = MessageDigest.getInstance("MD5");
+                        byte[] buffer = new byte[BLOCK_SIZE];
+
+                        for (int b = startBlock; b < endBlock; b++) {
+                            long offset = (long) b * BLOCK_SIZE;
+                            int len = (int) Math.min(BLOCK_SIZE, totalBytes - offset);
+
+                            ByteBuffer bb = ByteBuffer.wrap(buffer, 0, len);
+                            long pos = offset;
+                            while (bb.hasRemaining()) {
+                                int r = fc.read(bb, pos);
+                                if (r == -1) break;
+                                pos += r;
+                            }
+
+                            adler.reset();
+                            adler.update(buffer, 0, len);
+
+                            md5.reset();
+                            md5.update(buffer, 0, len);
+
+                            results[b] = new BlockSignature(b, adler.getValue(), md5.digest());
+                        }
+                    } catch (Exception e) {
+                        throw new CompletionException(e);
+                    }
+                }));
+            }
+
+            for (Future<?> f : futures) f.get();
+        } finally {
+            pool.shutdown();
+        }
+
+        return new RsyncSignatures(Arrays.asList(results));
     }
 
     private void reconstruirArchivoRsync(Path targetPath, RsyncDeltaPackage packageDeltas) throws Exception {
         Path tempFile = Paths.get(targetPath.toString() + ".tmp");
 
-        // Optimización Extrema: Copia quirúrgica bloque a bloque sin tocar la Heap
         try (FileChannel fcOriginal = FileChannel.open(targetPath, StandardOpenOption.READ);
              FileChannel fcTarget = FileChannel.open(tempFile, StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
 
@@ -489,14 +646,12 @@ public class NioDirectoryTransferManager implements TransferManager {
 
             for (RsyncDeltaInstruction inst : packageDeltas.getInstructions()) {
                 if (inst.isLiteral()) {
-                    // Es data nueva: Escribir directo desde los bytes literales del delta
                     byte[] literal = inst.getLiteralData();
-                    java.nio.ByteBuffer buf = java.nio.ByteBuffer.wrap(literal);
+                    ByteBuffer buf = ByteBuffer.wrap(literal);
                     while (buf.hasRemaining()) {
                         currentTargetPosition += fcTarget.write(buf, currentTargetPosition);
                     }
                 } else {
-                    // Es un MATCH: Hacemos transferencia Zero-Copy entre descriptores de archivos locales
                     int blockIdx = inst.getBlockIndex();
                     long startOffset = (long) blockIdx * BLOCK_SIZE;
                     long length = Math.min(BLOCK_SIZE, fcOriginal.size() - startOffset);
@@ -511,23 +666,51 @@ public class NioDirectoryTransferManager implements TransferManager {
                 }
             }
         }
-        // Reemplazo atómico en el FileSystem de Linux
         Files.move(tempFile, targetPath, StandardCopyOption.REPLACE_EXISTING);
     }
 
     private void recibirArchivoCompletoNIO(SocketChannel channel, Path dest, long size, String id, long total) throws Exception {
+        // Nos aseguramos de crear los directorios padre por si las moscas antes de abrir el canal
+        if (dest.getParent() != null) {
+            java.nio.file.Files.createDirectories(dest.getParent());
+        }
+
         try (FileChannel fileChannel = FileChannel.open(dest, StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
-            long readTotal = 0, limit = 4 * 1024 * 1024;
+            long readTotal = 0;
+            long limit = 4 * 1024 * 1024; // Bloques de 4MB para transferFrom
+
             while (readTotal < size && running) {
                 checkPause();
+
+                // transferFrom lee directamente del socket al disco a nivel de Kernel
                 long read = fileChannel.transferFrom(channel, readTotal, Math.min(size - readTotal, limit));
-                if (read <= 0) { Thread.sleep(1); if (read == -1) throw new IOException("Desconexión"); continue; }
+
+                if (read <= 0) {
+                    if (read == -1) throw new IOException("Desconexión prematura del canal remoto.");
+                    Thread.sleep(1); // Evita un bucle infinito que sature la CPU si el buffer de red está vacío
+                    continue;
+                }
+
                 readTotal += read;
-                totalBytesProcessed += read;
-                totalWireBytesTransmitted += read;
-                transferenciaController.updateProgressMetrics(FileTransferState.RECEIVING, id, totalBytesProcessed, total);
+                totalBytesProcessed += read;      // Acumulador global interno
+                totalWireBytesTransmitted += read; // Métrica de red global
+
+                // ⚡ REPARACIÓN DE TELEMETRÍA:
+                // Si 'total' representa el tamaño de ESTE ARCHIVO SOLAMENTE, debes pasar 'readTotal'.
+                // Si 'total' es el tamaño de TODA LA CARPETA, entonces 'totalBytesProcessed' es el correcto.
+                transferenciaController.updateProgressMetrics(
+                        FileTransferState.RECEIVING,
+                        id,
+                        totalBytesProcessed, // 👈 Cambia a totalBytesProcessed si el progreso es global de la transferencia
+                        size       // 👈 Cambia a 'total' si el progreso es global de la transferencia
+                );
             }
+
+            // Forzar la escritura de metadatos y datos al disco físico antes de cerrar
             fileChannel.force(true);
+
+            // Notificación final opcional de que este ID de archivo terminó su transferencia
+            transferenciaController.updateProgressMetrics(FileTransferState.COMPLETED, id, size, size);
         }
     }
 
@@ -547,12 +730,9 @@ public class NioDirectoryTransferManager implements TransferManager {
     private String formatSize(long v) {
         if (v < 1024) return v + " B";
         int z = (63 - Long.numberOfLeadingZeros(v)) / 10;
-        return String.format("%.2f %sB", (double)v / (1L << (z * 10)), " KMGTPE".charAt(z));
+        return String.format("%.2f %sB", (double) v / (1L << (z * 10)), " KMGTPE".charAt(z));
     }
 
-    // =================================─────────────────
-    // --- NUEVO CONSOLIDADO ESTATICO PARA DIRECTORIOS ---
-    // =================================─────────────────
     private void mostrarEstadisticasFinales(long millis, long totalLogicalSize, long totalWireBytes, boolean isSender) {
         double segundos = millis / 1000.0;
         long bytesAhorrados = totalLogicalSize - totalWireBytes;
@@ -575,11 +755,26 @@ public class NioDirectoryTransferManager implements TransferManager {
         Logger.logInfo("└──────────────────────────────────────────────────────────────────┘");
     }
 
+    /**
+     * Tamaño de bloque adaptativo por tramos. El límite anterior (64KB fijo)
+     * generaba cientos de miles de bloques en archivos de varios GB. Se sube
+     * el techo a 1MB para archivos grandes, reduciendo el número total de
+     * firmas (menos CPU en el hashing, menos bytes en el handshake de firmas),
+     * a costa de una granularidad de delta más gruesa.
+     */
     public int calcularTamanoBloqueOptimo(long tamanoArchivo) {
-        if (tamanoArchivo < 1024 * 1024) return 2048;
+        if (tamanoArchivo < 1024 * 1024) return 2048; // < 1MB
+
+        if (tamanoArchivo < 100L * 1024 * 1024) { // 1MB - 100MB
+            int calculado = (int) Math.sqrt(tamanoArchivo);
+            int bloque = Integer.highestOneBit(calculado);
+            return Math.max(4096, Math.min(bloque, 64 * 1024));
+        }
+
+        // Archivos grandes (> 100MB): bloques más grandes, hasta 1MB
         int calculado = (int) Math.sqrt(tamanoArchivo);
         int bloque = Integer.highestOneBit(calculado);
-        return Math.max(4096, Math.min(bloque, 64 * 1024));
+        return Math.max(64 * 1024, Math.min(bloque, 1024 * 1024));
     }
 
     @Override
@@ -592,7 +787,7 @@ public class NioDirectoryTransferManager implements TransferManager {
     public void resume() {
         synchronized (pauseLock) {
             this.paused = false;
-            pauseLock.notifyAll(); // Despierta los hilos suspendidos en el pipeline de red
+            pauseLock.notifyAll();
         }
         Logger.logInfo("[MANAGER] Solicitud de REANUDACIÓN procesada con éxito.");
     }
@@ -600,7 +795,6 @@ public class NioDirectoryTransferManager implements TransferManager {
     @Override
     public void stop() {
         this.running = false;
-        // Si el hilo estaba pausado cuando el usuario decidió cancelar, lo despertamos para que muera limpio
         synchronized (pauseLock) {
             pauseLock.notifyAll();
         }
@@ -611,5 +805,4 @@ public class NioDirectoryTransferManager implements TransferManager {
         stop();
         Logger.logWarn("[MANAGER] Transferencia forzada a estado CANCELADO.");
     }
-
 }

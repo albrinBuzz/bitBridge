@@ -215,7 +215,7 @@ public class NioClientHandler implements BitBridgeClient {
     public void sendComunicacion(Communication comm) {
         if (isShuttingDown) return;
 
-        Logger.logInfo("[WRITE-PIPELINE] Solicitado envío de paquete: " + comm.getClass().getSimpleName() + " hacia " + getNick());
+        //Logger.logInfo("[WRITE-PIPELINE] Solicitado envío de paquete: " + comm.getClass().getSimpleName() + " hacia " + getNick());
         try {
             ByteBuffer appOut = ProtocolService.toNioBuffer(comm, 50);
             if (appOut == null) {
@@ -234,7 +234,7 @@ public class NioClientHandler implements BitBridgeClient {
 
     private void drainWriteQueue() {
         if (isWriting.compareAndSet(false, true)) {
-            Logger.logInfo("[DRAIN-QUEUE] Levantando ejecutor de vaciado asíncrono (Hilo Virtual)...");
+            //Logger.logInfo("[DRAIN-QUEUE] Levantando ejecutor de vaciado asíncrono (Hilo Virtual)...");
             Thread.ofVirtual().start(() -> {
                 try {
                     ByteBuffer appBuf;
@@ -245,14 +245,14 @@ public class NioClientHandler implements BitBridgeClient {
                         ByteBuffer bufAEnviar;
                         // 🎯 CORREGIDO: Evaluamos dinámicamente el estado real del túnel TLS del handler.
                         if (context.getSslContext() != null && tlsHandler != null && tlsHandler.isHandshakeComplete()) {
-                            Logger.logInfo(String.format("[DRAIN-QUEUE] [Paquete %d] Cifrando payload plano con SSLEngine...", packCount));
+                            //Logger.logInfo(String.format("[DRAIN-QUEUE] [Paquete %d] Cifrando payload plano con SSLEngine...", packCount));
                             bufAEnviar = tlsHandler.cifrar(appBuf);
                         } else {
                             bufAEnviar = appBuf;
                         }
 
                         int bytesAEnviar = bufAEnviar.remaining();
-                        Logger.logInfo(String.format("[DRAIN-QUEUE] [Paquete %d] Escribiendo %d bytes en el canal físico...", packCount, bytesAEnviar));
+                        //Logger.logInfo(String.format("[DRAIN-QUEUE] [Paquete %d] Escribiendo %d bytes en el canal físico...", packCount, bytesAEnviar));
 
                         while (bufAEnviar.hasRemaining()) {
                             int written = channel.write(bufAEnviar);
@@ -263,7 +263,7 @@ public class NioClientHandler implements BitBridgeClient {
                                 Thread.yield();
                             }
                         }
-                        Logger.logInfo(String.format("[DRAIN-QUEUE] [Paquete %d] Transferencia física exitosa.", packCount));
+                        //Logger.logInfo(String.format("[DRAIN-QUEUE] [Paquete %d] Transferencia física exitosa.", packCount));
                     }
                 } catch (IOException e) {
                     Logger.logError("❌ Error de escritura de red en canal físico. Forzando desmantelamiento: " + e.getMessage());

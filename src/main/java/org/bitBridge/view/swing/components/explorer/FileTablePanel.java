@@ -31,13 +31,11 @@ public class FileTablePanel extends JPanel {
     private TableRowSorter<DefaultTableModel> sorter;
     private List<NodoDirectorio> nodosActuales = new ArrayList<>();
 
-    // Componentes de control agregados para Filtros y Busqueda
     private JTextField txtSearch;
     private JComboBox<String> comboSyncFilter;
+    private JCheckBox chkFragmentarHijos;
 
-
-
-
+    private NodoDirectorio nodoRaizActual;
 
     // Paleta de Alto Contraste (JetBrains / Code Style)
     public static final Color STATE_SYNCHRONIZED   = new Color(102, 217, 102);
@@ -59,9 +57,9 @@ public class FileTablePanel extends JPanel {
     private final Consumer<NodoDirectorio> onDoubleClick;
     private final Consumer<List<NodoDirectorio>> onActionRequested;
     private final String etiquetaAccionPrincipal;
-    private JComboBox<String> comboTypeFilter; // ⚡ NUEVO: Combo de tipos de archivo
+    private JComboBox<String> comboTypeFilter;
     private JLabel lblFooterStats;
-    // Categorías de filtrado rápido por extensión
+
     private final String[] OPCIONES_TIPOS = {
             "Todos los formatos",
             "Solo Carpetas 📁",
@@ -71,6 +69,7 @@ public class FileTablePanel extends JPanel {
             "Imágenes (*.png, *.jpg, *.gif, *.svg)",
             "Binarios/Ejecutables (*.exe, *.sh, *.jar, *.bat)"
     };
+
     public FileTablePanel(String etiquetaAccionPrincipal,
                           Consumer<NodoDirectorio> onSelection,
                           Consumer<NodoDirectorio> onDoubleClick,
@@ -84,8 +83,11 @@ public class FileTablePanel extends JPanel {
         initComponents();
     }
 
+    public void setNodoRaizActual(NodoDirectorio nodoRaiz) {
+        this.nodoRaizActual = nodoRaiz;
+    }
+
     private void initComponents() {
-        // --- CONFIGURACIÓN DE TABLA ---
         String[] columns = {"Nombre", "Tamaño", "Tipo", "Modificado", "Estado Sync"};
         fileModel = new DefaultTableModel(columns, 0) {
             @Override
@@ -100,13 +102,10 @@ public class FileTablePanel extends JPanel {
         fileTable.setSelectionForeground(Color.WHITE);
         fileTable.setFont(new Font("Segoe UI", Font.PLAIN, 13));
 
-        // Vinculamos el Sorter para habilitar ordenamiento por columnas y filtros combinados
         sorter = new TableRowSorter<>(fileModel);
         fileTable.setRowSorter(sorter);
 
-        // --- BARRA DE HERRAMIENTAS SUPERIOR (ACCIONES RÁPIDAS + BUSQUEDA) ---
         setupTopToolBar();
-
         setupRenderers();
         setupMouseListeners();
         setupKeyBindings();
@@ -116,26 +115,26 @@ public class FileTablePanel extends JPanel {
         scrollPane.setBorder(BorderFactory.createEmptyBorder());
         add(scrollPane, BorderLayout.CENTER);
 
-        // --- BARRA INFERIOR DE ESTADÍSTICAS ---
         setupBottomStatusBar();
     }
 
-    /**
-     * Crea e integra la barra superior de acciones rápidas incorporando controles de filtrado activo.
-     */
+
     private void setupTopToolBar() {
-        JPanel pnlToolbar = new JPanel(new BorderLayout());
+        // Panel principal de la barra (Layout de 2 filas verticales: Superior e Inferior)
+        JPanel pnlToolbar = new JPanel(new GridLayout(2, 1, 0, 2));
         pnlToolbar.setBackground(TOOLBAR_BG);
         pnlToolbar.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, FANCY_BORDER));
 
-        JToolBar toolBarLeft = new JToolBar();
-        toolBarLeft.setFloatable(false);
-        toolBarLeft.setOpaque(false);
-        toolBarLeft.setBorder(new EmptyBorder(4, 8, 4, 4));
-
         boolean esPanelLocal = etiquetaAccionPrincipal.contains("PUSH");
-        String textoBotonBatch = esPanelLocal ? "📤 Subir No Sincronizados" : "📥 Bajar No Sincronizados";
 
+        // =========================================================================
+        // FILA 1: BOTONES DE ACCIÓN PRINCIPAL
+        // =========================================================================
+        JPanel rowTop = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 4));
+        rowTop.setOpaque(false);
+
+        // --- BOTÓN 1: COMPORTAMIENTO INCREMENTAL ---
+        String textoBotonBatch = esPanelLocal ? "📤 Subir No Sincronizados" : "📥 Bajar No Sincronizados";
         JButton btnSyncBatch = new JButton(textoBotonBatch);
         btnSyncBatch.setFont(new Font("Segoe UI", Font.BOLD, 11));
         btnSyncBatch.setBackground(esPanelLocal ? new Color(34, 139, 34) : FANCY_ACCENT_ORANGE);
@@ -146,32 +145,66 @@ public class FileTablePanel extends JPanel {
                 BorderFactory.createLineBorder(btnSyncBatch.getBackground().darker()),
                 new EmptyBorder(5, 10, 5, 10)
         ));
-        btnSyncBatch.addActionListener(e -> ejecutarSincronizacionBatch(esPanelLocal));
-        toolBarLeft.add(btnSyncBatch);
+        btnSyncBatch.addActionListener(e -> ejecutarSincronizacionBatch(esPanelLocal, false));
+        rowTop.add(btnSyncBatch);
 
-        // --- SUB-PANEL DERECHO: CONMUTADORES Y FILTROS EN CADENA ---
-        JPanel pnlFilterActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 4));
-        pnlFilterActions.setOpaque(false);
+        // --- BOTÓN 2: FORZAR TRANSMISIÓN MASIVA ---
+        String textoBotonBatchForzar = esPanelLocal ? "🔥 Forzar Subida Completa" : "🔥 Forzar Bajada Completa";
+        JButton btnSyncBatchForzar = new JButton(textoBotonBatchForzar);
+        btnSyncBatchForzar.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        btnSyncBatchForzar.setBackground(esPanelLocal ? new Color(25, 110, 25) : FANCY_ACCENT_ORANGE.darker());
+        btnSyncBatchForzar.setForeground(Color.WHITE);
+        btnSyncBatchForzar.setFocusPainted(false);
+        btnSyncBatchForzar.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnSyncBatchForzar.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(btnSyncBatchForzar.getBackground().darker()),
+                new EmptyBorder(5, 10, 5, 10)
+        ));
+        btnSyncBatchForzar.addActionListener(e -> ejecutarSincronizacionBatch(esPanelLocal, true));
+        rowTop.add(btnSyncBatchForzar);
 
-        // 1. Combo de filtrado por Estado Sync
-        String[] syncStates = {"Todos los estados", "Sincronizados", "Modificados", "Conflictos / Huérfanos"};
+
+        // =========================================================================
+        // FILA 2: CONFIGURACIÓN DE RED Y FILTROS (Distribución Izquierda/Derecha)
+        // =========================================================================
+        JPanel rowBottom = new JPanel(new BorderLayout());
+        rowBottom.setOpaque(false);
+
+        // Parte Izquierda de la Fila 2: Checkbox
+        JPanel rowBottomLeft = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 2));
+        rowBottomLeft.setOpaque(false);
+
+        chkFragmentarHijos = new JCheckBox("Fragmentar por Hijos");
+        chkFragmentarHijos.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        chkFragmentarHijos.setForeground(FANCY_TEXT);
+        chkFragmentarHijos.setOpaque(true);
+        chkFragmentarHijos.setFocusPainted(true);
+        chkFragmentarHijos.setSelected(true);
+        chkFragmentarHijos.setToolTipText("<html><b>Activado:</b> Envía los archivos hijos uno a uno como elementos independientes.<br>"
+                + "<b>Desactivado:</b> Envía el nodo raíz actual en una única trama optimizada (One-Shot).</html>");
+        rowBottomLeft.add(chkFragmentarHijos);
+        rowBottom.add(rowBottomLeft, BorderLayout.WEST);
+
+        // Parte Derecha de la Fila 2: Filtros de Búsqueda
+        JPanel rowBottomRight = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 2));
+        rowBottomRight.setOpaque(false);
+
+        String[] syncStates = {"Todos los estados", "Sincronizados", "Modificados", "Conflictos"};
         comboSyncFilter = new JComboBox<>(syncStates);
         comboSyncFilter.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         comboSyncFilter.setBackground(FANCY_BG);
         comboSyncFilter.setForeground(FANCY_TEXT);
         comboSyncFilter.addActionListener(e -> aplicarFiltroCompuesto());
 
-        // 2. ⚡ NUEVO: Combo de filtrado por Extensiones / Formato
         comboTypeFilter = new JComboBox<>(OPCIONES_TIPOS);
         comboTypeFilter.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         comboTypeFilter.setBackground(FANCY_BG);
         comboTypeFilter.setForeground(FANCY_TEXT);
         comboTypeFilter.addActionListener(e -> aplicarFiltroCompuesto());
 
-        // 3. Buscador por texto plano
-        txtSearch = new JTextField(10);
+        txtSearch = new JTextField(7); // Tamaño compacto para el buscador
         txtSearch.putClientProperty("JTextField.placeholderText", "🔍 Buscar...");
-        txtSearch.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        txtSearch.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         txtSearch.setBackground(FANCY_BG);
         txtSearch.setForeground(Color.WHITE);
         txtSearch.setCaretColor(Color.WHITE);
@@ -182,24 +215,23 @@ public class FileTablePanel extends JPanel {
             public void changedUpdate(DocumentEvent e) { aplicarFiltroCompuesto(); }
         });
 
-        pnlFilterActions.add(new JLabel("Estado:"));
-        pnlFilterActions.add(new JLabel("    a    "));
-        pnlFilterActions.add(new JPopupMenu.Separator());
+        rowBottomRight.add(new JLabel("Estado:"));
+        rowBottomRight.add(comboSyncFilter);
+        rowBottomRight.add(new JLabel("Tipo:"));
+        rowBottomRight.add(comboTypeFilter);
+        rowBottomRight.add(txtSearch);
 
-        pnlFilterActions.add(comboSyncFilter);
-        pnlFilterActions.add(new JLabel("Tipo:"));
-        pnlFilterActions.add(comboTypeFilter);
-        pnlFilterActions.add(Box.createHorizontalStrut(2));
-        pnlFilterActions.add(txtSearch);
+        rowBottom.add(rowBottomRight, BorderLayout.EAST);
 
-        pnlToolbar.add(toolBarLeft, BorderLayout.WEST);
-        pnlToolbar.add(pnlFilterActions, BorderLayout.EAST);
+        // Ensamblamos las dos filas dentro del contenedor principal de la barra
+        pnlToolbar.add(rowTop);
+        pnlToolbar.add(rowBottom);
+
+        // Agregamos la barra completa en la parte norte del panel
         add(pnlToolbar, BorderLayout.NORTH);
     }
 
-    /**
-     * Construcción de barra inferior atómica para control de cuota de almacenamiento.
-     */
+
     private void setupBottomStatusBar() {
         JPanel pnlFooter = new JPanel(new BorderLayout());
         pnlFooter.setBackground(TOOLBAR_BG);
@@ -214,11 +246,6 @@ public class FileTablePanel extends JPanel {
         add(pnlFooter, BorderLayout.SOUTH);
     }
 
-    /**
-     * Resuelve en simultáneo la intersección de tres filtros: texto predictivo,
-     * estado de réplica Rsync y tipo/extensión del asset.
-     * Corregido: Extrae el estado sync directamente del modelo de datos.
-     */
     private void aplicarFiltroCompuesto() {
         SwingUtilities.invokeLater(() -> {
             String textoBusqueda = txtSearch.getText().trim().toLowerCase();
@@ -231,53 +258,28 @@ public class FileTablePanel extends JPanel {
                     int modelIdx = entry.getIdentifier();
                     if (modelIdx < 0 || modelIdx >= nodosActuales.size()) return false;
 
-                    // Extraemos el nodo real desde la memoria para evitar errores de desfase de columnas
                     NodoDirectorio nodo = nodosActuales.get(modelIdx);
                     String nombre = nodo.getNombre().toLowerCase();
                     String ext = nodo.getExtension().toLowerCase();
-
-                    // Recuperamos el estado directamente desde la celda del modelo mapeado
-                    // para garantizar consistencia con los renderizadores visuales
                     String estadoSync = entry.getModel().getValueAt(modelIdx, 4).toString();
 
-                    // --- NIVEL 1: TEXTO PLANO ---
                     boolean pasaTexto = textoBusqueda.isEmpty() || nombre.contains(textoBusqueda) || ext.contains(textoBusqueda);
 
-                    // --- NIVEL 2: ESTADO SYNC (Evaluación robusta sobre texto de celda) ---
                     boolean pasaSync = true;
                     switch (seleccionSync) {
-                        case 1: // Solo Sincronizados
-                            pasaSync = estadoSync.contains("Sincronizado");
-                            break;
-                        case 2: // Modificados
-                            pasaSync = estadoSync.contains("Modificado");
-                            break;
-                        case 3: // Conflictos o Solo Local/Remoto
-                            pasaSync = estadoSync.contains("Conflicto") || estadoSync.contains("Solo");
-                            break;
+                        case 1: pasaSync = estadoSync.contains("Sincronizado"); break;
+                        case 2: pasaSync = estadoSync.contains("Modificado"); break;
+                        case 3: pasaSync = estadoSync.contains("Conflicto") || estadoSync.contains("Solo"); break;
                     }
 
-                    // --- NIVEL 3: TIPO DE ASSET / EXTENSIÓN ---
                     boolean pasaTipo = true;
                     switch (seleccionTipo) {
-                        case 1: // Solo Carpetas
-                            pasaTipo = nodo.esDirectorio();
-                            break;
-                        case 2: // Solo Archivos
-                            pasaTipo = !nodo.esDirectorio();
-                            break;
-                        case 3: // Código Fuente
-                            pasaTipo = !nodo.esDirectorio() && ".java.py.cpp.h.go.js.ts.sh.rs.c".contains(ext);
-                            break;
-                        case 4: // Documentos
-                            pasaTipo = !nodo.esDirectorio() && ".pdf.docx.doc.txt.xlsx.xls.csv.md".contains(ext);
-                            break;
-                        case 5: // Imágenes
-                            pasaTipo = !nodo.esDirectorio() && ".png.jpg.jpeg.gif.svg.ico.webp".contains(ext);
-                            break;
-                        case 6: // Binarios / Ejecutables
-                            pasaTipo = !nodo.esDirectorio() && ".exe.sh.jar.bat.msi.bin".contains(ext);
-                            break;
+                        case 1: pasaTipo = nodo.esDirectorio(); break;
+                        case 2: pasaTipo = !nodo.esDirectorio(); break;
+                        case 3: pasaTipo = !nodo.esDirectorio() && ".java.py.cpp.h.go.js.ts.sh.rs.c".contains(ext); break;
+                        case 4: pasaTipo = !nodo.esDirectorio() && ".pdf.docx.doc.txt.xlsx.xls.csv.md".contains(ext); break;
+                        case 5: pasaTipo = !nodo.esDirectorio() && ".png.jpg.jpeg.gif.svg.ico.webp".contains(ext); break;
+                        case 6: pasaTipo = !nodo.esDirectorio() && ".exe.sh.jar.bat.msi.bin".contains(ext); break;
                     }
 
                     return pasaTexto && pasaSync && pasaTipo;
@@ -289,10 +291,6 @@ public class FileTablePanel extends JPanel {
         });
     }
 
-
-    /**
-     * Recalcula dinámicamente el almacenamiento mapeado en base a las filas visibles (post-filtrado).
-     */
     private void actualizarMetricasFooter() {
         int filasVisibles = fileTable.getRowCount();
         int carpetas = 0;
@@ -312,7 +310,6 @@ public class FileTablePanel extends JPanel {
             }
         }
 
-        // Formateo legible del peso calculado
         String pesoFormateado;
         if (pesoTotalBytes < 1024) pesoFormateado = pesoTotalBytes + " B";
         else {
@@ -324,33 +321,66 @@ public class FileTablePanel extends JPanel {
                 carpetas, archivos, pesoFormateado));
     }
 
-    private void ejecutarSincronizacionBatch(boolean esLocal) {
-        List<NodoDirectorio> loteNoSincronizado = new ArrayList<>();
+    private void ejecutarSincronizacionBatch(boolean esLocal, boolean forzar) {
+        List<NodoDirectorio> loteSincronizacion = new ArrayList<>();
         String condicionFiltro = esLocal ? "Solo Local" : "Solo Remoto";
         String condicionModificado = esLocal ? "Modificado Local" : "Modificado Remoto";
 
-        for (int i = 0; i < fileModel.getRowCount(); i++) {
-            String estadoSync = (String) fileModel.getValueAt(i, 4);
-            if (estadoSync != null && (estadoSync.contains(condicionFiltro) || estadoSync.contains(condicionModificado))) {
-                loteNoSincronizado.add(nodosActuales.get(i));
+        boolean fragmentar = chkFragmentarHijos.isSelected();
+
+        if (forzar) {
+            if (fragmentar) {
+                loteSincronizacion.addAll(nodosActuales);
+            } else {
+                if (nodoRaizActual != null) {
+                    loteSincronizacion.add(nodoRaizActual);
+                } /*else if (!nodosActuales.isEmpty()) {
+                    NodoDirectorio padreFallback = nodosActuales.get(0).getPadre();
+                    if (padreFallback != null) loteSincronizacion.add(padreFallback);
+                }*/
+            }
+        } else {
+            for (int i = 0; i < fileModel.getRowCount(); i++) {
+                String estadoSync = (String) fileModel.getValueAt(i, 4);
+                if (estadoSync != null && (estadoSync.contains(condicionFiltro) || estadoSync.contains(condicionModificado))) {
+                    loteSincronizacion.add(nodosActuales.get(i));
+                }
             }
         }
 
-        if (loteNoSincronizado.isEmpty()) {
+        if (loteSincronizacion.isEmpty()) {
             JOptionPane.showMessageDialog(this,
                     "¡Excelente! Todos los assets en este directorio se encuentran perfectamente sincronizados.",
                     "bitBridge Engine", JOptionPane.INFORMATION_MESSAGE);
             return;
         }
 
-        int confirm = JOptionPane.showConfirmDialog(this,
-                "Se detectaron " + loteNoSincronizado.size() + " elementos fuera de réplica.\n¿Deseas iniciar la transmisión en bloque de inmediato?",
-                "Procesamiento por Lotes Encontrado", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+        String tituloConfirm;
+        String mensajeConfirm;
+
+        if (forzar) {
+            tituloConfirm = "🔥 Procesamiento por Lote Forzado";
+            if (fragmentar) {
+                mensajeConfirm = "Vas a iniciar la transferencia FORZADA e INDIVIDUAL de los " + loteSincronizacion.size()
+                        + " elementos hijos del directorio.\n\nEsto enviará múltiples tramas secuenciales. ¿Deseas continuar?";
+            } else {
+                mensajeConfirm = "Vas a iniciar la transferencia INTEGRAL y masiva (One-Shot) del directorio actual:\n"
+                        + (nodoRaizActual != null ? nodoRaizActual.getRutaString() : "Raíz")
+                        + "\n\nEsto optimizará la red enviando una única trama de datos agrupada. ¿Deseas continuar?";
+            }
+        } else {
+            tituloConfirm = "Procesamiento por Lotes Encontrado";
+            mensajeConfirm = "Se detectaron " + loteSincronizacion.size() + " elementos fuera de réplica.\n¿Deseas iniciar la transmisión en bloque?";
+        }
+
+        int confirm = JOptionPane.showConfirmDialog(this, mensajeConfirm, tituloConfirm, JOptionPane.YES_NO_OPTION,
+                forzar ? JOptionPane.WARNING_MESSAGE : JOptionPane.QUESTION_MESSAGE);
 
         if (confirm == JOptionPane.YES_OPTION) {
-            Logger.logInfo("Despachando lote masivo de " + loteNoSincronizado.size() + " elementos no sincronizados.");
+            Logger.logInfo(String.format("Despachando lote. Forzado: %b | Fragmentado: %b | Elementos: %d",
+                    forzar, fragmentar, loteSincronizacion.size()));
             if (onActionRequested != null) {
-                onActionRequested.accept(loteNoSincronizado);
+                onActionRequested.accept(loteSincronizacion);
             }
         }
     }
@@ -599,51 +629,107 @@ public class FileTablePanel extends JPanel {
         }
     }
 
-    public void updateData(List<NodoDirectorio> nuevosHijos, String nombrePadre) {
-        clear();
-        if (nuevosHijos != null) {
-            for (NodoDirectorio n : nuevosHijos) {
-                agregarFila(n, "Sincronizado ✅");
-            }
-        }
-    }
-
     public void clear() {
         fileModel.setRowCount(0);
         nodosActuales.clear();
-        actualizarMetricasFooter();
     }
 
-    public void agregarFila(NodoDirectorio n, String estadoSync) {
-        nodosActuales.add(n);
-        String prefix = n.esDirectorio() ? "📁 " : "📄 ";
-        String fecha = n.getFechaModificacion();
+    public void agregarFila(NodoDirectorio nodo, String estadoSync) {
+        nodosActuales.add(nodo);
+        //String tamanoStr = nodo.esDirectorio() ? "Desconocido" : formatSize(nodo.getTamaño());
+        String tamanoStr =  formatSize(nodo.getTamaño());
+        String tipoStr = nodo.esDirectorio() ? "Carpeta 📁" : nodo.getExtension().toUpperCase();
 
         fileModel.addRow(new Object[]{
-                prefix + n.getNombre(),
-                n.esDirectorio() ? "Carpeta" : n.getTamañoFormateado(),
-                n.esDirectorio() ? "Directorio" : n.getExtension(),
-                (fecha == null || fecha.equalsIgnoreCase("Desconocido")) ? "--" : fecha,
+                nodo.getNombre(),
+                tamanoStr,
+                tipoStr,
+                nodo.getFechaModificacionMillis() > 0 ? "Modificado" : "Desconocido",
                 estadoSync
         });
         actualizarMetricasFooter();
     }
 
-    public NodoDirectorio getSelectedNode() {
-        int row = fileTable.getSelectedRow();
-        return (row == -1) ? null : nodosActuales.get(fileTable.convertRowIndexToModel(row));
+    private String formatSize(long bytes) {
+        if (bytes < 1024) return bytes + " B";
+        int exp = (int) (Math.log(bytes) / Math.log(1024));
+        return String.format("%.1f %cB", bytes / Math.pow(1024, exp), "KMGTPE".charAt(exp - 1));
     }
 
-    public List<NodoDirectorio> getSelectedNodes() {
-        int[] rows = fileTable.getSelectedRows();
+    NodoDirectorio getSelectedNode() {
+        int viewRow = fileTable.getSelectedRow();
+        if (viewRow == -1) return null;
+        int modelRow = fileTable.convertRowIndexToModel(viewRow);
+        return nodosActuales.get(modelRow);
+    }
+
+    List<NodoDirectorio> getSelectedNodes() {
         List<NodoDirectorio> lista = new ArrayList<>();
-        for (int r : rows) {
-            int modelIdx = fileTable.convertRowIndexToModel(r);
-            if (modelIdx >= 0 && modelIdx < nodosActuales.size()) lista.add(nodosActuales.get(modelIdx));
+        int[] viewRows = fileTable.getSelectedRows();
+        for (int vr : viewRows) {
+            int mr = fileTable.convertRowIndexToModel(vr);
+            lista.add(nodosActuales.get(mr));
         }
         return lista;
     }
 
-    public TableRowSorter<DefaultTableModel> getSorter() { return this.sorter; }
-    public JTable getFileTable() { return this.fileTable; }
+    public JTable getFileTable() {
+        return fileTable;
+    }
+
+    public DefaultTableModel getFileModel() {
+        return fileModel;
+    }
+
+    public TableRowSorter<DefaultTableModel> getSorter() {
+        return sorter;
+    }
+
+    public List<NodoDirectorio> getNodosActuales() {
+        return nodosActuales;
+    }
+
+    public JTextField getTxtSearch() {
+        return txtSearch;
+    }
+
+    public JComboBox<String> getComboSyncFilter() {
+        return comboSyncFilter;
+    }
+
+    public JCheckBox getChkFragmentarHijos() {
+        return chkFragmentarHijos;
+    }
+
+    public NodoDirectorio getNodoRaizActual() {
+        return nodoRaizActual;
+    }
+
+    public Consumer<NodoDirectorio> getOnSelection() {
+        return onSelection;
+    }
+
+    public Consumer<NodoDirectorio> getOnDoubleClick() {
+        return onDoubleClick;
+    }
+
+    public Consumer<List<NodoDirectorio>> getOnActionRequested() {
+        return onActionRequested;
+    }
+
+    public String getEtiquetaAccionPrincipal() {
+        return etiquetaAccionPrincipal;
+    }
+
+    public JComboBox<String> getComboTypeFilter() {
+        return comboTypeFilter;
+    }
+
+    public JLabel getLblFooterStats() {
+        return lblFooterStats;
+    }
+
+    public String[] getOPCIONES_TIPOS() {
+        return OPCIONES_TIPOS;
+    }
 }

@@ -18,7 +18,7 @@ public class ClienteTest {
         Client client = new Client();
 
         //client.conexionAutomatica();
-        client.setConexion("192.168.100.187",8080);
+        client.setConexion("192.168.100.3",8080);
         //client.setConexion("localhost",8080);
         Thread.sleep(1500);
         //rsync -avhzP --progress --stats target/BitBridge-CLI-CLIENTE.jar target/BitBridge-CLI.jar target/BitBridge-Desktop.jar  cris@192.168.100.192:/home/cris

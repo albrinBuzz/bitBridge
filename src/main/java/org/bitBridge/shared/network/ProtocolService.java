@@ -183,6 +183,7 @@ public class ProtocolService {
         ByteBuffer buffer = toNioBuffer(comm, 100);
         if (buffer == null) return;
 
+        //Logger.logInfo("Tamaño del paquete "+formatHumanReadable(buffer.capacity()));
         try {
             while (buffer.hasRemaining()) {
                 channel.write(buffer);
@@ -598,5 +599,11 @@ public class ProtocolService {
         int exp = (int) (Math.log(bytes) / Math.log(1024));
         char pre = "KMGTPE".charAt(exp - 1);
         return String.format("%.2f %sB (%d bytes)", bytes / Math.pow(1024, exp), pre, bytes);
+    }
+
+    private String formatSize(long v) {
+        if (v < 1024) return v + " B";
+        int z = (63 - Long.numberOfLeadingZeros(v)) / 10;
+        return String.format("%.2f %sB", (double) v / (1L << (z * 10)), " KMGTPE".charAt(z));
     }
 }

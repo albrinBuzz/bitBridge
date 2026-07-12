@@ -49,7 +49,7 @@ public class Logger {
         String fullClassName = ste.getClassName();
 
         System.out.println(formatForConsole(level, time, fullClassName, ste, message));
-        saveToFile(formatForFile(level, time, fullClassName, ste, message));
+        //saveToFile(formatForFile(level, time, fullClassName, ste, message));
     }
 
     private static String formatForConsole(LogLevel lvl, String time, String fullCls, StackTraceElement ste, String msg) {

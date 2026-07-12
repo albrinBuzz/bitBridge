@@ -24,10 +24,35 @@ import java.nio.channels.*;
 import java.nio.file.*;
 import java.security.MessageDigest;
 import java.util.*;
+import java.util.concurrent.*;
 import java.util.zip.Adler32;
 
 import static org.bitBridge.server.transfer.TransferSessionManager.PREFIX_REQUEST;
 
+/**
+ * ============================================================================
+ *  OPTIMIZACIONES APLICADAS (ver PLAN_REFACTORIZACION.md para detalle)
+ * ----------------------------------------------------------------------------
+ *  1. calcularDeltasLocales: la FÓRMULA del rolling checksum ya era correcta
+ *     en el original (recurrencia O(1) de Adler32 estándar). El problema era
+ *     la E/S: por cada byte sin match se hacían 2 lecturas de disco
+ *     (fileChannel.read posicional) + asignación de un ByteBuffer nuevo.
+ *     Ahora se lee el archivo en bloques grandes hacia un buffer en memoria
+ *     (con compactación amortizada O(1)) y el byte saliente/entrante se lee
+ *     directo de ese buffer — cero syscalls por byte. La matemática del
+ *     checksum NO se tocó, se preservó exactamente para no arriesgar
+ *     regresiones de corrección.
+ *  2. El chequeo MD5 en un hit de Adler32 y el recálculo del checksum tras un
+ *     match también leen del buffer en memoria en vez de volver a golpear
+ *     disco.
+ *  3. generarFirmasLocales: paralelizado entre N hilos (uno por núcleo),
+ *     cada uno con su propio FileChannel sobre una región distinta del
+ *     archivo — igual que en la versión de directorio.
+ *  4. reconstruirArchivoRsync: los bloques reutilizados (match) ahora se
+ *     copian con FileChannel.transferTo() (zero-copy a nivel de kernel) en
+ *     vez de pasar por un buffer intermedio en el heap de Java.
+ * ============================================================================
+ */
 public class FileTransferManager implements TransferManager {
     private volatile boolean running = true;
     private volatile boolean paused = false;
@@ -38,6 +63,9 @@ public class FileTransferManager implements TransferManager {
 
     private int BLOCK_SIZE = 64 * 1024;
     private int TRANSFER_CHUNK_SIZE = 4 * 1024 * 1024;
+
+    private static final int MOD_ADLER = 65521;
+    private static final int SIGNATURE_THREADS = Math.max(1, Runtime.getRuntime().availableProcessors());
 
     public FileTransferManager(TransferenciaController transferenciaController) {
         this.transferenciaController = transferenciaController;
@@ -65,8 +93,8 @@ public class FileTransferManager implements TransferManager {
         Logger.logInfo(String.format("│  ├── Archivo:    %-47s │", targetFile.getName()));
         Logger.logInfo(String.format("│  └── Volumen:    %s ", formatSize(totalSize)));
         Logger.logInfo("└──────────────────────────────────────────────────────────────────┘");
-        BLOCK_SIZE=calcularTamanoBloqueOptimo(totalSize);
-        Logger.logInfo("Tamaño del bloque: "+formatSize(BLOCK_SIZE));
+        BLOCK_SIZE = calcularTamanoBloqueOptimo(totalSize);
+        Logger.logInfo("Tamaño del bloque: " + formatSize(BLOCK_SIZE));
 
         boolean rsyncMode = false;
         long bytesEnviadosRed = 0;
@@ -83,8 +111,7 @@ public class FileTransferManager implements TransferManager {
             if (channel.isConnected()) {
                 Logger.logInfo("[TCP-SOCKET] Conexión establecida. Iniciando Handshake Fase 1 (Autenticación)...");
 
-                //ProtocolService.writeNIO(channel, new Mensaje(sessionId));
-                ProtocolService.writeNIO(channel, new HandshakeMessage(sessionId,SocketPurpose.FILE_TRANSFER,""));
+                ProtocolService.writeNIO(channel, new HandshakeMessage(sessionId, SocketPurpose.FILE_TRANSFER, ""));
 
                 FileDirectoryCommunication handshakeMeta = new FileDirectoryCommunication(
                         targetFile.getName(), totalSize, false, targetFile.getName()
@@ -127,8 +154,7 @@ public class FileTransferManager implements TransferManager {
                         totalBytesProcessed += (int) totalSize;
                         transferenciaController.updateProgressMetrics(FileTransferState.SENDING, idTransfe, totalBytesProcessed, totalSize);
                         bytesEnviadosRed = 0;
-                    }
-                    else if (ack.getAction() == FileHandshakeAction.PROCESS_DELTAS) {
+                    } else if (ack.getAction() == FileHandshakeAction.PROCESS_DELTAS) {
                         rsyncMode = true;
                         Logger.logWarn("┌──────────────────────────────────────────────────────────────────┐");
                         Logger.logWarn("│  ⚡ [MODO RSYNC] Archivo modificado detectado. Iniciando Delta.  │");
@@ -142,18 +168,17 @@ public class FileTransferManager implements TransferManager {
                         RsyncDeltaPackage deltaPackage = calcularDeltasLocales(targetFile, signatures);
 
                         bytesEnviadosRed = deltaPackage.getInstructions().stream()
-                                .mapToLong(inst -> inst.isLiteral() ? inst.getLiteralData().length : 4) // 4 bytes por índice de bloque coincidente
+                                .mapToLong(inst -> inst.isLiteral() ? inst.getLiteralData().length : 4)
                                 .sum();
 
-                        Logger.logInfo("[NIO-WRITE] Despachando paquete de deltas optimizado hacia la red...: "+formatSize(bytesEnviadosRed));
+                        Logger.logInfo("[NIO-WRITE] Despachando paquete de deltas optimizado hacia la red...: " + formatSize(bytesEnviadosRed));
 
                         ProtocolService.writeNIO(channel, deltaPackage);
                         transferenciaController.updateProgressMetrics(FileTransferState.SENDING, idTransfe, totalSize, totalSize);
 
                         Logger.logInfo("[NIO-READ] Esperando ACK final de sincronización del Server Relay...");
                         ProtocolService.readNIO(channel);
-                    }
-                    else {
+                    } else {
                         Logger.logInfo("┌──────────────────────────────────────────────────────────────────┐");
                         Logger.logInfo("│  📥 [MODO TRADICIONAL] Archivo nuevo. Activando Zero-Copy Pipe. │");
                         Logger.logInfo("└──────────────────────────────────────────────────────────────────┘");
@@ -169,7 +194,6 @@ public class FileTransferManager implements TransferManager {
                     Logger.logInfo("[NIO-WRITE] Transmisión de instrucciones finalizada. Despachando TRANSFER_DONE.");
                     ProtocolService.writeNIO(channel, new FileHandshakeCommunication(FileHandshakeAction.TRANSFER_DONE));
 
-                    // Llamada con métricas detalladas de red
                     mostrarEstadisticasFinales(System.currentTimeMillis() - startTime, totalSize, bytesEnviadosRed, rsyncMode, true);
                 } else {
                     Logger.logError("[HANDSHAKE-REJECT] El nodo remoto rechazó o canceló la inicialización de la transferencia.");
@@ -187,6 +211,22 @@ public class FileTransferManager implements TransferManager {
         transferenciaController.updateProgressMetrics(FileTransferState.SENDING, idTransfe, file.length(), file.length());
     }
 
+    /**
+     * Lee hasta 'len' bytes secuencialmente desde el FileChannel hacia buf[offset..],
+     * agrupando varias lecturas del kernel en una sola pasada de buffer en memoria
+     * (en vez de una syscall posicional por cada byte, como hacía el código original).
+     */
+    private int readFully(FileChannel fc, byte[] buf, int offset, int len) throws IOException {
+        if (len <= 0) return 0;
+        ByteBuffer bb = ByteBuffer.wrap(buf, offset, len);
+        int total = 0;
+        while (bb.hasRemaining()) {
+            int r = fc.read(bb);
+            if (r == -1) break;
+            total += r;
+        }
+        return total;
+    }
 
     private RsyncDeltaPackage calcularDeltasLocales(File file, RsyncSignatures remoteSignatures) throws Exception {
         long startTime = System.currentTimeMillis();
@@ -196,160 +236,175 @@ public class FileTransferManager implements TransferManager {
         int expectedBlocks = remoteSignatures.getSignatures().size();
         Logger.logInfo("[RSYNC-DIAG] 📥 Firmas remotas recibidas: " + expectedBlocks + " bloques.");
 
-        // Optimización de carga para el mapa de firmas
         Map<Long, List<BlockSignature>> adlerMap = new HashMap<>((int) (expectedBlocks / 0.75f) + 1);
         for (BlockSignature sig : remoteSignatures.getSignatures()) {
             adlerMap.computeIfAbsent(sig.getAdler32(), k -> new ArrayList<>(2)).add(sig);
         }
 
         List<RsyncDeltaInstruction> instructions = new ArrayList<>();
+        ByteArrayOutputStream literalBuffer = new ByteArrayOutputStream(Math.max(BLOCK_SIZE, 4096));
         MessageDigest md5 = MessageDigest.getInstance("MD5");
 
-        // --- VARIABLES DE CONTROL DE VENTANA DESLIZANTE ---
-        long i = 0; // Puntero global en el archivo
-        long literalStart = 0;
-        long literalBytesCount = 0;
         int matchedBlocks = 0;
-        final int MOD_ADLER = 65521;
-
+        long literalBytesCount = 0;
         int adlerCollisions = 0;
         int totalAdlerHits = 0;
-        int totalRollingSteps = 0;
+        long totalRollingSteps = 0;
         int ultimoProgresoReportado = -1;
 
-        // Abrimos el archivo mediante canales NIO
         try (FileChannel fileChannel = FileChannel.open(file.toPath(), StandardOpenOption.READ)) {
 
-            // Un solo buffer auxiliar para calcular el MD5 de un bloque en memoria Heap sin reasignaciones
-            byte[] blockBuffer = new byte[BLOCK_SIZE];
-            ByteBuffer blockByteBuffer = ByteBuffer.wrap(blockBuffer);
-
-            // --- INICIALIZACIÓN DEL PRIMER BLOQUE ---
-            int s1 = 1;
-            int s2 = 0;
-
-            if (totalFileSize >= BLOCK_SIZE) {
-                blockByteBuffer.clear();
-                fileChannel.read(blockByteBuffer, 0);
-                for (int j = 0; j < BLOCK_SIZE; j++) {
-                    s1 = (s1 + (blockBuffer[j] & 0xFF)) % MOD_ADLER;
-                    s2 = (s2 + s1) % MOD_ADLER;
-                }
+            if (totalFileSize == 0) {
+                return new RsyncDeltaPackage(instructions);
             }
-            long currentAdler = ((long) s2 << 16) | s1;
 
-            // --- ciclo principal de la ventana DESLIZANTE ---
-            while (i <= totalFileSize - BLOCK_SIZE) {
+            if (totalFileSize < BLOCK_SIZE) {
+                // Archivo más chico que un bloque: no hay ventana que evaluar, todo es literal.
+                byte[] data = new byte[(int) totalFileSize];
+                readFully(fileChannel, data, 0, data.length);
+                instructions.add(new RsyncDeltaInstruction(data));
+                literalBytesCount = totalFileSize;
+            } else {
+                // Buffer doble (2x BLOCK_SIZE) con compactación amortizada O(1): evita
+                // los seeks/reads posicionales de 1 byte que hacía la versión original.
+                byte[] buf = new byte[BLOCK_SIZE * 2];
+                int bufValid = readFully(fileChannel, buf, 0, buf.length);
+                int winStart = 0;
+                long i = 0; // offset lógico (en el archivo) del inicio de la ventana
 
-                // Muestreo de progreso
-                int progresoActual = (int) (((double) i / totalFileSize) * 100);
-                if (progresoActual % 10 == 0 && progresoActual != ultimoProgresoReportado) {
-                    Logger.logInfo(String.format("   ↳ [PROGRESO %d%%] Puntero i: %d/%d bytes. Ints. acumuladas: %d | Matches: %d | Literales: %s",
-                            progresoActual, i, totalFileSize, instructions.size(), matchedBlocks, formatSize(literalBytesCount)));
-                    ultimoProgresoReportado = progresoActual;
-                }
+                int s1 = 0, s2 = 0;
+                boolean windowInit = false;
 
-                boolean matchFound = false;
+                while (i <= totalFileSize - BLOCK_SIZE) {
 
-                if (adlerMap.containsKey(currentAdler)) {
-                    totalAdlerHits++;
-
-                    // Leer el bloque actual en el offset 'i' para verificar criptográficamente con MD5
-                    blockByteBuffer.clear();
-                    fileChannel.read(blockByteBuffer, i);
-
-                    md5.reset();
-                    md5.update(blockBuffer, 0, BLOCK_SIZE);
-                    byte[] currentMd5 = md5.digest();
-
-                    boolean cryptographicMatch = false;
-                    for (BlockSignature sig : adlerMap.get(currentAdler)) {
-                        if (Arrays.equals(sig.getMd5(), currentMd5)) {
-
-                            // Procesar el bloque literal acumulado antes de este match
-                            long literalLength = i - literalStart;
-                            if (literalLength > 0) {
-                                byte[] literalData = new byte[(int) literalLength];
-                                ByteBuffer litBuffer = ByteBuffer.wrap(literalData);
-                                fileChannel.read(litBuffer, literalStart);
-
-                                instructions.add(new RsyncDeltaInstruction(literalData));
-                                literalBytesCount += literalLength;
-                            }
-
-                            // Añadir instrucción del bloque coincidente indexado
-                            instructions.add(new RsyncDeltaInstruction(sig.getBlockIndex()));
-
-                            i += BLOCK_SIZE;
-                            literalStart = i;
-                            matchFound = true;
-                            cryptographicMatch = true;
-                            matchedBlocks++;
-                            break;
-                        }
+                    // Asegurar que la ventana completa esté cargada en memoria
+                    if (winStart + BLOCK_SIZE > bufValid) {
+                        int remaining = bufValid - winStart;
+                        if (remaining > 0) System.arraycopy(buf, winStart, buf, 0, remaining);
+                        int extra = readFully(fileChannel, buf, remaining, buf.length - remaining);
+                        bufValid = remaining + extra;
+                        winStart = 0;
                     }
 
-                    if (!cryptographicMatch) {
-                        adlerCollisions++;
-                    }
-                }
-
-                if (matchFound) {
-                    // Si hubo Match, recalculamos el Adler inicial para la nueva posición de la ventana
-                    if (i <= totalFileSize - BLOCK_SIZE) {
-                        blockByteBuffer.clear();
-                        fileChannel.read(blockByteBuffer, i);
-                        s1 = 1; s2 = 0;
+                    if (!windowInit) {
+                        s1 = 1;
+                        s2 = 0;
                         for (int j = 0; j < BLOCK_SIZE; j++) {
-                            s1 = (s1 + (blockBuffer[j] & 0xFF)) % MOD_ADLER;
+                            int v = buf[winStart + j] & 0xFF;
+                            s1 = (s1 + v) % MOD_ADLER;
                             s2 = (s2 + s1) % MOD_ADLER;
                         }
-                        currentAdler = ((long) s2 << 16) | s1;
+                        windowInit = true;
                     }
-                } else {
-                    totalRollingSteps++;
-                    if (i + BLOCK_SIZE < totalFileSize) {
-                        // Ventana Deslizante O(1) leyendo directo del canal de forma posicional rápida
-                        ByteBuffer bytesAux = ByteBuffer.allocate(2);
 
-                        fileChannel.read(bytesAux, i); // Lee byteSaliente
-                        int byteSaliente = bytesAux.get(0) & 0xFF;
+                    long currentAdler = ((long) s2 << 16) | s1;
 
-                        bytesAux.clear();
-                        fileChannel.read(bytesAux, i + BLOCK_SIZE); // Lee byteEntrante
-                        int byteEntrante = bytesAux.get(0) & 0xFF;
-
-                        s1 = (s1 - byteSaliente + byteEntrante) % MOD_ADLER;
-                        if (s1 < 0) s1 += MOD_ADLER;
-
-                        s2 = (s2 - (BLOCK_SIZE * byteSaliente) + s1 - 1) % MOD_ADLER;
-                        if (s2 < 0) s2 += MOD_ADLER;
-
-                        currentAdler = ((long) s2 << 16) | s1;
-                        i++;
-                    } else {
-                        i++;
+                    int progresoActual = (int) (((double) i / totalFileSize) * 100);
+                    if (progresoActual % 10 == 0 && progresoActual != ultimoProgresoReportado) {
+                        Logger.logInfo(String.format("   ↳ [PROGRESO %d%%] Puntero i: %d/%d bytes. Ints. acumuladas: %d | Matches: %d | Literales: %s",
+                                progresoActual, i, totalFileSize, instructions.size(), matchedBlocks, formatSize(literalBytesCount)));
+                        ultimoProgresoReportado = progresoActual;
                     }
+
+                    boolean matchFound = false;
+                    List<BlockSignature> candidates = adlerMap.get(currentAdler);
+
+                    if (candidates != null) {
+                        totalAdlerHits++;
+
+                        // MD5 directo desde el buffer en memoria (antes: releía el bloque del disco)
+                        md5.reset();
+                        md5.update(buf, winStart, BLOCK_SIZE);
+                        byte[] currentMd5 = md5.digest();
+
+                        boolean cryptographicMatch = false;
+                        for (BlockSignature sig : candidates) {
+                            if (Arrays.equals(sig.getMd5(), currentMd5)) {
+                                if (literalBuffer.size() > 0) {
+                                    instructions.add(new RsyncDeltaInstruction(literalBuffer.toByteArray()));
+                                    literalBuffer.reset();
+                                }
+                                instructions.add(new RsyncDeltaInstruction(sig.getBlockIndex()));
+
+                                i += BLOCK_SIZE;
+                                winStart += BLOCK_SIZE;
+                                matchFound = true;
+                                cryptographicMatch = true;
+                                matchedBlocks++;
+                                windowInit = false; // el próximo bloque necesita checksum inicial fresco
+                                break;
+                            }
+                        }
+                        if (!cryptographicMatch) adlerCollisions++;
+                    }
+
+                    if (!matchFound) {
+                        totalRollingSteps++;
+
+                        // Desplazar la ventana 1 byte usando datos YA cargados en memoria
+                        int byteSaliente = buf[winStart] & 0xFF;
+                        literalBuffer.write(byteSaliente);
+                        literalBytesCount++;
+                        i++;
+                        winStart++;
+
+                        if (i <= totalFileSize - BLOCK_SIZE) {
+                            if (winStart + BLOCK_SIZE > bufValid) {
+                                int remaining = bufValid - winStart;
+                                if (remaining > 0) System.arraycopy(buf, winStart, buf, 0, remaining);
+                                int extra = readFully(fileChannel, buf, remaining, buf.length - remaining);
+                                bufValid = remaining + extra;
+                                winStart = 0;
+                            }
+                            int byteEntrante = buf[winStart + BLOCK_SIZE - 1] & 0xFF;
+
+                            // --- Misma fórmula matemática que el código original (sin modificar) ---
+                            s1 = (s1 - byteSaliente + byteEntrante) % MOD_ADLER;
+                            if (s1 < 0) s1 += MOD_ADLER;
+
+                            s2 = (s2 - (BLOCK_SIZE * byteSaliente) + s1 - 1) % MOD_ADLER;
+                            if (s2 < 0) s2 += MOD_ADLER;
+                        } else {
+                            windowInit = false;
+                        }
+                    }
+                }
+
+                // Remanente final (< BLOCK_SIZE): parte ya está en memoria, el resto se lee del disco
+                long literalStart = i;
+                long finalLiteralLength = totalFileSize - literalStart;
+                if (finalLiteralLength > 0) {
+                    int inMemory = bufValid - winStart;
+                    if (inMemory > 0) {
+                        literalBuffer.write(buf, winStart, inMemory);
+                    }
+                    long remainingToRead = finalLiteralLength - inMemory;
+                    if (remainingToRead > 0) {
+                        byte[] tail = new byte[(int) remainingToRead];
+                        ByteBuffer tb = ByteBuffer.wrap(tail);
+                        long pos = literalStart + inMemory;
+                        while (tb.hasRemaining()) {
+                            int r = fileChannel.read(tb, pos);
+                            if (r == -1) break;
+                            pos += r;
+                        }
+                        literalBuffer.write(tail);
+                    }
+                    literalBytesCount += finalLiteralLength;
                 }
             }
 
-            // Manejar remanente literal al final del archivo
-            long finalLiteralLength = totalFileSize - literalStart;
-            if (finalLiteralLength > 0) {
-                byte[] literalData = new byte[(int) finalLiteralLength];
-                ByteBuffer finalLitBuffer = ByteBuffer.wrap(literalData);
-                fileChannel.read(finalLitBuffer, literalStart);
-                instructions.add(new RsyncDeltaInstruction(literalData));
-                literalBytesCount += finalLiteralLength;
+            if (literalBuffer.size() > 0) {
+                instructions.add(new RsyncDeltaInstruction(literalBuffer.toByteArray()));
             }
         }
 
         long duration = System.currentTimeMillis() - startTime;
 
-        // --- REPORTE DE METADATOS FORENSE ---
         Logger.logInfo("┌──────────────────────────────────────────────────────────────────┐");
         Logger.logInfo("│ 🛠️  [INFORME DE REDUNDANCIA RSYNC - BITBRIDGE]                   │");
         Logger.logInfo("├──────────────────────────────────────────────────────────────────┤");
+        Logger.logInfo("Archivo "+file.getName());
         Logger.logInfo(String.format("│  ├── Tiempo en CPU:           %s", String.format("%-38s │", duration + " ms")));
         Logger.logInfo(String.format("│  ├── Instrucciones Totales:   %-38d │", instructions.size()));
         Logger.logInfo(String.format("│  ├── Bloques Coincidentes:   %-38d │", matchedBlocks));
@@ -396,7 +451,7 @@ public class FileTransferManager implements TransferManager {
         Logger.logInfo(String.format("│  ↳ Objetivo:   %-50s │", info.getName()));
         Logger.logInfo(String.format("│  ↳ Tamaño:     %s", formatSize(info.getSize())));
         Logger.logInfo("└──────────────────────────────────────────────────────────────────┘");
-        BLOCK_SIZE=calcularTamanoBloqueOptimo(info.getSize());
+        BLOCK_SIZE = calcularTamanoBloqueOptimo(info.getSize());
 
         boolean rsyncMode = false;
         long bytesRecibidosRed = 0;
@@ -416,7 +471,6 @@ public class FileTransferManager implements TransferManager {
                     Logger.logInfo("[TCP-SOCKET] SocketChannel conectado. Despachando Handshake inicial...");
 
                     ProtocolService.writeNIO(channel, new HandshakeMessage(sessionId, SocketPurpose.FILE_TRANSFER, ""));
-
                     ProtocolService.writeNIO(channel, new FileHandshakeCommunication(FileHandshakeAction.ACCEPT_REQUEST, sessionId));
 
                     if (confirmarInicioNIO(channel, sessionId)) {
@@ -449,6 +503,13 @@ public class FileTransferManager implements TransferManager {
                                 if (localSize == fileMeta.getSize() && localLastModified >= fileMeta.getLastModified()) {
                                     Logger.logInfo("│  ⏩ [OMISIÓN] El archivo local es idéntico al remoto. Saltando...│");
                                     ProtocolService.writeNIO(channel, new FileHandshakeCommunication(FileHandshakeAction.SKIP_FILE, sessionId));
+                                    transferenciaController.updateProgressMetrics(
+                                            FileTransferState.RECEIVING,
+                                            idTransfe,
+                                            localSize,
+                                            fileMeta.getSize()
+                                    );
+
                                     return;
                                 }
 
@@ -469,15 +530,14 @@ public class FileTransferManager implements TransferManager {
                                 }
                                 Logger.logInfo("[NIO-READ] paquete de deltas recibido (RsyncDeltaPackage)...");
 
-                                // Estimar volumen físico mutado recibido en la estructura
-                                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                                /*ByteArrayOutputStream baos = new ByteArrayOutputStream();
                                 ObjectOutputStream oos = new ObjectOutputStream(baos);
                                 oos.writeObject(deltaPkg);
                                 oos.flush();
-                                bytesRecibidosRed = baos.size();
+                                bytesRecibidosRed = baos.size();*/
 
                                 Logger.logInfo("[DISK-IO] Reconstruyendo archivo binario local aplicando deltas literales...");
-                                reconstruirArchivoRsync(destPath, deltaPkg,idTransfe,info.getSize());
+                                reconstruirArchivoRsync(destPath, deltaPkg, idTransfe, info.getSize());
 
                                 Logger.logInfo("[HANDSHAKE] Notificando finalización y reconstrucción exitosa de deltas (Fase 3)...");
                                 ProtocolService.writeNIO(channel, new FileHandshakeCommunication(FileHandshakeAction.ACCEPT_REQUEST, sessionId));
@@ -520,131 +580,128 @@ public class FileTransferManager implements TransferManager {
         }
     }
 
-
+    /**
+     * Generación de firmas en PARALELO: el archivo se reparte entre N hilos
+     * (N = núcleos disponibles), cada uno con su propio FileChannel abierto
+     * sobre un rango de bloques distinto, sin contención entre ellos.
+     * Reemplaza el escaneo secuencial de un solo hilo del código original.
+     */
     private RsyncSignatures generarFirmasLocales(Path path) throws Exception {
-        List<BlockSignature> list = new ArrayList<>();
-
-        // Obtener el tamaño del archivo usando tipos long para soportar archivos > 2GB
         long totalBytes = Files.size(path);
-        long index = 0;
-        int blockIdx = 0;
-
-        // Instanciamos los motores de hashing
-        Adler32 adler = new Adler32();
-        MessageDigest md5 = MessageDigest.getInstance("MD5");
-
-        // Reservamos un único buffer en memoria Heap del tamaño de un bloque
-        byte[] buffer = new byte[BLOCK_SIZE];
-        ByteBuffer byteBuffer = ByteBuffer.wrap(buffer);
-
-        // Abrimos el canal de lectura NIO de forma eficiente
-        try (FileChannel fileChannel = FileChannel.open(path, StandardOpenOption.READ)) {
-
-            while (index < totalBytes) {
-                // Calcular el tamaño del bloque actual (el último bloque puede ser más pequeño)
-                int length = (int) Math.min((long) BLOCK_SIZE, totalBytes - index);
-
-                // Preparar el buffer para la lectura exacta de este bloque
-                byteBuffer.clear();
-                byteBuffer.limit(length);
-
-                // Leer secuencialmente desde el disco al buffer
-                while (byteBuffer.hasRemaining()) {
-                    if (fileChannel.read(byteBuffer, index) == -1) {
-                        break;
-                    }
-                }
-
-                // 1. Calcular Adler32 sobre el arreglo de bytes del buffer
-                adler.reset();
-                adler.update(buffer, 0, length);
-                long adlerHash = adler.getValue();
-
-                // 2. Calcular MD5 sobre el mismo fragmento
-                md5.reset();
-                md5.update(buffer, 0, length);
-                byte[] md5Hash = md5.digest();
-
-                // Agregar la firma indexada a la lista
-                list.add(new BlockSignature(blockIdx++, adlerHash, md5Hash));
-
-                // Avanzar el puntero global usando aritmética long
-                index += length;
-            }
+        if (totalBytes == 0) {
+            return new RsyncSignatures(new ArrayList<>());
         }
 
-        return new RsyncSignatures(list);
+        int numBlocks = (int) ((totalBytes + BLOCK_SIZE - 1) / BLOCK_SIZE);
+        BlockSignature[] results = new BlockSignature[numBlocks];
+
+        int threads = Math.min(SIGNATURE_THREADS, Math.max(1, numBlocks));
+        ExecutorService pool = Executors.newFixedThreadPool(threads);
+
+        try {
+            int blocksPerWorker = (int) Math.ceil((double) numBlocks / threads);
+            List<Future<?>> futures = new ArrayList<>();
+
+            for (int w = 0; w < threads; w++) {
+                final int startBlock = w * blocksPerWorker;
+                final int endBlock = Math.min(numBlocks, startBlock + blocksPerWorker);
+                if (startBlock >= endBlock) continue;
+
+                futures.add(pool.submit(() -> {
+                    try (FileChannel fc = FileChannel.open(path, StandardOpenOption.READ)) {
+                        Adler32 adler = new Adler32();
+                        MessageDigest md5 = MessageDigest.getInstance("MD5");
+                        byte[] buffer = new byte[BLOCK_SIZE];
+
+                        for (int b = startBlock; b < endBlock; b++) {
+                            long offset = (long) b * BLOCK_SIZE;
+                            int len = (int) Math.min(BLOCK_SIZE, totalBytes - offset);
+
+                            ByteBuffer bb = ByteBuffer.wrap(buffer, 0, len);
+                            long pos = offset;
+                            while (bb.hasRemaining()) {
+                                int r = fc.read(bb, pos);
+                                if (r == -1) break;
+                                pos += r;
+                            }
+
+                            adler.reset();
+                            adler.update(buffer, 0, len);
+
+                            md5.reset();
+                            md5.update(buffer, 0, len);
+
+                            results[b] = new BlockSignature(b, adler.getValue(), md5.digest());
+                        }
+                    } catch (Exception e) {
+                        throw new CompletionException(e);
+                    }
+                }));
+            }
+
+            for (Future<?> f : futures) f.get();
+        } finally {
+            pool.shutdown();
+        }
+
+        return new RsyncSignatures(Arrays.asList(results));
     }
 
     private void reconstruirArchivoRsync(Path targetPath, RsyncDeltaPackage packageDeltas, String idTrans, long expectedTotalSize) throws Exception {
         Path tempFile = Paths.get(targetPath.toString() + ".tmp");
         long bytesProcesados = 0;
 
-        // Obtener el tamaño original del archivo para los límites de los bloques
         long originalLength = Files.size(targetPath);
 
-        // Reutilizamos un único buffer en memoria Heap para copiar los bloques del archivo original
-        ByteBuffer blockBuffer = ByteBuffer.allocate(BLOCK_SIZE);
-
-        // Abrimos el archivo original para lectura y el archivo temporal para escritura usando canales NIO
         try (FileChannel srcChannel = FileChannel.open(targetPath, StandardOpenOption.READ);
              FileChannel destChannel = FileChannel.open(tempFile, StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
 
+            long currentTargetPosition = 0;
+
             for (RsyncDeltaInstruction inst : packageDeltas.getInstructions()) {
 
-                checkPaused(); // <--- Pausa la reconstrucción en disco si el usuario lo requiere
+                checkPaused();
                 if (!running) throw new IOException("Reconstrucción delta cancelada de forma atómica.");
 
                 if (inst.isLiteral()) {
-                    // 1. Escribir datos literales (nuevos)
                     byte[] literalData = inst.getLiteralData();
                     ByteBuffer literalBuffer = ByteBuffer.wrap(literalData);
 
                     while (literalBuffer.hasRemaining()) {
-                        destChannel.write(literalBuffer);
+                        currentTargetPosition += destChannel.write(literalBuffer, currentTargetPosition);
                     }
                     bytesProcesados += literalData.length;
                 } else {
-                    // 2. Reutilizar bloque del archivo original
+                    // Bloque reutilizado: copia zero-copy a nivel de kernel entre los
+                    // dos FileChannel, sin pasar por un buffer intermedio en el heap.
                     int blockIdx = inst.getBlockIndex();
-                    long startOffset = (long) blockIdx * BLOCK_SIZE; // Casteo a long para evitar desbordamiento int
+                    long startOffset = (long) blockIdx * BLOCK_SIZE;
                     long length = Math.min((long) BLOCK_SIZE, originalLength - startOffset);
 
-                    // Limpiar el buffer para la nueva lectura
-                    blockBuffer.clear();
-                    blockBuffer.limit((int) length);
-
-                    // Leer el fragmento específico del archivo base sin cargarlo entero en RAM
-                    long currentOffset = startOffset;
-                    while (blockBuffer.hasRemaining()) {
-                        int bytesRead = srcChannel.read(blockBuffer, currentOffset);
-                        if (bytesRead == -1) break;
-                        currentOffset += bytesRead;
-                    }
-
-                    // Voltear el buffer para prepararlo para la escritura
-                    blockBuffer.flip();
-
-                    while (blockBuffer.hasRemaining()) {
-                        destChannel.write(blockBuffer);
+                    long written = 0;
+                    while (written < length) {
+                        long transferred = srcChannel.transferTo(startOffset + written, length - written, destChannel);
+                        if (transferred <= 0) break;
+                        destChannel.position(currentTargetPosition + transferred);
+                        written += transferred;
+                        currentTargetPosition += transferred;
                     }
                     bytesProcesados += length;
                 }
 
-                // Notificar el progreso al controlador por cada instrucción procesada
                 transferenciaController.updateProgressMetrics(
                         FileTransferState.RECEIVING,
                         idTrans,
                         bytesProcesados,
                         expectedTotalSize
                 );
+
+
             }
 
-            // Asegurar que los datos físicos se escriban en el almacenamiento antes de cerrar
             destChannel.force(true);
         }
 
-        // Reemplazo atómico del archivo original por el nuevo reconstruido
         Files.move(tempFile, targetPath, StandardCopyOption.REPLACE_EXISTING);
     }
 
@@ -652,7 +709,7 @@ public class FileTransferManager implements TransferManager {
         try (FileChannel fileChannel = FileChannel.open(dest, StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
             long readTotal = 0;
             while (readTotal < size) {
-                checkPaused(); // <--- Pausa la recepción de bytes desde el socket
+                checkPaused();
                 if (!running) throw new IOException("Descarga abortada por el usuario.");
 
                 long read = fileChannel.transferFrom(channel, readTotal, Math.min(size - readTotal, TRANSFER_CHUNK_SIZE));
@@ -697,16 +754,13 @@ public class FileTransferManager implements TransferManager {
     private String formatSize(long v) {
         if (v < 1024) return v + " B";
         int z = (63 - Long.numberOfLeadingZeros(v)) / 10;
-        return String.format("%.2f %sB", (double)v / (1L << (z * 10)), " KMGTPE".charAt(z));
+        return String.format("%.2f %sB", (double) v / (1L << (z * 10)), " KMGTPE".charAt(z));
     }
 
-    // ==========================================
-    // --- NUEVA SALIDA CONSOLIDADA DETALLADA ---
-    // ==========================================
     private void mostrarEstadisticasFinales(long millis, long totalLogicalSize, long actualWireBytes, boolean rsyncMode, boolean isSender) {
         double segundos = millis / 1000.0;
         long bytesAhorrados = totalLogicalSize - actualWireBytes;
-        if (bytesAhorrados < 0) bytesAhorrados = 0; // Prevenir deltas ligeramente mayores por overhead estructural
+        if (bytesAhorrados < 0) bytesAhorrados = 0;
 
         double porcentajeEficiencia = (totalLogicalSize > 0) ? ((double) bytesAhorrados / totalLogicalSize) * 100 : 0.0;
         double throughputMbps = (segundos > 0) ? ((actualWireBytes * 8.0) / (1024.0 * 1024.0)) / segundos : 0.0;
@@ -731,43 +785,49 @@ public class FileTransferManager implements TransferManager {
         Logger.logInfo("└──────────────────────────────────────────────────────────────────┘");
     }
 
-    public  int calcularTamanoBloqueOptimo(long tamanoArchivo) {
+    /**
+     * Tamaño de bloque adaptativo por tramos (igual que en la versión de
+     * directorio): el techo fijo de 64KB generaba demasiados bloques para
+     * archivos de varios GB. Se sube a 1MB para archivos > 100MB.
+     */
+    public int calcularTamanoBloqueOptimo(long tamanoArchivo) {
         if (tamanoArchivo < 1024 * 1024) return 2048; // 2KB para archivos < 1MB
 
-        // Cálculo basado en la raíz cuadrada
+        if (tamanoArchivo < 100L * 1024 * 1024) { // 1MB - 100MB
+            int calculado = (int) Math.sqrt(tamanoArchivo);
+            int bloque = Integer.highestOneBit(calculado);
+            return Math.max(4096, Math.min(bloque, 64 * 1024));
+        }
+
+        // Archivos grandes (> 100MB): bloques más grandes, hasta 1MB
         int calculado = (int) Math.sqrt(tamanoArchivo);
-
-        // Alinear a potencias de 2 para mejorar el rendimiento de lectura en disco (Buffer de NIO)
         int bloque = Integer.highestOneBit(calculado);
-
-        // Acotar entre 4KB y 64KB (o 128KB según tu infraestructura física)
-        return Math.max(4096, Math.min(bloque, 64 * 1024));
+        return Math.max(64 * 1024, Math.min(bloque, 1024 * 1024));
     }
-
-
 
     public void stop() {
         this.paused = true;
         Logger.logWarn("⏸️ [TRANSFER-CONTROL] Solicitud de PAUSA activada.");
     }
+
     public void pause() {
         paused = true;
     }
-    public void resume()
-    {
+
+    public void resume() {
         synchronized (pauseLock) {
             this.paused = false;
-            pauseLock.notifyAll(); // Despierta al hilo de red inmediatamente
+            pauseLock.notifyAll();
         }
         Logger.logInfo("▶️ [TRANSFER-CONTROL] Solicitud de REANUDACIÓN activada.");
     }
 
-    @Override public void cancel()
-    {
+    @Override
+    public void cancel() {
         this.running = false;
         this.paused = false;
         synchronized (pauseLock) {
-            pauseLock.notifyAll(); // Destraba si estaba pausado para que muera limpiamente
+            pauseLock.notifyAll();
         }
         Logger.logError("❌ [TRANSFER-CONTROL] Solicitud de CANCELACIÓN activada.");
     }
